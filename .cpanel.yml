@@ -4,8 +4,12 @@ deployment:
     # Sincroniza os ficheiros estáticos (css/js/img) para o document root a cada
     # deploy. O index.php (shim) e o .htaccess do public_html NÃO são tocados,
     # e o código PHP (app/, routes/) fica live automaticamente pelo shim.
+    #
+    # Usamos "pasta/." para copiar o CONTEÚDO para dentro da pasta destino já
+    # existente (evita o cp aninhar em css/css). O -f força a substituição.
     # Ajuste DEPLOYPATH se o utilizador/conta cPanel for diferente.
     - export DEPLOYPATH=/home/ileiteprocessosi/public_html
-    - /bin/cp -R public/css $DEPLOYPATH/
-    - /bin/cp -R public/js $DEPLOYPATH/
-    - /bin/cp -R public/img $DEPLOYPATH/
+    - /bin/mkdir -p $DEPLOYPATH/css $DEPLOYPATH/js $DEPLOYPATH/img
+    - /bin/cp -Rf public/css/. $DEPLOYPATH/css/
+    - /bin/cp -Rf public/js/. $DEPLOYPATH/js/
+    - /bin/cp -Rf public/img/. $DEPLOYPATH/img/
