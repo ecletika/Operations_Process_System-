@@ -1,0 +1,454 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Modules\Process\Repositories;
+
+use App\Core\Database;
+use PDO;
+
+/**
+ * Responsável apenas por Base de Dados (OPS-PRD-001 11.8).
+ * A tabela mais importante do sistema (TABELA 12 / capítulo 4).
+ */
+final class ProcessRepository
+{
+    private PDO $pdo;
+
+    public function __construct()
+    {
+        $this->pdo = Database::connection();
+    }
+
+    public function pdo(): PDO
+    {
+        return $this->pdo;
+    }
+
+    /**
+     * RN-0017 - processo aberto com a mesma matrícula + assunto.
+     */
+    public function findOpenByVehicleAndSubject(int $vehicleId, int $subjectId): ?array
+    {
+        $stmt = $this->pdo->prepare("
+            SELECT p.* FROM tb_process p
+            JOIN tb_status s ON s.id = p.status_id
+            WHERE p.vehicle_id = :vehicle_id
+              AND p.subject_id = :subject_id
+              AND p.deleted_at IS NULL
+              AND s.code NOT IN ('SOLVED', 'CLOSED')
+            ORDER BY p.created_at DESC
+            LIMIT 1
+        ");
+        $stmt->execute(['vehicle_id' => $vehicleId, 'subject_id' => $subjectId]);
+        $process = $stmt->fetch();
+
+        return $process ?: null;
+    }
+
+    /**
+     * RN-0021 - Janela de Reincidência: processo encerrado há menos de X dias.
+     */
+    public function findRecentlyClosedByVehicleAndSubject(int $vehicleId, int $subjectId, int $windowDays): ?array
+    {
+        $stmt = $this->pdo->prepare("
+            SELECT p.* FROM tb_process p
+            JOIN tb_status s ON s.id = p.status_id
+            WHERE p.vehicle_id = :vehicle_id
+              AND p.subject_id = :subject_id
+              AND p.deleted_at IS NULL
+              AND s.code IN ('SOLVED', 'CLOSED')
+              AND p.closed_at IS NOT NULL
+              AND p.closed_at >= DATE_SUB(NOW(), INTERVAL :window_days DAY)
+            ORDER BY p.closed_at DESC
+            LIMIT 1
+        ");
+        $stmt->execute(['vehicle_id' => $vehicleId, 'subject_id' => $subjectId, 'window_days' => $windowDays]);
+        $process = $stmt->fetch();
+
+        return $process ?: null;
+    }
+
+    public function create(array $data): int
+    {
+        $stmt = $this->pdo->prepare('
+            INSERT INTO tb_process
+                (uuid, process_number, company_id, batch_id, customer_id, vehicle_id, subject_id,
+                 status_id, priority_id, created_by, first_contact_at, last_contact_at,
+                 contact_count, reopen_count, archived, created_at)
+            VALUES
+                (UUID(), :process_number, :company_id, :batch_id, :customer_id, :vehicle_id, :subject_id,
+                 :status_id, :priority_id, :created_by, NOW(), NOW(),
+                 1, 0, 0, NOW())
+        ');
+        $stmt->execute($data);
+
+        return (int) $this->pdo->lastInsertId();
+    }
+
+    public function findById(int $id): ?array
+    {
+        $stmt = $this->pdo->prepare('
+            SELECT p.*,
+                   c.name AS customer_name, c.phone AS customer_phone,
+                   v.plate AS vehicle_plate, v.brand AS vehicle_brand, v.model AS vehicle_model,
+                   sub.name AS subject_name,
+                   st.code AS status_code, st.name AS status_name,
+                   pr.code AS priority_code, pr.name AS priority_name, pr.color AS priority_color,
+                   pr.default_sla_minutes,
+                   u.first_name AS assigned_first_name, u.last_name AS assigned_last_name,
+                   creator.first_name AS creator_first_name, creator.last_name AS creator_last_name
+            FROM tb_process p
+            JOIN tb_customer c ON c.id = p.customer_id
+            JOIN tb_vehicle v ON v.id = p.vehicle_id
+            JOIN tb_subject sub ON sub.id = p.subject_id
+            JOIN tb_status st ON st.id = p.status_id
+            JOIN tb_priority pr ON pr.id = p.priority_id
+            LEFT JOIN tb_user u ON u.id = p.assigned_to
+            LEFT JOIN tb_user creator ON creator.id = p.created_by
+            WHERE p.id = :id AND p.deleted_at IS NULL
+        ');
+        $stmt->execute(['id' => $id]);
+        $process = $stmt->fetch();
+
+        return $process ?: null;
+    }
+
+    /**
+     * RN-0012 - bloqueio transacional (row lock) para evitar dois operadores
+     * a assumirem o mesmo processo em simultâneo. Deve ser chamado dentro de
+     * uma transação (beginTransaction/commit) pelo Service.
+     */
+    public function lockForUpdate(int $id): ?array
+    {
+        $stmt = $this->pdo->prepare('SELECT * FROM tb_process WHERE id = :id AND deleted_at IS NULL FOR UPDATE');
+        $stmt->execute(['id' => $id]);
+        $process = $stmt->fetch();
+
+        return $process ?: null;
+    }
+
+    public function assign(int $id, int $userId, int $statusId): void
+    {
+        $stmt = $this->pdo->prepare('
+            UPDATE tb_process
+            SET assigned_to = :assigned_to, status_id = :status_id, assumed_at = NOW(), updated_by = :updated_by, updated_at = NOW()
+            WHERE id = :id
+        ');
+        $stmt->execute(['id' => $id, 'assigned_to' => $userId, 'updated_by' => $userId, 'status_id' => $statusId]);
+    }
+
+    public function changeStatus(int $id, int $statusId, int $userId): void
+    {
+        $stmt = $this->pdo->prepare('
+            UPDATE tb_process
+            SET status_id = :status_id, updated_by = :user_id, updated_at = NOW()
+            WHERE id = :id
+        ');
+        $stmt->execute(['id' => $id, 'status_id' => $statusId, 'user_id' => $userId]);
+    }
+
+    public function close(int $id, int $statusId, int $userId): void
+    {
+        $stmt = $this->pdo->prepare('
+            UPDATE tb_process
+            SET status_id = :status_id, closed_at = NOW(), closed_by = :closed_by, updated_by = :updated_by, updated_at = NOW()
+            WHERE id = :id
+        ');
+        $stmt->execute(['id' => $id, 'status_id' => $statusId, 'closed_by' => $userId, 'updated_by' => $userId]);
+    }
+
+    public function reopen(int $id, int $statusId, int $userId): void
+    {
+        $stmt = $this->pdo->prepare('
+            UPDATE tb_process
+            SET status_id = :status_id, reopen_count = reopen_count + 1,
+                assigned_to = NULL, assumed_at = NULL,
+                updated_by = :user_id, updated_at = NOW()
+            WHERE id = :id
+        ');
+        $stmt->execute(['id' => $id, 'status_id' => $statusId, 'user_id' => $userId]);
+    }
+
+    /**
+     * Exclusão de Processo - restrita a Administrador (permissão process.delete).
+     * Continua a ser soft delete (RN-0048); o registo fica preservado na base
+     * de dados para auditoria, apenas deixa de aparecer em qualquer listagem.
+     */
+    public function delete(int $id, int $userId): void
+    {
+        $stmt = $this->pdo->prepare('
+            UPDATE tb_process SET deleted_at = NOW(), deleted_by = :user_id WHERE id = :id
+        ');
+        $stmt->execute(['id' => $id, 'user_id' => $userId]);
+    }
+
+    /**
+     * RN-0014/0015 - toda interação incrementa contact_count e atualiza last_contact_at.
+     */
+    public function registerContact(int $id): void
+    {
+        $stmt = $this->pdo->prepare('
+            UPDATE tb_process
+            SET contact_count = contact_count + 1, last_contact_at = NOW(), updated_at = NOW()
+            WHERE id = :id
+        ');
+        $stmt->execute(['id' => $id]);
+    }
+
+    /**
+     * Fila Inteligente™ - processos ainda sem responsável.
+     */
+    public function listQueue(?int $batchId = null): array
+    {
+        $sql = "
+            SELECT p.*, v.plate AS vehicle_plate, c.name AS customer_name,
+                   sub.name AS subject_name, pr.code AS priority_code, pr.name AS priority_name, pr.color AS priority_color,
+                   creator.first_name AS creator_first_name, creator.last_name AS creator_last_name,
+                   br.name AS branch_name
+            FROM tb_process p
+            JOIN tb_vehicle v ON v.id = p.vehicle_id
+            JOIN tb_customer c ON c.id = p.customer_id
+            JOIN tb_subject sub ON sub.id = p.subject_id
+            JOIN tb_status st ON st.id = p.status_id
+            JOIN tb_priority pr ON pr.id = p.priority_id
+            LEFT JOIN tb_user creator ON creator.id = p.created_by
+            LEFT JOIN tb_batch bt ON bt.id = p.batch_id
+            LEFT JOIN tb_department d ON d.id = bt.department_id
+            LEFT JOIN tb_branch br ON br.id = d.branch_id
+            WHERE p.deleted_at IS NULL AND st.code = 'QUEUE'
+        ";
+
+        $params = [];
+        if ($batchId !== null) {
+            $sql .= ' AND p.batch_id = :batch_id';
+            $params['batch_id'] = $batchId;
+        }
+
+        $sql .= ' ORDER BY pr.sort_order ASC, p.created_at ASC';
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
+
+        return $stmt->fetchAll();
+    }
+
+    /**
+     * Meus Processos - operador vê apenas o que lhe está atribuído (3.9).
+     */
+    public function listAssignedTo(int $userId): array
+    {
+        $stmt = $this->pdo->prepare("
+            SELECT p.*, v.plate AS vehicle_plate, c.name AS customer_name,
+                   sub.name AS subject_name, st.code AS status_code, st.name AS status_name,
+                   pr.code AS priority_code, pr.name AS priority_name, pr.color AS priority_color
+            FROM tb_process p
+            JOIN tb_vehicle v ON v.id = p.vehicle_id
+            JOIN tb_customer c ON c.id = p.customer_id
+            JOIN tb_subject sub ON sub.id = p.subject_id
+            JOIN tb_status st ON st.id = p.status_id
+            JOIN tb_priority pr ON pr.id = p.priority_id
+            WHERE p.deleted_at IS NULL AND p.assigned_to = :user_id AND st.code NOT IN ('CLOSED')
+            ORDER BY p.last_contact_at DESC
+        ");
+        $stmt->execute(['user_id' => $userId]);
+
+        return $stmt->fetchAll();
+    }
+
+    public function statusIdByCode(string $code): int
+    {
+        $stmt = $this->pdo->prepare('SELECT id FROM tb_status WHERE code = :code');
+        $stmt->execute(['code' => $code]);
+        $id = $stmt->fetchColumn();
+
+        if ($id === false) {
+            throw new \RuntimeException("Estado '{$code}' não existe. Execute database/009_seeders.sql.");
+        }
+
+        return (int) $id;
+    }
+
+    public function statusCodeById(int $statusId): string
+    {
+        $stmt = $this->pdo->prepare('SELECT code FROM tb_status WHERE id = :id');
+        $stmt->execute(['id' => $statusId]);
+        $code = $stmt->fetchColumn();
+
+        if ($code === false) {
+            throw new \RuntimeException("Estado #{$statusId} não existe.");
+        }
+
+        return (string) $code;
+    }
+
+    /**
+     * RF-0036 / RF-0037 - Pesquisa Global com normalização automática:
+     * "AA12BB" encontra "AA-12-BB", "351912345678" encontra "+351 912 345 678".
+     * Usa REGEXP_REPLACE (MySQL 8) para comparar apenas dígitos/letras,
+     * independentemente de como o utilizador escreveu.
+     *
+     * $normalizedAlnum e $normalizedDigits só entram na pesquisa quando não
+     * vazios, para evitar que um termo puramente textual (ex.: "João", sem
+     * dígitos) faça `LIKE '%%'` contra a matrícula/telefone e devolva tudo.
+     */
+    public function search(string $rawQuery, string $normalizedAlnum, string $normalizedDigits, int $limit = 30): array
+    {
+        $conditions = ['c.name LIKE :raw1', 'sub.name LIKE :raw2', "CONCAT(u.first_name, ' ', u.last_name) LIKE :raw3"];
+        $params = ['raw1' => "%{$rawQuery}%", 'raw2' => "%{$rawQuery}%", 'raw3' => "%{$rawQuery}%"];
+
+        if ($normalizedAlnum !== '') {
+            $conditions[] = "REGEXP_REPLACE(p.process_number, '[^0-9A-Za-z]', '') LIKE :alnum1";
+            $conditions[] = "REGEXP_REPLACE(v.plate, '[^0-9A-Za-z]', '') LIKE :alnum2";
+            $params['alnum1'] = "%{$normalizedAlnum}%";
+            $params['alnum2'] = "%{$normalizedAlnum}%";
+        }
+
+        if ($normalizedDigits !== '') {
+            $conditions[] = "REGEXP_REPLACE(c.phone, '[^0-9]', '') LIKE :digits";
+            $params['digits'] = "%{$normalizedDigits}%";
+        }
+
+        $sql = '
+            SELECT p.id, p.process_number, p.created_at,
+                   c.name AS customer_name, c.phone AS customer_phone,
+                   v.plate AS vehicle_plate,
+                   sub.name AS subject_name,
+                   st.code AS status_code, st.name AS status_name,
+                   pr.name AS priority_name, pr.color AS priority_color,
+                   u.first_name AS assigned_first_name, u.last_name AS assigned_last_name
+            FROM tb_process p
+            JOIN tb_customer c ON c.id = p.customer_id
+            JOIN tb_vehicle v ON v.id = p.vehicle_id
+            JOIN tb_subject sub ON sub.id = p.subject_id
+            JOIN tb_status st ON st.id = p.status_id
+            JOIN tb_priority pr ON pr.id = p.priority_id
+            LEFT JOIN tb_user u ON u.id = p.assigned_to
+            WHERE p.deleted_at IS NULL AND (' . implode(' OR ', $conditions) . ')
+            ORDER BY p.created_at DESC
+            LIMIT :limit
+        ';
+
+        $stmt = $this->pdo->prepare($sql);
+        foreach ($params as $key => $value) {
+            $stmt->bindValue($key, $value);
+        }
+        $stmt->bindValue('limit', $limit, PDO::PARAM_INT);
+        $stmt->execute();
+
+        return $stmt->fetchAll();
+    }
+
+    /**
+     * Visão "Todos os Processos" para Admin/Supervisor (permissão
+     * process.view_all) - abas + filtros combináveis.
+     *
+     * $filters aceita: tab ('in_progress'|'finished'|'no_interaction'|'all'),
+     * status_id, batch_id, priority_id, subject_id, assigned_to,
+     * date_from, date_to (sobre created_at).
+     */
+    public function filterAll(array $filters, int $limit = 300): array
+    {
+        $conditions = ['p.deleted_at IS NULL'];
+        $params = [];
+
+        switch ($filters['tab'] ?? 'all') {
+            case 'in_progress': // Abertos (qualquer estado que não seja concluído)
+                $conditions[] = "st.code NOT IN ('SOLVED', 'CLOSED')";
+                break;
+            case 'em_tratamento':
+                $conditions[] = "st.code = 'IN_PROGRESS'";
+                break;
+            case 'em_espera':
+                $conditions[] = "st.code IN ('WAIT_CLIENT', 'WAIT_PARTS', 'WAIT_WORKSHOP', 'WAIT_EXTERNAL')";
+                break;
+            case 'resolvidos':
+                $conditions[] = "st.code = 'SOLVED'";
+                break;
+            case 'encerrados':
+                $conditions[] = "st.code = 'CLOSED'";
+                break;
+            case 'reabertos':
+                $conditions[] = 'p.reopen_count > 0';
+                break;
+            case 'finished': // Concluídos (resolvidos + encerrados)
+                $conditions[] = "st.code IN ('SOLVED', 'CLOSED')";
+                break;
+            case 'no_interaction':
+                $conditions[] = 'p.contact_count <= 1';
+                break;
+            case 'all':
+            default:
+                break;
+        }
+
+        if (!empty($filters['status_id'])) {
+            $conditions[] = 'p.status_id = :status_id';
+            $params['status_id'] = (int) $filters['status_id'];
+        }
+
+        if (!empty($filters['batch_id'])) {
+            $conditions[] = 'p.batch_id = :batch_id';
+            $params['batch_id'] = (int) $filters['batch_id'];
+        }
+
+        if (!empty($filters['priority_id'])) {
+            $conditions[] = 'p.priority_id = :priority_id';
+            $params['priority_id'] = (int) $filters['priority_id'];
+        }
+
+        if (!empty($filters['subject_id'])) {
+            $conditions[] = 'p.subject_id = :subject_id';
+            $params['subject_id'] = (int) $filters['subject_id'];
+        }
+
+        if (!empty($filters['assigned_to'])) {
+            $conditions[] = 'p.assigned_to = :assigned_to';
+            $params['assigned_to'] = (int) $filters['assigned_to'];
+        }
+
+        if (!empty($filters['date_from'])) {
+            $conditions[] = 'p.created_at >= :date_from';
+            $params['date_from'] = $filters['date_from'] . ' 00:00:00';
+        }
+
+        if (!empty($filters['date_to'])) {
+            $conditions[] = 'p.created_at <= :date_to';
+            $params['date_to'] = $filters['date_to'] . ' 23:59:59';
+        }
+
+        $sql = '
+            SELECT p.id, p.process_number, p.contact_count, p.reopen_count, p.created_at, p.closed_at,
+                   c.name AS customer_name, v.plate AS vehicle_plate,
+                   sub.name AS subject_name,
+                   st.code AS status_code, st.name AS status_name,
+                   pr.name AS priority_name, pr.color AS priority_color,
+                   u.first_name AS assigned_first_name, u.last_name AS assigned_last_name,
+                   creator.first_name AS creator_first_name, creator.last_name AS creator_last_name,
+                   br.name AS branch_name, d.name AS department_name
+            FROM tb_process p
+            JOIN tb_customer c ON c.id = p.customer_id
+            JOIN tb_vehicle v ON v.id = p.vehicle_id
+            JOIN tb_subject sub ON sub.id = p.subject_id
+            JOIN tb_status st ON st.id = p.status_id
+            JOIN tb_priority pr ON pr.id = p.priority_id
+            LEFT JOIN tb_user u ON u.id = p.assigned_to
+            LEFT JOIN tb_user creator ON creator.id = p.created_by
+            LEFT JOIN tb_batch bt ON bt.id = p.batch_id
+            LEFT JOIN tb_department d ON d.id = bt.department_id
+            LEFT JOIN tb_branch br ON br.id = d.branch_id
+            WHERE ' . implode(' AND ', $conditions) . '
+            ORDER BY p.created_at DESC
+            LIMIT :limit
+        ';
+
+        $stmt = $this->pdo->prepare($sql);
+        foreach ($params as $key => $value) {
+            $stmt->bindValue($key, $value);
+        }
+        $stmt->bindValue('limit', $limit, PDO::PARAM_INT);
+        $stmt->execute();
+
+        return $stmt->fetchAll();
+    }
+}

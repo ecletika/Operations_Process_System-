@@ -1,0 +1,16 @@
+{
+    "name": "ops/operations-process-system",
+    "description": "Operations Process System (OPS) - Transformando contactos em processos, e processos em conhecimento.",
+    "type": "project",
+    "require": {
+        "php": ">=8.4"
+    },
+    "autoload": {
+        "psr-4": {
+            "App\\": "app/"
+        },
+        "files": [
+            "app/Helpers/functions.php"
+        ]
+    }
+}
