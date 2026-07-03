@@ -3,62 +3,90 @@ $unreadCount = \App\Core\Session::has('user_id')
     ? (new \App\Modules\Notification\Services\NotificationService())->countUnread((int) \App\Core\Session::get('user_id'))
     : 0;
 $permissions = \App\Core\Session::get('permissions', []);
+
+$currentPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?? '/';
+
+/**
+ * Item de menu (link) com ícone alinhado e destaque do item ativo.
+ * $match: 'exact' compara o caminho todo; 'prefix' destaca também as subpáginas.
+ */
+$navItem = static function (string $href, string $icon, string $label, string $currentPath, string $match = 'exact', string $badge = ''): string {
+    $active = $match === 'prefix'
+        ? ($currentPath === $href || str_starts_with($currentPath, $href . '/'))
+        : $currentPath === $href;
+    $cls = 'ops-nav' . ($active ? ' is-active' : '');
+
+    return '<a href="' . e($href) . '" class="' . $cls . '">'
+        . '<span class="ops-nav-ico">' . $icon . '</span>'
+        . '<span>' . e($label) . '</span>'
+        . $badge
+        . '</a>';
+};
 ?>
 <aside class="ops-sidebar">
-  <h2 style="line-height:1.25;font-size:20px">Operations<br>Process<br>System</h2>
-  <form method="GET" action="/search" style="margin-bottom:14px">
-    <input type="text" name="q" placeholder="🔎 Pesquisar..." style="width:100%;padding:8px 10px;border-radius:6px;border:1px solid #374151;background:#1e293b;color:#fff">
+  <div class="ops-brand">
+    <img src="/img/irmaos-leite-logo.png" alt="Irmãos Leite">
+  </div>
+  <span class="ops-brand-name">Operations Process System</span>
+
+  <form method="GET" action="/search" style="margin-bottom:10px">
+    <input type="text" name="q" placeholder="🔎 Pesquisar..." style="width:100%;box-sizing:border-box;padding:8px 10px;border-radius:8px;border:1px solid #334155;background:#1e293b;color:#fff">
   </form>
 
-  <div style="font-size:11px;letter-spacing:1px;color:#64748b;margin:6px 0 2px;text-transform:uppercase">Centro de Operações™</div>
-  <a href="/dashboard">📊 Dashboard</a>
-  <a href="/processes/create">➕ Novo Processo</a>
+  <div class="ops-nav-section">Centro de Operações™</div>
+  <?= $navItem('/dashboard', '📊', 'Dashboard', $currentPath) ?>
+  <?= $navItem('/processes/create', '➕', 'Novo Processo', $currentPath) ?>
   <?php if (in_array('process.assume', $permissions, true)): ?>
     <form method="POST" action="/processes/next" style="margin:0">
       <?= csrf_field() ?>
-      <button type="submit" style="all:unset;display:block;width:100%;cursor:pointer;padding:8px 10px;border-radius:6px;color:#cbd5e1;font-size:14px;box-sizing:border-box"
-              onmouseover="this.style.background='#1e293b'" onmouseout="this.style.background='transparent'">⏭️ Próximo Processo</button>
+      <button type="submit" class="ops-nav">
+        <span class="ops-nav-ico">⏭️</span><span>Próximo Processo</span>
+      </button>
     </form>
   <?php endif; ?>
-  <a href="/processes/queue">Fila Inteligente™</a>
-  <a href="/processes/mine">📥 Minha Caixa de Entrada™</a>
+  <?= $navItem('/processes/queue', '🚦', 'Fila Inteligente™', $currentPath) ?>
+  <?= $navItem('/processes/mine', '📥', 'Minha Caixa de Entrada™', $currentPath) ?>
   <?php if (in_array('process.view_all', $permissions, true)): ?>
-    <a href="/processes/all">📂 Todos os Processos</a>
+    <?= $navItem('/processes/all', '📂', 'Todos os Processos', $currentPath) ?>
   <?php endif; ?>
-  <a href="/notifications">🔔 Alertas<?= $unreadCount > 0 ? ' <span class="ops-badge" style="background:#dc2626">' . $unreadCount . '</span>' : '' ?></a>
+  <?php $alertBadge = $unreadCount > 0 ? '<span class="ops-nav-badge ops-badge" style="background:#dc2626">' . $unreadCount . '</span>' : ''; ?>
+  <?= $navItem('/notifications', '🔔', 'Alertas', $currentPath, 'exact', $alertBadge) ?>
 
-  <div style="font-size:11px;letter-spacing:1px;color:#64748b;margin:12px 0 2px;text-transform:uppercase">Operação</div>
-  <a href="/customers">👥 Clientes</a>
-  <a href="/vehicles">🚗 Viaturas</a>
-  <a href="/interactions">💬 Interações</a>
-  <a href="/timeline">📝 Timeline Global™</a>
+  <div class="ops-nav-section">Operação</div>
+  <?= $navItem('/customers', '👥', 'Clientes', $currentPath, 'prefix') ?>
+  <?= $navItem('/vehicles', '🚗', 'Viaturas', $currentPath, 'prefix') ?>
+  <?= $navItem('/interactions', '💬', 'Interações', $currentPath) ?>
+  <?= $navItem('/timeline', '📝', 'Timeline Global™', $currentPath) ?>
   <?php if (in_array('reports.export', $permissions, true)): ?>
-    <a href="/reports">📈 Relatórios</a>
-    <a href="/intelligence">🧠 Inteligência Operacional™</a>
+    <?= $navItem('/reports', '📈', 'Relatórios', $currentPath, 'prefix') ?>
+    <?= $navItem('/intelligence', '🧠', 'Inteligência Operacional™', $currentPath) ?>
   <?php endif; ?>
 
   <?php if (array_intersect(['users.manage', 'companies.manage', 'settings.manage', 'audit.view', 'logs.view'], $permissions) !== []): ?>
-    <div style="font-size:11px;letter-spacing:1px;color:#64748b;margin:12px 0 2px;text-transform:uppercase">Administração</div>
+    <div class="ops-nav-section">Administração</div>
   <?php endif; ?>
   <?php if (in_array('users.manage', $permissions, true)): ?>
-    <a href="/admin/users">👤 Utilizadores</a>
-    <a href="/admin/permissions">🔑 Perfis & Permissões</a>
+    <?= $navItem('/admin/users', '👤', 'Utilizadores', $currentPath, 'prefix') ?>
+    <?= $navItem('/admin/permissions', '🔑', 'Perfis & Permissões', $currentPath) ?>
   <?php endif; ?>
   <?php if (in_array('companies.manage', $permissions, true)): ?>
-    <a href="/admin/organization">🏢 Organização</a>
+    <?= $navItem('/admin/organization', '🏢', 'Organização', $currentPath) ?>
   <?php endif; ?>
   <?php if (in_array('settings.manage', $permissions, true)): ?>
-    <a href="/admin">⚙️ Configurações</a>
+    <?= $navItem('/admin', '⚙️', 'Configurações', $currentPath, 'exact') ?>
   <?php endif; ?>
   <?php if (in_array('audit.view', $permissions, true)): ?>
-    <a href="/admin/audit">📋 Auditoria</a>
+    <?= $navItem('/admin/audit', '📋', 'Auditoria', $currentPath) ?>
   <?php endif; ?>
   <?php if (in_array('logs.view', $permissions, true)): ?>
-    <a href="/admin/logs">🪵 Logs</a>
-    <a href="/admin/security">🔒 Acessos & Sessões</a>
+    <?= $navItem('/admin/logs', '🪵', 'Logs', $currentPath) ?>
+    <?= $navItem('/admin/security', '🔒', 'Acessos & Sessões', $currentPath) ?>
+  <?php endif; ?>
+  <?php if (in_array('settings.manage', $permissions, true)): ?>
+    <?= $navItem('/admin/tools', '🔧', 'Ferramentas', $currentPath) ?>
   <?php endif; ?>
 
-  <div style="font-size:11px;letter-spacing:1px;color:#64748b;margin:12px 0 2px;text-transform:uppercase">Conta</div>
-  <a href="/profile">👤 Meu Perfil</a>
-  <a href="/logout">Sair</a>
+  <div class="ops-nav-section">Conta</div>
+  <?= $navItem('/profile', '🪪', 'Meu Perfil', $currentPath) ?>
+  <?= $navItem('/logout', '🚪', 'Terminar Sessão', $currentPath) ?>
 </aside>

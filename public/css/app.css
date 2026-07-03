@@ -103,15 +103,71 @@ body {
 .ops-shell { display: flex; min-height: 100vh; }
 
 .ops-sidebar {
-  width: 220px;
+  width: 244px;
   background: #0f172a;
   color: #cbd5e1;
-  padding: 20px;
+  padding: 16px 14px;
 }
 
-.ops-sidebar h2 { color: #fff; font-size: 16px; margin: 0 0 24px; }
-.ops-sidebar a { display: block; color: #cbd5e1; text-decoration: none; padding: 8px 0; font-size: 14px; }
-.ops-sidebar a:hover { color: #fff; }
+/* Marca — logo do cliente numa caixa branca (o logo tem texto preto que
+   não se veria no fundo escuro), com o nome do sistema discreto por baixo. */
+.ops-brand {
+  background: #fff;
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 6px;
+  text-align: center;
+}
+.ops-brand img { width: 100%; max-width: 168px; height: auto; display: block; margin: 0 auto; }
+.ops-brand-name {
+  display: block;
+  text-align: center;
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: #64748b;
+  margin: 6px 0 14px;
+}
+
+/* Títulos de secção — com evidência real (maiores, mais claros, separador) */
+.ops-nav-section {
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: #cbd5e1;
+  padding: 6px 8px 4px;
+  margin-top: 14px;
+  border-top: 1px solid #1e293b;
+}
+.ops-nav-section:first-of-type { margin-top: 4px; border-top: none; }
+
+/* Itens do menu — mesmo formato para <a> e <button>, ícones alinhados */
+.ops-sidebar a.ops-nav,
+.ops-sidebar button.ops-nav {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  margin: 1px 0;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #cbd5e1;
+  font-family: inherit;
+  font-size: 14px;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+.ops-sidebar a.ops-nav:hover,
+.ops-sidebar button.ops-nav:hover { background: #1e293b; color: #fff; }
+.ops-sidebar a.ops-nav.is-active,
+.ops-sidebar button.ops-nav.is-active { background: #1d4ed8; color: #fff; font-weight: 600; }
+.ops-nav-ico { width: 22px; flex-shrink: 0; text-align: center; font-size: 15px; }
+.ops-nav-badge { margin-left: auto; }
 
 .ops-main { flex: 1; padding: 32px; }
 

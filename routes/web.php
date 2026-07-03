@@ -11,6 +11,7 @@ use App\Modules\Administration\Controllers\LogController;
 use App\Modules\Administration\Controllers\OrganizationController;
 use App\Modules\Administration\Controllers\PermissionController;
 use App\Modules\Administration\Controllers\SecurityController;
+use App\Modules\Administration\Controllers\ToolsController;
 use App\Modules\Administration\Controllers\UserController;
 use App\Modules\Auth\Controllers\AuthController;
 use App\Modules\Auth\Controllers\ProfileController;
@@ -121,6 +122,7 @@ $router->post('/admin/organization/departments/{id}/delete', [OrganizationContro
 $router->get('/admin/audit', [AuditController::class, 'index'], [Authenticate::class, [PermissionMiddleware::class, 'audit.view']]);
 $router->get('/admin/logs', [LogController::class, 'index'], [Authenticate::class, [PermissionMiddleware::class, 'logs.view']]);
 $router->get('/admin/security', [SecurityController::class, 'index'], [Authenticate::class, [PermissionMiddleware::class, 'logs.view']]);
+$router->get('/admin/tools', [ToolsController::class, 'index'], [Authenticate::class, [PermissionMiddleware::class, 'settings.manage']]);
 
 $router->get('/', function (): never {
     \App\Core\Response::redirect('/dashboard');
