@@ -7,6 +7,7 @@ namespace App\Modules\Auth\Services;
 use App\Core\Env;
 use App\Core\Logger;
 use App\Core\Session;
+use App\Core\Settings;
 use App\Modules\Auth\Repositories\LoginLogRepository;
 use App\Modules\Auth\Repositories\UserRepository;
 use App\Traits\AuditTrait;
@@ -29,17 +30,51 @@ final class AuthService
     /**
      * @throws RuntimeException quando as credenciais são inválidas ou a conta está bloqueada
      */
+    /**
+     * Verifica as credenciais e decide o próximo passo do MFA.
+     *
+     * @return array{status:'authenticated'|'challenge'|'setup', user:array}
+     */
     public function attempt(string $username, string $password, string $ip, ?string $userAgent): array
     {
         $user = $this->verifyCredentials($username, $password, $ip, $userAgent);
+        $mfa = new MfaService();
 
+        // Utilizador com MFA ativo: pede código, exceto se este dispositivo
+        // já passou o MFA nas últimas horas (pedir só uma vez por dia).
+        if ((int) ($user['mfa_enabled'] ?? 0) === 1) {
+            if ($mfa->isDeviceTrusted((int) $user['id'])) {
+                $this->finishLogin($user);
+
+                return ['status' => 'authenticated', 'user' => $user];
+            }
+
+            Session::put('mfa_pending_user_id', (int) $user['id']);
+
+            return ['status' => 'challenge', 'user' => $user];
+        }
+
+        // MFA obrigatório globalmente mas ainda não configurado: força a configuração.
+        if ((int) Settings::get('mfa_required', 0) === 1) {
+            Session::put('mfa_pending_user_id', (int) $user['id']);
+
+            return ['status' => 'setup', 'user' => $user];
+        }
+
+        $this->finishLogin($user);
+
+        return ['status' => 'authenticated', 'user' => $user];
+    }
+
+    /** Completa o login (sessão + auditoria). Chamado após o MFA quando aplicável. */
+    public function finishLogin(array $user): void
+    {
         $permissions = $this->users->permissionsForRole((int) $user['role_id']);
         $batchId = $this->users->primaryBatchId((int) $user['id']);
 
         $this->establishSession($user, $permissions, $batchId);
+        Session::forget('mfa_pending_user_id');
         $this->logAudit('LOGIN', 'tb_user', (int) $user['id']);
-
-        return $user;
     }
 
     /**

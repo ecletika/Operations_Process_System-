@@ -240,6 +240,15 @@ final class UserRepository
         ]);
     }
 
+    /** Guarda o segredo TOTP e ativa/desativa o MFA do utilizador. */
+    public function setMfa(int $id, ?string $secret, bool $enabled): void
+    {
+        $stmt = $this->pdo->prepare('
+            UPDATE tb_user SET mfa_secret = :secret, mfa_enabled = :enabled, updated_at = NOW() WHERE id = :id
+        ');
+        $stmt->execute(['id' => $id, 'secret' => $secret, 'enabled' => $enabled ? 1 : 0]);
+    }
+
     /** Altera apenas a password (já vem com hash calculado pelo Service). */
     public function updatePassword(int $id, string $hashedPassword): void
     {

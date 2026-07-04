@@ -15,6 +15,7 @@ use App\Modules\Administration\Controllers\ToolsController;
 use App\Modules\Administration\Controllers\TrashController;
 use App\Modules\Administration\Controllers\UserController;
 use App\Modules\Auth\Controllers\AuthController;
+use App\Modules\Auth\Controllers\MfaController;
 use App\Modules\Auth\Controllers\ProfileController;
 use App\Modules\Customer\Controllers\CustomerController;
 use App\Modules\Dashboard\Controllers\DashboardController;
@@ -35,6 +36,12 @@ $router->get('/login', [AuthController::class, 'showLogin']);
 $router->post('/login', [AuthController::class, 'login']);
 $router->get('/logout', [AuthController::class, 'logout']);
 
+// MFA no login (estado meio-autenticado, sem Authenticate — verificam a sessão pendente)
+$router->get('/mfa/challenge', [MfaController::class, 'challenge']);
+$router->post('/mfa/challenge', [MfaController::class, 'verifyChallenge']);
+$router->get('/mfa/setup', [MfaController::class, 'setup']);
+$router->post('/mfa/setup', [MfaController::class, 'confirmSetup']);
+
 $router->get('/dashboard', [DashboardController::class, 'index'], [Authenticate::class]);
 $router->get('/search', [SearchController::class, 'index'], [Authenticate::class]);
 
@@ -42,6 +49,8 @@ $router->get('/search', [SearchController::class, 'index'], [Authenticate::class
 $router->get('/profile', [ProfileController::class, 'index'], [Authenticate::class]);
 $router->post('/profile', [ProfileController::class, 'update'], [Authenticate::class]);
 $router->post('/profile/password', [ProfileController::class, 'changePassword'], [Authenticate::class]);
+$router->post('/profile/mfa/enable', [ProfileController::class, 'enableMfa'], [Authenticate::class]);
+$router->post('/profile/mfa/disable', [ProfileController::class, 'disableMfa'], [Authenticate::class]);
 
 $router->get('/processes/queue', [ProcessController::class, 'queue'], [Authenticate::class]);
 $router->post('/processes/next', [ProcessController::class, 'next'], [Authenticate::class, [PermissionMiddleware::class, 'process.assume']]);
@@ -111,6 +120,7 @@ $router->post('/admin/users', [UserController::class, 'store'], [Authenticate::c
 $router->get('/admin/users/{id}/edit', [UserController::class, 'edit'], [Authenticate::class, [PermissionMiddleware::class, 'users.manage']]);
 $router->post('/admin/users/{id}', [UserController::class, 'update'], [Authenticate::class, [PermissionMiddleware::class, 'users.manage']]);
 $router->post('/admin/users/{id}/toggle', [UserController::class, 'toggleActive'], [Authenticate::class, [PermissionMiddleware::class, 'users.manage']]);
+$router->post('/admin/users/{id}/reset-mfa', [UserController::class, 'resetMfa'], [Authenticate::class, [PermissionMiddleware::class, 'users.manage']]);
 
 $router->get('/admin/permissions', [PermissionController::class, 'index'], [Authenticate::class, [PermissionMiddleware::class, 'users.manage']]);
 $router->post('/admin/permissions', [PermissionController::class, 'save'], [Authenticate::class, [PermissionMiddleware::class, 'users.manage']]);

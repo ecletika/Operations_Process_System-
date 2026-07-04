@@ -45,6 +45,13 @@
                     <?= $user['active'] ? 'Desativar' : 'Reativar' ?>
                   </button>
                 </form>
+                <?php if ((int) ($user['mfa_enabled'] ?? 0) === 1): ?>
+                  <form method="POST" action="/admin/users/<?= (int) $user['id'] ?>/reset-mfa"
+                        onsubmit="return confirm('Repor o MFA de <?= e($user['username']) ?>? Ele terá de configurar de novo.');">
+                    <?= csrf_field() ?>
+                    <button type="submit" class="ops-btn ops-btn-sm" style="background:#b45309" title="Repor MFA (perdeu o telemóvel)">🔐 Repor MFA</button>
+                  </form>
+                <?php endif; ?>
               </td>
             </tr>
           <?php endforeach; ?>

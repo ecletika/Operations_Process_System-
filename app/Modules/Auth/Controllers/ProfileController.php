@@ -9,6 +9,7 @@ use App\Core\Request;
 use App\Core\Response;
 use App\Core\Session;
 use App\Modules\Auth\Repositories\UserRepository;
+use App\Modules\Auth\Services\MfaService;
 use App\Modules\Auth\Services\ProfileService;
 
 /**
@@ -24,13 +25,49 @@ final class ProfileController extends Controller
             Response::redirect('/logout');
         }
 
+        // Se o utilizador está a ativar o MFA, geramos aqui o QR/segredo.
+        $mfaSetup = null;
+        if ($request->input('mfa') === 'setup' && (int) ($user['mfa_enabled'] ?? 0) === 0) {
+            $mfaSetup = (new MfaService())->beginSetup((string) $user['username']);
+        }
+
         $this->view('Auth/Views/profile', [
             'user' => $user,
+            'mfaSetup' => $mfaSetup,
             'errors' => Session::pullFlash('errors', []),
             'passwordErrors' => Session::pullFlash('password_errors', []),
+            'mfaErrors' => Session::pullFlash('mfa_errors', []),
             'success' => Session::pullFlash('success'),
             'old' => Session::pullFlash('old', []),
         ]);
+    }
+
+    /** Ativa o MFA para o próprio utilizador (confirma com um código). */
+    public function enableMfa(Request $request): never
+    {
+        if (!$this->checkCsrf($request)) {
+            Response::redirect('/profile');
+        }
+
+        if ((new MfaService())->confirmSetup((int) Session::get('user_id'), (string) $request->input('code', ''))) {
+            Session::flash('success', 'Autenticação de dois fatores ativada.');
+            Response::redirect('/profile');
+        }
+
+        Session::flash('mfa_errors', ['Código inválido. Verifique a app e tente de novo.']);
+        Response::redirect('/profile?mfa=setup');
+    }
+
+    /** Desativa o MFA do próprio utilizador. */
+    public function disableMfa(Request $request): never
+    {
+        if (!$this->checkCsrf($request)) {
+            Response::redirect('/profile');
+        }
+
+        (new MfaService())->disable((int) Session::get('user_id'));
+        Session::flash('success', 'Autenticação de dois fatores desativada.');
+        Response::redirect('/profile');
     }
 
     public function update(Request $request): never

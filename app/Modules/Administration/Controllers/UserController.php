@@ -111,6 +111,18 @@ final class UserController extends Controller
         $this->back();
     }
 
+    /** Repõe o MFA de um utilizador (perdeu o telemóvel) — volta a pedir configuração. */
+    public function resetMfa(Request $request, array $params): never
+    {
+        if (!$this->checkCsrf($request)) {
+            $this->back();
+        }
+
+        (new \App\Modules\Auth\Services\MfaService())->disable((int) $params['id']);
+        Session::flash('success', 'MFA reposto. O utilizador vai configurar de novo no próximo login (se for obrigatório).');
+        $this->back();
+    }
+
     private function checkCsrf(Request $request): bool
     {
         if (Session::verifyCsrfToken($request->input('_csrf'))) {

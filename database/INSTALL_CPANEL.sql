@@ -910,3 +910,28 @@ UPDATE tb_user u
 JOIN tb_batch bt ON bt.code = 'IL-132'
 SET u.default_batch_id = bt.id
 WHERE u.username = 'admin';
+
+-- ----------------------------------------------------------------------------
+-- >>> MFA (autenticação de dois fatores) — colunas, tabela e settings
+-- ----------------------------------------------------------------------------
+ALTER TABLE tb_user
+    ADD COLUMN mfa_secret  VARCHAR(64)  NULL AFTER password,
+    ADD COLUMN mfa_enabled TINYINT(1)   NOT NULL DEFAULT 0 AFTER mfa_secret;
+
+CREATE TABLE IF NOT EXISTS tb_mfa_trusted_device (
+    id          BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    uuid        CHAR(36)        NOT NULL,
+    user_id     BIGINT UNSIGNED NOT NULL,
+    token_hash  CHAR(64)        NOT NULL,
+    expires_at  DATETIME        NOT NULL,
+    ip_address  VARCHAR(45)     NULL,
+    user_agent  VARCHAR(255)    NULL,
+    created_at  DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_mfa_device_uuid (uuid),
+    KEY idx_mfa_device_user (user_id),
+    KEY idx_mfa_device_token (token_hash)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT INTO tb_setting (uuid, `key`, `value`, description) VALUES
+  (UUID(), 'mfa_required', '0', 'Exigir MFA a todos os utilizadores no login (1=sim). Ative depois de testar com a sua conta.'),
+  (UUID(), 'mfa_trust_hours', '24', 'Horas que um dispositivo fica confiável após passar o MFA (pedir 1x por dia)');

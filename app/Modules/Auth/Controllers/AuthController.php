@@ -47,14 +47,18 @@ final class AuthController extends Controller
         }
 
         try {
-            (new AuthService())->attempt($input['username'], $input['password'], $request->ip(), $request->userAgent());
+            $result = (new AuthService())->attempt($input['username'], $input['password'], $request->ip(), $request->userAgent());
         } catch (RuntimeException $e) {
             Session::flash('errors', [$e->getMessage()]);
             Session::flash('old', ['username' => $input['username']]);
             Response::redirect('/login');
         }
 
-        Response::redirect('/dashboard');
+        Response::redirect(match ($result['status']) {
+            'challenge' => '/mfa/challenge',
+            'setup' => '/mfa/setup',
+            default => '/dashboard',
+        });
     }
 
     public function logout(Request $request): never

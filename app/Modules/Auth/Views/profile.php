@@ -66,6 +66,45 @@
         </div>
         <button type="submit" class="ops-btn" style="width:auto">Alterar Password</button>
       </form>
+
+      <h2 style="margin-top:32px">🔐 Autenticação de Dois Fatores (MFA)</h2>
+      <?php foreach ($mfaErrors as $error): ?><div class="ops-alert" style="background:#fef2f2;border:1px solid #fecaca;color:#dc2626"><?= e($error) ?></div><?php endforeach; ?>
+      <div class="ops-panel" style="max-width:520px">
+        <?php if ((int) ($user['mfa_enabled'] ?? 0) === 1): ?>
+          <p style="color:#16a34a;font-weight:600;margin-top:0">✔ MFA ativo nesta conta.</p>
+          <p style="color:#6b7280;font-size:13px">A cada login (uma vez por dia por dispositivo) será pedido o código da app autenticadora.</p>
+          <form method="POST" action="/profile/mfa/disable" onsubmit="return confirm('Desativar a autenticação de dois fatores?');">
+            <?= csrf_field() ?>
+            <button type="submit" class="ops-btn ops-btn-sm" style="background:#dc2626">Desativar MFA</button>
+          </form>
+        <?php elseif ($mfaSetup !== null): ?>
+          <p style="margin-top:0;font-size:13px;color:#374151">Leia o QR code na sua app autenticadora (Google/Microsoft Authenticator, Authy…) ou introduza a chave manual, e confirme com o código de 6 dígitos.</p>
+          <div style="text-align:center;margin:12px 0">
+            <div id="qrcode" style="display:inline-block;padding:10px;background:#fff;border:1px solid #e5e7eb;border-radius:8px"></div>
+            <div style="margin-top:8px;font-size:12px;color:#6b7280">Chave manual:</div>
+            <code style="letter-spacing:2px;word-break:break-all"><?= e($mfaSetup['secret']) ?></code>
+          </div>
+          <form method="POST" action="/profile/mfa/enable" style="display:flex;gap:8px;align-items:flex-end">
+            <?= csrf_field() ?>
+            <div class="ops-form-row" style="margin:0">
+              <label for="mfa_code">Código</label>
+              <input type="text" id="mfa_code" name="code" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="000000" required style="letter-spacing:6px;text-align:center">
+            </div>
+            <button type="submit" class="ops-btn ops-btn-sm" style="background:#16a34a">Ativar</button>
+          </form>
+          <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+          <script>
+            (function () {
+              var uri = <?= json_encode($mfaSetup['uri'], JSON_UNESCAPED_SLASHES) ?>;
+              if (window.QRCode) { new QRCode(document.getElementById('qrcode'), { text: uri, width: 170, height: 170 }); }
+              else { document.getElementById('qrcode').innerHTML = '<span style="font-size:12px;color:#6b7280">Use a chave manual.</span>'; }
+            })();
+          </script>
+        <?php else: ?>
+          <p style="color:#6b7280;margin-top:0;font-size:13px">Acrescente uma camada extra de segurança: além da password, será pedido um código gerado pela sua app autenticadora.</p>
+          <a href="/profile?mfa=setup" class="ops-btn ops-btn-sm" style="text-decoration:none;display:inline-block">🔐 Ativar MFA</a>
+        <?php endif; ?>
+      </div>
     </main>
   </div>
 </body>

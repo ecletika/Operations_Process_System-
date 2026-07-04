@@ -13,6 +13,7 @@ declare(strict_types=1);
 use App\Core\Env;
 use App\Core\Settings;
 use App\Modules\Administration\Repositories\AuditRepository;
+use App\Modules\Auth\Repositories\TrustedDeviceRepository;
 use App\Modules\Intelligence\Services\IntelligenceService;
 use App\Modules\Process\Repositories\ProcessRepository;
 
@@ -42,7 +43,10 @@ try {
     // Retenção da auditoria (política do cliente).
     $auditPurged = (new AuditRepository())->purgeOlderThan((int) Settings::get('audit_retention_days', 60));
 
-    fwrite(STDOUT, "[{$startedAt}] OK - esquecidos: {$forgotten}; SLA próximo: {$slaNear}; arquivados: {$archived}; auto-excluídos: {$autoDeleted}; auditoria apagada: {$auditPurged}\n");
+    // Limpeza dos dispositivos de confiança do MFA já expirados.
+    $devicesPurged = (new TrustedDeviceRepository())->purgeExpired();
+
+    fwrite(STDOUT, "[{$startedAt}] OK - esquecidos: {$forgotten}; SLA próximo: {$slaNear}; arquivados: {$archived}; auto-excluídos: {$autoDeleted}; auditoria apagada: {$auditPurged}; dispositivos MFA expirados: {$devicesPurged}\n");
 } catch (\Throwable $e) {
     fwrite(STDERR, "[{$startedAt}] ERRO - {$e->getMessage()}\n");
     exit(1);
