@@ -88,6 +88,9 @@ $navItem = static function (string $href, string $icon, string $label, string $c
     <?= $navItem('/admin/logs', '🪵', 'Logs', $currentPath) ?>
     <?= $navItem('/admin/security', '🔒', 'Acessos & Sessões', $currentPath) ?>
   <?php endif; ?>
+  <?php if (in_array('records.delete', $permissions, true)): ?>
+    <?= $navItem('/admin/trash', '🗑️', 'Lixeira', $currentPath) ?>
+  <?php endif; ?>
   <?php if (in_array('settings.manage', $permissions, true)): ?>
     <?= $navItem('/admin/tools', '🔧', 'Ferramentas', $currentPath) ?>
   <?php endif; ?>

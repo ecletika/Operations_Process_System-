@@ -12,6 +12,7 @@ use App\Modules\Administration\Controllers\OrganizationController;
 use App\Modules\Administration\Controllers\PermissionController;
 use App\Modules\Administration\Controllers\SecurityController;
 use App\Modules\Administration\Controllers\ToolsController;
+use App\Modules\Administration\Controllers\TrashController;
 use App\Modules\Administration\Controllers\UserController;
 use App\Modules\Auth\Controllers\AuthController;
 use App\Modules\Auth\Controllers\ProfileController;
@@ -67,6 +68,7 @@ $router->get('/customers/create', [CustomerController::class, 'create'], [Authen
 $router->post('/customers', [CustomerController::class, 'store'], [Authenticate::class, [PermissionMiddleware::class, 'process.create']]);
 $router->get('/customers/{id}', [CustomerController::class, 'show'], [Authenticate::class]);
 $router->post('/customers/{id}', [CustomerController::class, 'update'], [Authenticate::class, [PermissionMiddleware::class, 'process.create']]);
+$router->post('/customers/{id}/delete', [CustomerController::class, 'destroy'], [Authenticate::class, [PermissionMiddleware::class, 'records.delete']]);
 
 // Módulo Viaturas (🚗)
 $router->get('/vehicles', [VehicleController::class, 'index'], [Authenticate::class]);
@@ -74,6 +76,7 @@ $router->get('/vehicles/create', [VehicleController::class, 'create'], [Authenti
 $router->post('/vehicles', [VehicleController::class, 'store'], [Authenticate::class, [PermissionMiddleware::class, 'process.create']]);
 $router->get('/vehicles/{id}', [VehicleController::class, 'show'], [Authenticate::class]);
 $router->post('/vehicles/{id}', [VehicleController::class, 'update'], [Authenticate::class, [PermissionMiddleware::class, 'process.create']]);
+$router->post('/vehicles/{id}/delete', [VehicleController::class, 'destroy'], [Authenticate::class, [PermissionMiddleware::class, 'records.delete']]);
 
 // Módulo Interações (💬) e Timeline Global™ (📝)
 $router->get('/interactions', [InteractionListController::class, 'index'], [Authenticate::class]);
@@ -123,6 +126,10 @@ $router->get('/admin/audit', [AuditController::class, 'index'], [Authenticate::c
 $router->get('/admin/logs', [LogController::class, 'index'], [Authenticate::class, [PermissionMiddleware::class, 'logs.view']]);
 $router->get('/admin/security', [SecurityController::class, 'index'], [Authenticate::class, [PermissionMiddleware::class, 'logs.view']]);
 $router->get('/admin/tools', [ToolsController::class, 'index'], [Authenticate::class, [PermissionMiddleware::class, 'settings.manage']]);
+
+$router->get('/admin/trash', [TrashController::class, 'index'], [Authenticate::class, [PermissionMiddleware::class, 'records.delete']]);
+$router->post('/admin/trash/restore-all', [TrashController::class, 'restoreAll'], [Authenticate::class, [PermissionMiddleware::class, 'records.delete']]);
+$router->post('/admin/trash/{entity}/{id}/restore', [TrashController::class, 'restore'], [Authenticate::class, [PermissionMiddleware::class, 'records.delete']]);
 
 $router->get('/', function (): never {
     \App\Core\Response::redirect('/dashboard');

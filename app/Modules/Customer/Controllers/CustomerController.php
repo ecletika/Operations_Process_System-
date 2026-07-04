@@ -145,4 +145,26 @@ final class CustomerController extends Controller
         Session::flash('success', 'Cliente atualizado.');
         Response::redirect('/customers/' . $id);
     }
+
+    /** Soft-delete do cliente — permissão records.delete. Recuperável na Lixeira. */
+    public function destroy(Request $request, array $params): never
+    {
+        $id = (int) $params['id'];
+
+        if (!Session::verifyCsrfToken($request->input('_csrf'))) {
+            Session::flash('errors', ['Sessão expirada, tente novamente.']);
+            Response::redirect('/customers/' . $id);
+        }
+
+        $repository = new CustomerRepository();
+        $customer = $repository->findById($id);
+
+        if ($customer !== null) {
+            $repository->delete($id, (int) Session::get('user_id'));
+            $this->logAudit('DELETE', 'tb_customer', $id, ['name' => $customer['name']], null);
+            Session::flash('success', 'Cliente movido para a Lixeira.');
+        }
+
+        Response::redirect('/customers');
+    }
 }

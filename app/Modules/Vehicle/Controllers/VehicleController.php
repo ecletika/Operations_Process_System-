@@ -157,4 +157,26 @@ final class VehicleController extends Controller
         Session::flash('success', 'Viatura atualizada.');
         Response::redirect('/vehicles/' . $id);
     }
+
+    /** Soft-delete da viatura — permissão records.delete. Recuperável na Lixeira. */
+    public function destroy(Request $request, array $params): never
+    {
+        $id = (int) $params['id'];
+
+        if (!Session::verifyCsrfToken($request->input('_csrf'))) {
+            Session::flash('errors', ['Sessão expirada, tente novamente.']);
+            Response::redirect('/vehicles/' . $id);
+        }
+
+        $repository = new VehicleRepository();
+        $vehicle = $repository->findById($id);
+
+        if ($vehicle !== null) {
+            $repository->delete($id, (int) Session::get('user_id'));
+            $this->logAudit('DELETE', 'tb_vehicle', $id, ['plate' => $vehicle['plate']], null);
+            Session::flash('success', 'Viatura movida para a Lixeira.');
+        }
+
+        Response::redirect('/vehicles');
+    }
 }

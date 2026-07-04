@@ -181,4 +181,13 @@ final class CustomerRepository
         ');
         $stmt->execute(['id' => $id, 'name' => $name, 'phone' => $phone, 'email' => $email, 'nif' => $nif, 'updated_by' => $userId]);
     }
+
+    /** Soft-delete (RN-0048) — o registo fica na Lixeira, recuperável. */
+    public function delete(int $id, int $userId): void
+    {
+        $stmt = $this->pdo->prepare('
+            UPDATE tb_customer SET deleted_at = NOW(), deleted_by = :user_id WHERE id = :id
+        ');
+        $stmt->execute(['id' => $id, 'user_id' => $userId]);
+    }
 }

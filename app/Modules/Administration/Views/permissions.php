@@ -12,6 +12,7 @@ foreach ($permissions as $perm) {
 $areaLabels = [
     'dashboard' => '📊 Dashboard',
     'process' => '📋 Processos',
+    'records' => '🗑️ Exclusão de Registos',
     'users' => '👤 Utilizadores',
     'companies' => '🏢 Empresas',
     'branches' => '🏢 Filiais',

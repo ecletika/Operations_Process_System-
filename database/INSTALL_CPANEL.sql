@@ -767,6 +767,7 @@ INSERT INTO tb_permission (uuid, code, description) VALUES
   (UUID(), 'process.reopen', 'Reabrir processo'),
   (UUID(), 'process.view_all', 'Ver todos os processos (não só a fila/os seus)'),
   (UUID(), 'process.delete', 'Excluir processo (apenas Administrador)'),
+  (UUID(), 'records.delete', 'Excluir registos (clientes, viaturas)'),
   (UUID(), 'users.manage', 'Gerir utilizadores'),
   (UUID(), 'companies.manage', 'Gerir empresas'),
   (UUID(), 'branches.manage', 'Gerir filiais'),

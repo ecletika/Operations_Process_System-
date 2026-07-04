@@ -138,4 +138,13 @@ final class VehicleRepository
         ');
         $stmt->execute(['id' => $id, 'brand' => $brand, 'model' => $model, 'year' => $year, 'updated_by' => $userId]);
     }
+
+    /** Soft-delete (RN-0048) — o registo fica na Lixeira, recuperável. */
+    public function delete(int $id, int $userId): void
+    {
+        $stmt = $this->pdo->prepare('
+            UPDATE tb_vehicle SET deleted_at = NOW(), deleted_by = :user_id WHERE id = :id
+        ');
+        $stmt->execute(['id' => $id, 'user_id' => $userId]);
+    }
 }

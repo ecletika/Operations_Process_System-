@@ -39,6 +39,13 @@
           </div>
           <button type="submit" class="ops-btn ops-btn-sm">Guardar</button>
         </form>
+        <?php if (in_array('records.delete', \App\Core\Session::get('permissions', []), true)): ?>
+          <form method="POST" action="/vehicles/<?= (int) $vehicle['id'] ?>/delete" style="margin-top:12px"
+                onsubmit="return confirm('Mover a viatura &quot;<?= e($vehicle['plate']) ?>&quot; para a Lixeira? Poderá ser recuperada.');">
+            <?= csrf_field() ?>
+            <button type="submit" class="ops-btn ops-btn-sm" style="background:#dc2626">🗑️ Excluir Viatura</button>
+          </form>
+        <?php endif; ?>
       </div>
 
       <h2 style="margin-top:32px">📋 Histórico da Viatura (<?= count($processes) ?> processo(s))</h2>
