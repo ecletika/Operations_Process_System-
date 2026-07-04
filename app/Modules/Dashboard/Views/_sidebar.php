@@ -23,7 +23,39 @@ $navItem = static function (string $href, string $icon, string $label, string $c
         . '</a>';
 };
 ?>
-<div class="ops-topbar" style="max-height:56px;overflow:hidden">
+<style>
+/* Regras críticas do layout responsivo, embutidas aqui de propósito:
+   as views PHP ficam live logo após o git pull (via shim), enquanto o
+   app.css depende de uma cópia para o public_html que já falhou várias
+   vezes. Com isto, a barra do telemóvel nunca aparece no desktop mesmo
+   que o app.css em produção esteja desatualizado. */
+.ops-topbar { display: none; }
+.ops-backdrop { display: none; }
+@media (max-width: 860px) {
+  .ops-shell { display: block; }
+  .ops-topbar {
+    display: flex; align-items: center; gap: 12px;
+    position: fixed; top: 0; left: 0; right: 0; height: 54px;
+    background: #0f172a; z-index: 40; padding: 0 12px;
+  }
+  .ops-burger { background: none; border: none; color: #fff; font-size: 26px; line-height: 1; cursor: pointer; padding: 4px 8px; }
+  .ops-topbar-logo { height: 32px; background: #fff; border-radius: 6px; padding: 3px 7px; box-sizing: border-box; }
+  .ops-sidebar {
+    position: fixed; top: 0; left: 0; height: 100vh; z-index: 50;
+    transform: translateX(-100%); transition: transform .25s ease; overflow-y: auto;
+  }
+  body.ops-nav-open .ops-sidebar { transform: translateX(0); }
+  .ops-backdrop {
+    display: block; position: fixed; inset: 0; background: rgba(0,0,0,.5);
+    z-index: 45; opacity: 0; pointer-events: none; transition: opacity .25s ease;
+  }
+  body.ops-nav-open .ops-backdrop { opacity: 1; pointer-events: auto; }
+  .ops-main { padding: 70px 14px 24px; }
+  .ops-table { display: block; overflow-x: auto; white-space: nowrap; -webkit-overflow-scrolling: touch; }
+  .ops-panel { max-width: none !important; }
+}
+</style>
+<div class="ops-topbar">
   <button class="ops-burger" type="button" aria-label="Abrir menu" onclick="document.body.classList.toggle('ops-nav-open')">☰</button>
   <img src="/img/irmaos-leite-logo.png" alt="Irmãos Leite" class="ops-topbar-logo" style="max-height:36px;width:auto">
 </div>
