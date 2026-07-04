@@ -21,6 +21,7 @@
           'resolvidos' => 'Resolvidos',
           'encerrados' => 'Encerrados',
           'reabertos' => 'Reabertos',
+          'arquivados' => '📦 Arquivados',
           'no_interaction' => 'Sem Interação',
           'all' => 'Todos',
         ];

@@ -183,6 +183,62 @@ final class ProcessRepository
         $stmt->execute(['id' => $id, 'user_id' => $userId]);
     }
 
+    /** Arquiva/desarquiva um processo manualmente. */
+    public function setArchived(int $id, bool $archived, int $userId): void
+    {
+        $stmt = $this->pdo->prepare('
+            UPDATE tb_process
+            SET archived = :archived, archived_at = :archived_at, updated_by = :user_id, updated_at = NOW()
+            WHERE id = :id
+        ');
+        $stmt->execute([
+            'id' => $id,
+            'archived' => $archived ? 1 : 0,
+            'archived_at' => $archived ? date('Y-m-d H:i:s') : null,
+            'user_id' => $userId,
+        ]);
+    }
+
+    /**
+     * Arquiva automaticamente os processos concluídos (SOLVED/CLOSED) há mais
+     * de $days dias e que ainda não estão arquivados. Devolve o total.
+     */
+    public function autoArchiveConcluded(int $days): int
+    {
+        $stmt = $this->pdo->prepare("
+            UPDATE tb_process p
+            JOIN tb_status s ON s.id = p.status_id
+            SET p.archived = 1, p.archived_at = NOW()
+            WHERE p.deleted_at IS NULL
+              AND p.archived = 0
+              AND s.code IN ('SOLVED', 'CLOSED')
+              AND p.closed_at IS NOT NULL
+              AND p.closed_at < DATE_SUB(NOW(), INTERVAL :days DAY)
+        ");
+        $stmt->execute(['days' => $days]);
+
+        return $stmt->rowCount();
+    }
+
+    /**
+     * Exclui (soft-delete → Lixeira) os processos arquivados há mais de $days
+     * dias. Continuam recuperáveis na Lixeira. Devolve o total.
+     */
+    public function autoDeleteArchived(int $days): int
+    {
+        $stmt = $this->pdo->prepare('
+            UPDATE tb_process
+            SET deleted_at = NOW()
+            WHERE deleted_at IS NULL
+              AND archived = 1
+              AND archived_at IS NOT NULL
+              AND archived_at < DATE_SUB(NOW(), INTERVAL :days DAY)
+        ');
+        $stmt->execute(['days' => $days]);
+
+        return $stmt->rowCount();
+    }
+
     /**
      * RN-0014/0015 - toda interação incrementa contact_count e atualiza last_contact_at.
      */
@@ -352,7 +408,15 @@ final class ProcessRepository
         $conditions = ['p.deleted_at IS NULL'];
         $params = [];
 
-        switch ($filters['tab'] ?? 'all') {
+        $tab = $filters['tab'] ?? 'all';
+
+        // Os processos arquivados só aparecem na aba "Arquivados" (e em "Todos");
+        // ficam fora das restantes para não poluírem as listas ativas.
+        if (!in_array($tab, ['arquivados', 'all'], true)) {
+            $conditions[] = 'p.archived = 0';
+        }
+
+        switch ($tab) {
             case 'in_progress': // Abertos (qualquer estado que não seja concluído)
                 $conditions[] = "st.code NOT IN ('SOLVED', 'CLOSED')";
                 break;
@@ -370,6 +434,9 @@ final class ProcessRepository
                 break;
             case 'reabertos':
                 $conditions[] = 'p.reopen_count > 0';
+                break;
+            case 'arquivados':
+                $conditions[] = 'p.archived = 1';
                 break;
             case 'finished': // Concluídos (resolvidos + encerrados)
                 $conditions[] = "st.code IN ('SOLVED', 'CLOSED')";

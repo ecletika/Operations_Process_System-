@@ -306,6 +306,7 @@ CREATE TABLE tb_process (
   contact_count      INT UNSIGNED  NOT NULL DEFAULT 1,
   reopen_count       INT UNSIGNED  NOT NULL DEFAULT 0,
   archived           BOOLEAN       NOT NULL DEFAULT 0,
+  archived_at        DATETIME      NULL,
   created_at         DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at         DATETIME      NULL ON UPDATE CURRENT_TIMESTAMP,
   deleted_at         DATETIME      NULL,
@@ -847,7 +848,9 @@ INSERT INTO tb_setting (uuid, `key`, `value`, description) VALUES
   (UUID(), 'operator_overload_limit', '30', 'RN-0057: nº máximo de processos ativos por operador'),
   (UUID(), 'frequent_customer_threshold', '5', 'RN-0059: nº de processos no período para marcar Cliente Frequente'),
   (UUID(), 'recurrent_vehicle_threshold', '3', 'RN-0060: nº de processos no período para marcar Viatura Recorrente'),
-  (UUID(), 'recurrence_window_days', '90', 'Janela em dias usada para calcular Cliente Frequente / Viatura Recorrente');
+  (UUID(), 'recurrence_window_days', '90', 'Janela em dias usada para calcular Cliente Frequente / Viatura Recorrente'),
+  (UUID(), 'archive_concluded_after_days', '30', 'Dias após conclusão até o processo ser arquivado automaticamente'),
+  (UUID(), 'delete_archived_after_days', '180', 'Dias após arquivamento até o processo ser excluído automaticamente (vai para a Lixeira)');
 
 -- Estrutura organizacional mínima --------------------------------------------
 INSERT INTO tb_company (uuid, code, name) VALUES (UUID(), 'OPS', 'Operations Process System');

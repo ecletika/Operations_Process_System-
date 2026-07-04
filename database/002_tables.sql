@@ -292,6 +292,7 @@ CREATE TABLE tb_process (
   contact_count      INT UNSIGNED  NOT NULL DEFAULT 1,
   reopen_count       INT UNSIGNED  NOT NULL DEFAULT 0,
   archived           BOOLEAN       NOT NULL DEFAULT 0,
+  archived_at        DATETIME      NULL,
   created_at         DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at         DATETIME      NULL ON UPDATE CURRENT_TIMESTAMP,
   deleted_at         DATETIME      NULL,

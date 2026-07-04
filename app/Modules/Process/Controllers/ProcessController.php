@@ -67,7 +67,7 @@ final class ProcessController extends Controller
     public function all(Request $request): never
     {
         $tab = (string) $request->input('tab', 'in_progress');
-        $validTabs = ['in_progress', 'em_tratamento', 'em_espera', 'resolvidos', 'encerrados', 'reabertos', 'no_interaction', 'all'];
+        $validTabs = ['in_progress', 'em_tratamento', 'em_espera', 'resolvidos', 'encerrados', 'reabertos', 'arquivados', 'no_interaction', 'all'];
         if (!in_array($tab, $validTabs, true)) {
             $tab = 'in_progress';
         }
@@ -301,6 +301,23 @@ final class ProcessController extends Controller
 
         Session::flash('success', 'Processo excluído.');
         Response::redirect('/processes/all');
+    }
+
+    /** Arquiva ou desarquiva um processo (concluído). */
+    public function archive(Request $request, array $params): never
+    {
+        $processId = (int) $params['id'];
+
+        if (!Session::verifyCsrfToken($request->input('_csrf'))) {
+            Session::flash('errors', ['Sessão expirada, tente novamente.']);
+            Response::redirect('/processes/' . $processId);
+        }
+
+        $archive = $request->input('archive', '1') === '1';
+        (new ProcessRepository())->setArchived($processId, $archive, (int) Session::get('user_id'));
+
+        Session::flash('success', $archive ? 'Processo arquivado.' : 'Processo desarquivado.');
+        Response::redirect('/processes/' . $processId);
     }
 
     private function runAction(Request $request, array $params, callable $action): never

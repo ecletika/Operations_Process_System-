@@ -53,6 +53,19 @@
           </form>
         <?php endif; ?>
 
+        <?php if (in_array($process['status_code'], ['SOLVED', 'CLOSED'], true) && in_array('process.close', \App\Core\Session::get('permissions', []), true)): ?>
+          <form method="POST" action="/processes/<?= (int) $process['id'] ?>/archive">
+            <?= csrf_field() ?>
+            <?php if ((int) ($process['archived'] ?? 0) === 1): ?>
+              <input type="hidden" name="archive" value="0">
+              <button type="submit" class="ops-btn ops-btn-sm" style="background:#6b7280">📤 Desarquivar</button>
+            <?php else: ?>
+              <input type="hidden" name="archive" value="1">
+              <button type="submit" class="ops-btn ops-btn-sm" style="background:#0891b2">📦 Arquivar</button>
+            <?php endif; ?>
+          </form>
+        <?php endif; ?>
+
         <a href="/processes/<?= (int) $process['id'] ?>/replay" class="ops-btn ops-btn-sm" style="background:#7c3aed;text-decoration:none;display:inline-flex;align-items:center">🎬 Reproduzir Processo</a>
 
         <?php if (in_array('process.delete', \App\Core\Session::get('permissions', []), true)): ?>

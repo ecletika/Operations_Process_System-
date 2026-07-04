@@ -11,7 +11,9 @@ declare(strict_types=1);
  */
 
 use App\Core\Env;
+use App\Core\Settings;
 use App\Modules\Intelligence\Services\IntelligenceService;
+use App\Modules\Process\Repositories\ProcessRepository;
 
 $vendorAutoload = __DIR__ . '/../vendor/autoload.php';
 if (is_file($vendorAutoload)) {
@@ -30,7 +32,13 @@ try {
     $forgotten = $service->detectForgottenProcesses();
     $slaNear = $service->detectSlaNear();
 
-    fwrite(STDOUT, "[{$startedAt}] OK - processos esquecidos notificados: {$forgotten}; SLA próximo notificados: {$slaNear}\n");
+    // Ciclo de vida de arquivamento: arquivar concluídos antigos e excluir
+    // (soft-delete → Lixeira) os arquivados há mais de X dias.
+    $processes = new ProcessRepository();
+    $archived = $processes->autoArchiveConcluded((int) Settings::get('archive_concluded_after_days', 30));
+    $autoDeleted = $processes->autoDeleteArchived((int) Settings::get('delete_archived_after_days', 180));
+
+    fwrite(STDOUT, "[{$startedAt}] OK - esquecidos: {$forgotten}; SLA próximo: {$slaNear}; arquivados: {$archived}; auto-excluídos: {$autoDeleted}\n");
 } catch (\Throwable $e) {
     fwrite(STDERR, "[{$startedAt}] ERRO - {$e->getMessage()}\n");
     exit(1);
