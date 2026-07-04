@@ -12,6 +12,7 @@ declare(strict_types=1);
 
 use App\Core\Env;
 use App\Core\Settings;
+use App\Modules\Administration\Repositories\AuditRepository;
 use App\Modules\Intelligence\Services\IntelligenceService;
 use App\Modules\Process\Repositories\ProcessRepository;
 
@@ -38,7 +39,10 @@ try {
     $archived = $processes->autoArchiveConcluded((int) Settings::get('archive_concluded_after_days', 30));
     $autoDeleted = $processes->autoDeleteArchived((int) Settings::get('delete_archived_after_days', 180));
 
-    fwrite(STDOUT, "[{$startedAt}] OK - esquecidos: {$forgotten}; SLA próximo: {$slaNear}; arquivados: {$archived}; auto-excluídos: {$autoDeleted}\n");
+    // Retenção da auditoria (política do cliente).
+    $auditPurged = (new AuditRepository())->purgeOlderThan((int) Settings::get('audit_retention_days', 60));
+
+    fwrite(STDOUT, "[{$startedAt}] OK - esquecidos: {$forgotten}; SLA próximo: {$slaNear}; arquivados: {$archived}; auto-excluídos: {$autoDeleted}; auditoria apagada: {$auditPurged}\n");
 } catch (\Throwable $e) {
     fwrite(STDERR, "[{$startedAt}] ERRO - {$e->getMessage()}\n");
     exit(1);

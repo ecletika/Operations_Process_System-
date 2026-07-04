@@ -32,4 +32,10 @@ $router = new Router();
 require __DIR__ . '/../routes/web.php';
 require __DIR__ . '/../routes/api.php';
 
+// Auditoria global: regista qualquer ação (POST/PUT/PATCH/DELETE) na web,
+// independentemente do menu. Os controllers acrescentam detalhe por registo.
+if (!$isApiRequest) {
+    \App\Core\Audit::logRequest();
+}
+
 $router->dispatch(new Request());
