@@ -128,6 +128,15 @@ final class ProcessController extends Controller
         $companyId = (int) Session::get('company_id');
         $batchId = Session::get('batch_id');
 
+        // Admin/Supervisor (ou quem tem visibilidade total) pode escolher a
+        // Filial/Lote de destino; validamos que o lote submetido existe.
+        if ($this->canChooseBatch()) {
+            $chosen = (int) $request->input('batch_id', 0);
+            if ($chosen > 0 && (new BatchRepository())->findActiveById($chosen) !== null) {
+                $batchId = $chosen;
+            }
+        }
+
         if ($batchId === null) {
             Session::flash('errors', ['O seu utilizador não está associado a nenhum lote. Contacte o Administrador.']);
             Response::redirect('/processes/create');
@@ -316,12 +325,28 @@ final class ProcessController extends Controller
 
     private function renderCreateForm(array $errors, array $old, ?array $reopenCandidate): never
     {
+        // Quem pode ver várias filiais (Admin/Supervisor via process.view_all,
+        // ou operador com view_all_batches) escolhe em que Filial/Lote o
+        // processo entra; caso contrário entra sempre no lote do próprio.
+        $canChooseBatch = $this->canChooseBatch();
+
         $this->view('Process/Views/create', [
             'errors' => $errors,
             'old' => $old,
             'reopenCandidate' => $reopenCandidate,
             'subjects' => (new SubjectRepository())->listActive(),
             'priorities' => (new PriorityRepository())->listActive(),
+            'canChooseBatch' => $canChooseBatch,
+            'batches' => $canChooseBatch ? (new BatchRepository())->listAll() : [],
+            'sessionBatchId' => (int) Session::get('batch_id'),
         ]);
+    }
+
+    private function canChooseBatch(): bool
+    {
+        $permissions = (array) Session::get('permissions', []);
+
+        return (bool) Session::get('view_all_batches', false)
+            || in_array('process.view_all', $permissions, true);
     }
 }

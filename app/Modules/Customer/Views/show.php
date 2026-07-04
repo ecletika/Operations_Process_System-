@@ -16,8 +16,8 @@
       <?php if ($success): ?><div class="ops-alert ops-alert-success"><?= e($success) ?></div><?php endif; ?>
       <?php foreach ($errors as $error): ?><div class="ops-alert" style="background:#fef2f2;border:1px solid #fecaca;color:#dc2626"><?= e($error) ?></div><?php endforeach; ?>
 
-      <div class="ops-panel" style="max-width:none">
-        <h2 style="margin-top:0">Dados e Contactos</h2>
+      <div class="ops-panel" style="max-width:none" id="editar">
+        <h2 style="margin-top:0">✏️ Editar Dados e Contactos</h2>
         <form method="POST" action="/customers/<?= (int) $customer['id'] ?>">
           <?= csrf_field() ?>
           <div style="display:flex;gap:12px;flex-wrap:wrap">

@@ -49,6 +49,15 @@ final class BatchRepository
         return (int) $this->pdo->lastInsertId();
     }
 
+    public function findActiveById(int $id): ?array
+    {
+        $stmt = $this->pdo->prepare('SELECT * FROM tb_batch WHERE id = :id AND active = 1 AND deleted_at IS NULL');
+        $stmt->execute(['id' => $id]);
+        $batch = $stmt->fetch();
+
+        return $batch ?: null;
+    }
+
     public function findActiveByDepartment(int $departmentId): ?array
     {
         $stmt = $this->pdo->prepare('

@@ -48,6 +48,19 @@
               <label for="customer_name">Nome do Cliente</label>
               <input type="text" id="customer_name" name="customer_name" value="<?= e($old['customer_name'] ?? '') ?>" required>
             </div>
+            <?php if (!empty($canChooseBatch) && !empty($batches)): ?>
+            <div class="ops-form-row">
+              <label for="batch_id">Filial / Departamento (onde o processo entra na fila)</label>
+              <select id="batch_id" name="batch_id" required>
+                <?php $selBatch = (string) ($old['batch_id'] ?? $sessionBatchId); ?>
+                <?php foreach ($batches as $batch): ?>
+                  <option value="<?= (int) $batch['id'] ?>" <?= $selBatch === (string) $batch['id'] ? 'selected' : '' ?>>
+                    <?= e(($batch['branch_name'] ?? '') !== '' ? $batch['branch_name'] . ' · ' . $batch['department_name'] : $batch['department_name']) ?>
+                  </option>
+                <?php endforeach; ?>
+              </select>
+            </div>
+            <?php endif; ?>
             <?php
               $contactChannel = $old['contact_channel'] ?? 'PHONE';
               $contactValue = $old['contact_value'] ?? '';
