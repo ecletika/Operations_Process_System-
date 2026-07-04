@@ -23,6 +23,12 @@ $navItem = static function (string $href, string $icon, string $label, string $c
         . '</a>';
 };
 ?>
+<div class="ops-topbar">
+  <button class="ops-burger" type="button" aria-label="Abrir menu" onclick="document.body.classList.toggle('ops-nav-open')">☰</button>
+  <img src="/img/irmaos-leite-logo.png" alt="Irmãos Leite" class="ops-topbar-logo">
+</div>
+<div class="ops-backdrop" onclick="document.body.classList.remove('ops-nav-open')"></div>
+
 <aside class="ops-sidebar">
   <div class="ops-brand">
     <img src="/img/irmaos-leite-logo.png" alt="Irmãos Leite">
