@@ -23,15 +23,15 @@ $navItem = static function (string $href, string $icon, string $label, string $c
         . '</a>';
 };
 ?>
-<div class="ops-topbar">
+<div class="ops-topbar" style="max-height:56px;overflow:hidden">
   <button class="ops-burger" type="button" aria-label="Abrir menu" onclick="document.body.classList.toggle('ops-nav-open')">☰</button>
-  <img src="/img/irmaos-leite-logo.png" alt="Irmãos Leite" class="ops-topbar-logo">
+  <img src="/img/irmaos-leite-logo.png" alt="Irmãos Leite" class="ops-topbar-logo" style="max-height:36px;width:auto">
 </div>
 <div class="ops-backdrop" onclick="document.body.classList.remove('ops-nav-open')"></div>
 
 <aside class="ops-sidebar">
   <div class="ops-brand">
-    <img src="/img/irmaos-leite-logo.png" alt="Irmãos Leite">
+    <img src="/img/irmaos-leite-logo.png" alt="Irmãos Leite" style="max-width:100%;height:auto">
   </div>
   <span class="ops-brand-name">Operations Process System</span>
 
