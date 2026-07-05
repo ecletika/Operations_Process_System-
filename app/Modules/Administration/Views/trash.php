@@ -1,5 +1,5 @@
 <?php
-$entityIcons = ['process' => '📋', 'customer' => '👥', 'vehicle' => '🚗'];
+$entityIcons = ['process' => '📋', 'customer' => '👥', 'vehicle' => '🚗', 'user' => '👤'];
 $totalDeleted = 0;
 foreach ($groups as $g) {
     $totalDeleted += count($g['rows']);

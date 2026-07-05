@@ -19,6 +19,7 @@ final class TrashRepository
         'process' => ['table' => 'tb_process', 'label_col' => 'process_number', 'name' => 'Processos'],
         'customer' => ['table' => 'tb_customer', 'label_col' => 'name', 'name' => 'Clientes'],
         'vehicle' => ['table' => 'tb_vehicle', 'label_col' => 'plate', 'name' => 'Viaturas'],
+        'user' => ['table' => 'tb_user', 'label_col' => 'username', 'name' => 'Utilizadores'],
     ];
 
     private PDO $pdo;

@@ -52,6 +52,13 @@
                     <button type="submit" class="ops-btn ops-btn-sm" style="background:#b45309" title="Repor MFA (perdeu o telemóvel)">🔐 Repor MFA</button>
                   </form>
                 <?php endif; ?>
+                <?php if (in_array('records.delete', \App\Core\Session::get('permissions', []), true) && (int) $user['id'] !== (int) \App\Core\Session::get('user_id')): ?>
+                  <form method="POST" action="/admin/users/<?= (int) $user['id'] ?>/delete"
+                        onsubmit="return confirm('Excluir o utilizador <?= e($user['username']) ?>? Fica recuperável na Lixeira.');">
+                    <?= csrf_field() ?>
+                    <button type="submit" class="ops-btn ops-btn-sm" style="background:#374151">🗑️ Excluir</button>
+                  </form>
+                <?php endif; ?>
               </td>
             </tr>
           <?php endforeach; ?>

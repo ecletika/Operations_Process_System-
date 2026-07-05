@@ -139,6 +139,17 @@ final class UserManagementService
         $this->logAudit($active ? 'ACTIVATE' : 'DEACTIVATE', 'tb_user', $id);
     }
 
+    /** Soft-delete de um utilizador — nunca a própria conta. Recuperável na Lixeira. */
+    public function delete(int $id, int $actingUserId): void
+    {
+        if ($id === $actingUserId) {
+            throw new RuntimeException('Não pode excluir a sua própria conta.');
+        }
+
+        $this->users->delete($id, $actingUserId);
+        $this->logAudit('DELETE', 'tb_user', $id);
+    }
+
     /** @return string[] */
     private function validateCommon(array $input): array
     {

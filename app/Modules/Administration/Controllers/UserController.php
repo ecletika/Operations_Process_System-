@@ -111,6 +111,25 @@ final class UserController extends Controller
         $this->back();
     }
 
+    /** Soft-delete do utilizador — nunca a própria conta. Recuperável na Lixeira. */
+    public function destroy(Request $request, array $params): never
+    {
+        if (!$this->checkCsrf($request)) {
+            $this->back();
+        }
+
+        $id = (int) $params['id'];
+
+        try {
+            (new UserManagementService())->delete($id, (int) Session::get('user_id'));
+            Session::flash('success', 'Utilizador movido para a Lixeira.');
+        } catch (RuntimeException $e) {
+            Session::flash('errors', [$e->getMessage()]);
+        }
+
+        $this->back();
+    }
+
     /** Repõe o MFA de um utilizador (perdeu o telemóvel) — volta a pedir configuração. */
     public function resetMfa(Request $request, array $params): never
     {

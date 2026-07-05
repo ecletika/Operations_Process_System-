@@ -219,6 +219,15 @@ final class UserRepository
         $stmt->execute(['id' => $id, 'active' => $active ? 1 : 0, 'updated_by' => $userId]);
     }
 
+    /** Soft-delete (RN-0048) — o utilizador fica na Lixeira, recuperável. */
+    public function delete(int $id, int $userId): void
+    {
+        $stmt = $this->pdo->prepare('
+            UPDATE tb_user SET deleted_at = NOW(), deleted_by = :user_id WHERE id = :id
+        ');
+        $stmt->execute(['id' => $id, 'user_id' => $userId]);
+    }
+
     /**
      * "Meu Perfil" - o próprio utilizador altera o seu nome/email (RF-0030
      * proíbe apagar, não impede autogestão dos próprios dados de perfil).
