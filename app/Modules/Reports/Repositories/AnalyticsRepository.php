@@ -49,36 +49,66 @@ final class AnalyticsRepository
     }
 
     /**
-     * Relatório SLA: por prioridade, % de processos concluídos dentro do
-     * SLA definido (default_sla_minutes da prioridade).
+     * Filtro opcional por operador(es). Devolve [cláusula SQL, params].
+     *
+     * @param int[] $operatorIds
+     * @return array{0:string,1:array}
      */
-    public function sla(?string $from, ?string $to): array
+    private function operatorClause(array $operatorIds, string $column): array
     {
-        [$period, $params] = $this->periodClause($from, $to);
+        $operatorIds = array_values(array_filter(array_map('intval', $operatorIds)));
+        if ($operatorIds === []) {
+            return ['', []];
+        }
 
-        return $this->run("
-            SELECT pr.name AS prioridade, pr.default_sla_minutes AS sla_minutos,
-                   COUNT(p.id) AS total,
-                   SUM(CASE WHEN p.closed_at IS NOT NULL THEN 1 ELSE 0 END) AS concluidos,
-                   SUM(CASE WHEN p.closed_at IS NOT NULL
-                             AND TIMESTAMPDIFF(MINUTE, p.created_at, p.closed_at) <= pr.default_sla_minutes
-                            THEN 1 ELSE 0 END) AS dentro_sla,
-                   ROUND(AVG(CASE WHEN p.closed_at IS NOT NULL
-                                  THEN TIMESTAMPDIFF(MINUTE, p.created_at, p.closed_at) END), 0) AS tempo_medio_min
-            FROM tb_priority pr
-            LEFT JOIN tb_process p ON p.priority_id = pr.id AND p.deleted_at IS NULL {$period}
-            WHERE pr.deleted_at IS NULL
-            GROUP BY pr.id, pr.name, pr.default_sla_minutes, pr.sort_order
-            ORDER BY pr.sort_order ASC
-        ", $params);
+        $placeholders = [];
+        $params = [];
+        foreach ($operatorIds as $i => $id) {
+            $placeholders[] = ":op{$i}";
+            $params["op{$i}"] = $id;
+        }
+
+        return [' AND ' . $column . ' IN (' . implode(', ', $placeholders) . ')', $params];
     }
 
-    /** Produtividade por Operador: criados, assumidos, concluídos, tempo médio. */
-    public function operators(?string $from, ?string $to): array
+    /**
+     * Relatório SLA por colaborador × prioridade: % de processos concluídos
+     * dentro do SLA (default_sla_minutes) — mostra quem está a cumprir.
+     *
+     * @param int[] $operatorIds filtro opcional (um ou mais operadores)
+     */
+    public function sla(?string $from, ?string $to, array $operatorIds = []): array
+    {
+        [$period, $params] = $this->periodClause($from, $to);
+        [$opFilter, $opParams] = $this->operatorClause($operatorIds, 'p.closed_by');
+
+        return $this->run("
+            SELECT CONCAT(u.first_name, ' ', u.last_name) AS colaborador,
+                   pr.name AS prioridade, pr.default_sla_minutes AS sla_minutos,
+                   COUNT(p.id) AS concluidos,
+                   SUM(CASE WHEN TIMESTAMPDIFF(MINUTE, p.created_at, p.closed_at) <= pr.default_sla_minutes
+                            THEN 1 ELSE 0 END) AS dentro_sla,
+                   ROUND(AVG(TIMESTAMPDIFF(MINUTE, p.created_at, p.closed_at)), 0) AS tempo_medio_min
+            FROM tb_process p
+            JOIN tb_priority pr ON pr.id = p.priority_id
+            JOIN tb_user u ON u.id = p.closed_by
+            WHERE p.deleted_at IS NULL AND p.closed_at IS NOT NULL {$period}{$opFilter}
+            GROUP BY u.id, u.first_name, u.last_name, pr.id, pr.name, pr.default_sla_minutes, pr.sort_order
+            ORDER BY colaborador ASC, pr.sort_order ASC
+        ", $params + $opParams);
+    }
+
+    /**
+     * Produtividade por Operador: criados, assumidos, concluídos, tempo médio.
+     *
+     * @param int[] $operatorIds filtro opcional (um ou mais operadores)
+     */
+    public function operators(?string $from, ?string $to, array $operatorIds = []): array
     {
         [$periodCreated, $paramsCreated] = $this->periodClause($from, $to, 'p.created_at');
         [$periodAssigned, $paramsAssigned] = $this->periodClause($from, $to, 'p2.created_at');
         [$periodClosed, $paramsClosed] = $this->periodClause($from, $to, 'p3.created_at');
+        [$opFilter, $opParams] = $this->operatorClause($operatorIds, 'u.id');
 
         // Renomeia parâmetros para não repetir o mesmo nome no statement
         $sql = "
@@ -90,11 +120,11 @@ final class AnalyticsRepository
                     FROM tb_process p4
                     WHERE p4.closed_by = u.id AND p4.assumed_at IS NOT NULL AND p4.closed_at IS NOT NULL AND p4.deleted_at IS NULL) AS tempo_medio_min
             FROM tb_user u
-            WHERE u.deleted_at IS NULL AND u.active = 1
+            WHERE u.deleted_at IS NULL AND u.active = 1 {$opFilter}
             ORDER BY concluidos DESC, criados DESC
         ";
 
-        $params = $paramsCreated;
+        $params = $paramsCreated + $opParams;
         foreach ($paramsAssigned as $key => $value) {
             $params[str_replace('period_', 'assigned_period_', $key)] = $value;
         }

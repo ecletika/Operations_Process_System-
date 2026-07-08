@@ -19,6 +19,7 @@ use App\Modules\Auth\Controllers\MfaController;
 use App\Modules\Auth\Controllers\ProfileController;
 use App\Modules\Customer\Controllers\CustomerController;
 use App\Modules\Dashboard\Controllers\DashboardController;
+use App\Modules\Dashboard\Controllers\TeamBoardController;
 use App\Modules\Intelligence\Controllers\IntelligenceController;
 use App\Modules\Notification\Controllers\NotificationController;
 use App\Modules\Process\Controllers\AttachmentController;
@@ -43,6 +44,7 @@ $router->get('/mfa/setup', [MfaController::class, 'setup']);
 $router->post('/mfa/setup', [MfaController::class, 'confirmSetup']);
 
 $router->get('/dashboard', [DashboardController::class, 'index'], [Authenticate::class]);
+$router->get('/team', [TeamBoardController::class, 'index'], [Authenticate::class]);
 $router->get('/search', [SearchController::class, 'index'], [Authenticate::class]);
 
 // 👤 Meu Perfil (autogestão do próprio utilizador)
@@ -65,6 +67,8 @@ $router->post('/processes/{id}/close', [ProcessController::class, 'close'], [Aut
 $router->post('/processes/{id}/reopen', [ProcessController::class, 'reopen'], [Authenticate::class, [PermissionMiddleware::class, 'process.reopen']]);
 $router->post('/processes/{id}/delete', [ProcessController::class, 'destroy'], [Authenticate::class, [PermissionMiddleware::class, 'process.delete']]);
 $router->post('/processes/{id}/archive', [ProcessController::class, 'archive'], [Authenticate::class, [PermissionMiddleware::class, 'process.close']]);
+$router->post('/processes/{id}/release', [ProcessController::class, 'release'], [Authenticate::class, [PermissionMiddleware::class, 'process.assume']]);
+$router->post('/processes/{id}/reassign', [ProcessController::class, 'reassign'], [Authenticate::class, [PermissionMiddleware::class, 'process.view_all']]);
 
 $router->post('/processes/{id}/notes', [NoteController::class, 'store'], [Authenticate::class]);
 $router->post('/notes/{id}', [NoteController::class, 'update'], [Authenticate::class]);

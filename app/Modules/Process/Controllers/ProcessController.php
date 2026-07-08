@@ -51,10 +51,13 @@ final class ProcessController extends Controller
      */
     public function mine(Request $request): never
     {
-        $processes = (new ProcessRepository())->listAssignedTo((int) Session::get('user_id'));
+        $userId = (int) Session::get('user_id');
+        $repository = new ProcessRepository();
 
         $this->view('Process/Views/mine', [
-            'processes' => $processes,
+            'processes' => $repository->listAssignedTo($userId),
+            'createdProcesses' => $repository->listCreatedBy($userId),
+            'userId' => $userId,
         ]);
     }
 
@@ -301,6 +304,32 @@ final class ProcessController extends Controller
 
         Session::flash('success', 'Processo excluído.');
         Response::redirect('/processes/all');
+    }
+
+    /** Devolve o processo à fila (o operador não está disponível). */
+    public function release(Request $request, array $params): never
+    {
+        $this->runAction($request, $params, fn (ProcessService $service, int $id, int $userId) => $service->returnToQueue($id, $userId));
+    }
+
+    /** Reatribui o processo a outro operador (Admin/Supervisor). */
+    public function reassign(Request $request, array $params): never
+    {
+        $processId = (int) $params['id'];
+
+        if (!Session::verifyCsrfToken($request->input('_csrf'))) {
+            Session::flash('errors', ['Sessão expirada, tente novamente.']);
+            Response::redirect('/processes/all');
+        }
+
+        try {
+            (new ProcessService())->reassign($processId, (int) $request->input('user_id', 0), (int) Session::get('user_id'));
+            Session::flash('success', 'Processo reatribuído.');
+        } catch (RuntimeException $e) {
+            Session::flash('errors', [$e->getMessage()]);
+        }
+
+        Response::redirect((string) ($request->input('back') ?: '/processes/all'));
     }
 
     /** Arquiva ou desarquiva um processo (concluído). */

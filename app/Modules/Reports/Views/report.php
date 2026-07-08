@@ -24,8 +24,22 @@
             <label for="to">Até</label>
             <input type="date" id="to" name="to" value="<?= e($to) ?>">
           </div>
-          <div style="padding-bottom:12px">
-            <button type="submit" class="ops-btn ops-btn-sm">Aplicar período</button>
+          <?php if (!empty($operatorOptions)): ?>
+            <div class="ops-form-row" style="min-width:220px">
+              <label for="operators">Operador(es) <span style="font-weight:400;color:#9ca3af">(Ctrl+clique para vários)</span></label>
+              <select id="operators" name="operators[]" multiple size="4">
+                <?php foreach ($operatorOptions as $op): ?>
+                  <?php if ((int) $op['active'] !== 1) { continue; } ?>
+                  <option value="<?= (int) $op['id'] ?>" <?= in_array((int) $op['id'], $selectedOperators ?? [], true) ? 'selected' : '' ?>>
+                    <?= e($op['first_name'] . ' ' . $op['last_name']) ?>
+                  </option>
+                <?php endforeach; ?>
+              </select>
+            </div>
+          <?php endif; ?>
+          <div style="padding-bottom:12px;display:flex;gap:8px">
+            <button type="submit" class="ops-btn ops-btn-sm">Aplicar filtros</button>
+            <a href="/reports/view/<?= e($code) ?>" class="ops-btn ops-btn-sm" style="background:#6b7280;text-decoration:none">Limpar</a>
           </div>
         </div>
       </form>

@@ -107,12 +107,15 @@
           <tr>
             <th>Nº Processo</th><th>Filial / Departamento</th><th>Cliente</th><th>Matrícula</th><th>Assunto</th>
             <th>Estado</th><th>Prioridade</th><th>Responsável</th><th>Criado por</th><th>Contactos</th><th>Criado em</th>
+            <th>Reatribuir</th>
           </tr>
         </thead>
         <tbody>
           <?php if (empty($processes)): ?>
-            <tr><td colspan="11" style="text-align:center;color:#6b7280">Nenhum processo encontrado com estes filtros.</td></tr>
+            <tr><td colspan="12" style="text-align:center;color:#6b7280">Nenhum processo encontrado com estes filtros.</td></tr>
           <?php endif; ?>
+          <?php $activeUsers = array_values(array_filter($users, fn ($u) => (int) $u['active'] === 1)); ?>
+          <?php $backUrl = '/processes/all?' . http_build_query($filters); ?>
           <?php foreach ($processes as $process): ?>
             <tr>
               <td><a href="/processes/<?= (int) $process['id'] ?>"><?= e($process['process_number']) ?></a></td>
@@ -126,6 +129,23 @@
               <td><?= $process['creator_first_name'] ? e($process['creator_first_name'] . ' ' . $process['creator_last_name']) : '—' ?></td>
               <td><?= (int) $process['contact_count'] ?></td>
               <td><?= e($process['created_at']) ?></td>
+              <td>
+                <?php if (!in_array($process['status_code'], ['SOLVED', 'CLOSED'], true)): ?>
+                  <form method="POST" action="/processes/<?= (int) $process['id'] ?>/reassign" style="display:flex;gap:4px">
+                    <?= csrf_field() ?>
+                    <input type="hidden" name="back" value="<?= e($backUrl) ?>">
+                    <select name="user_id" required style="padding:4px 6px;border:1px solid #e5e7eb;border-radius:6px;font-size:12px;max-width:130px">
+                      <option value="">Operador…</option>
+                      <?php foreach ($activeUsers as $u): ?>
+                        <option value="<?= (int) $u['id'] ?>"><?= e($u['first_name'] . ' ' . $u['last_name']) ?></option>
+                      <?php endforeach; ?>
+                    </select>
+                    <button type="submit" class="ops-btn ops-btn-sm" style="padding:4px 8px">➜</button>
+                  </form>
+                <?php else: ?>
+                  <span style="color:#9ca3af">—</span>
+                <?php endif; ?>
+              </td>
             </tr>
           <?php endforeach; ?>
         </tbody>

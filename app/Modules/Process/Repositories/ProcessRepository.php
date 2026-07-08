@@ -138,6 +138,31 @@ final class ProcessRepository
         $stmt->execute(['id' => $id, 'assigned_to' => $userId, 'updated_by' => $userId, 'status_id' => $statusId]);
     }
 
+    /** Reatribui o processo a outro operador (ação de Admin/Supervisor). */
+    public function reassign(int $id, int $newUserId, int $statusId, int $actingUserId): void
+    {
+        $stmt = $this->pdo->prepare('
+            UPDATE tb_process
+            SET assigned_to = :assigned_to, status_id = :status_id,
+                assumed_at = COALESCE(assumed_at, NOW()),
+                updated_by = :updated_by, updated_at = NOW()
+            WHERE id = :id
+        ');
+        $stmt->execute(['id' => $id, 'assigned_to' => $newUserId, 'status_id' => $statusId, 'updated_by' => $actingUserId]);
+    }
+
+    /** Devolve o processo à Fila Inteligente™ (larga o responsável atual). */
+    public function releaseToQueue(int $id, int $statusId, int $userId): void
+    {
+        $stmt = $this->pdo->prepare('
+            UPDATE tb_process
+            SET assigned_to = NULL, assumed_at = NULL, status_id = :status_id,
+                updated_by = :user_id, updated_at = NOW()
+            WHERE id = :id
+        ');
+        $stmt->execute(['id' => $id, 'status_id' => $statusId, 'user_id' => $userId]);
+    }
+
     public function changeStatus(int $id, int $statusId, int $userId): void
     {
         $stmt = $this->pdo->prepare('
@@ -305,6 +330,32 @@ final class ProcessRepository
             JOIN tb_status st ON st.id = p.status_id
             JOIN tb_priority pr ON pr.id = p.priority_id
             WHERE p.deleted_at IS NULL AND p.assigned_to = :user_id AND st.code NOT IN ('CLOSED')
+            ORDER BY p.last_contact_at DESC
+        ");
+        $stmt->execute(['user_id' => $userId]);
+
+        return $stmt->fetchAll();
+    }
+
+    /**
+     * Processos Criados por mim — o criador acompanha (e pode interagir),
+     * mesmo que outro operador os tenha assumido.
+     */
+    public function listCreatedBy(int $userId): array
+    {
+        $stmt = $this->pdo->prepare("
+            SELECT p.*, v.plate AS vehicle_plate, c.name AS customer_name,
+                   sub.name AS subject_name, st.code AS status_code, st.name AS status_name,
+                   pr.code AS priority_code, pr.name AS priority_name, pr.color AS priority_color,
+                   u.first_name AS assigned_first_name, u.last_name AS assigned_last_name
+            FROM tb_process p
+            JOIN tb_vehicle v ON v.id = p.vehicle_id
+            JOIN tb_customer c ON c.id = p.customer_id
+            JOIN tb_subject sub ON sub.id = p.subject_id
+            JOIN tb_status st ON st.id = p.status_id
+            JOIN tb_priority pr ON pr.id = p.priority_id
+            LEFT JOIN tb_user u ON u.id = p.assigned_to
+            WHERE p.deleted_at IS NULL AND p.created_by = :user_id AND st.code NOT IN ('CLOSED')
             ORDER BY p.last_contact_at DESC
         ");
         $stmt->execute(['user_id' => $userId]);

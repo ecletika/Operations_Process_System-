@@ -53,6 +53,14 @@
           </form>
         <?php endif; ?>
 
+        <?php if (!in_array($process['status_code'], ['QUEUE', 'SOLVED', 'CLOSED'], true) && in_array('process.assume', \App\Core\Session::get('permissions', []), true)): ?>
+          <form method="POST" action="/processes/<?= (int) $process['id'] ?>/release"
+                onsubmit="return confirm('Devolver este processo à Fila Inteligente™ para outro operador o assumir?');">
+            <?= csrf_field() ?>
+            <button type="submit" class="ops-btn ops-btn-sm" style="background:#f59e0b">↩️ Voltar para a Fila</button>
+          </form>
+        <?php endif; ?>
+
         <?php if (in_array($process['status_code'], ['SOLVED', 'CLOSED'], true) && in_array('process.close', \App\Core\Session::get('permissions', []), true)): ?>
           <form method="POST" action="/processes/<?= (int) $process['id'] ?>/archive">
             <?= csrf_field() ?>

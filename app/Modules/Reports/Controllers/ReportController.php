@@ -21,7 +21,7 @@ final class ReportController extends Controller
 
     /** Relatórios disponíveis (código => [título, descrição]). */
     private const REPORTS = [
-        'sla' => ['⏱️ Relatório SLA', 'Cumprimento de SLA por prioridade e tempo médio de resolução.'],
+        'sla' => ['⏱️ Relatório SLA', 'Cumprimento de SLA por colaborador e prioridade — quem está a cumprir e quem não.'],
         'operators' => ['🧑‍💼 Produtividade · Operadores', 'Processos criados, assumidos e concluídos por operador.'],
         'batches' => ['🏢 Lotes (Filial · Departamento)', 'Volume, em andamento, concluídos e reaberturas por lote.'],
         'customers' => ['👥 Clientes', 'Top clientes por nº de processos, contactos e reaberturas.'],
@@ -52,9 +52,13 @@ final class ReportController extends Controller
         [$from, $to] = $this->periodFromRequest($request);
         $repository = new AnalyticsRepository();
 
+        // Filtro por operador(es) — só nos relatórios SLA e Produtividade.
+        $operatorIds = array_map('intval', (array) $request->input('operators', []));
+        $hasOperatorFilter = in_array($code, ['sla', 'operators'], true);
+
         $rows = match ($code) {
-            'sla' => $repository->sla($from, $to),
-            'operators' => $repository->operators($from, $to),
+            'sla' => $repository->sla($from, $to, $operatorIds),
+            'operators' => $repository->operators($from, $to, $operatorIds),
             'batches' => $repository->batches($from, $to),
             'customers' => $repository->customers($from, $to),
             'vehicles' => $repository->vehicles($from, $to),
@@ -78,6 +82,8 @@ final class ReportController extends Controller
             'rows' => $rows,
             'from' => (string) $request->input('from', ''),
             'to' => (string) $request->input('to', ''),
+            'operatorOptions' => $hasOperatorFilter ? (new \App\Modules\Auth\Repositories\UserRepository())->listAll() : [],
+            'selectedOperators' => $operatorIds,
         ]);
     }
 

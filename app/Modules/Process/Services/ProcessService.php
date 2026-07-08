@@ -31,12 +31,14 @@ final class ProcessService
         // "Assumir" primeiro (ex.: o próprio operador que cria já resolve
         // o caso na hora). RF-0014 não exige assumir antes de concluir.
         'QUEUE' => ['ASSIGNED', 'SOLVED'],
-        'ASSIGNED' => ['IN_PROGRESS', 'WAIT_CLIENT', 'WAIT_PARTS', 'WAIT_WORKSHOP', 'WAIT_EXTERNAL', 'SOLVED'],
-        'IN_PROGRESS' => ['WAIT_CLIENT', 'WAIT_PARTS', 'WAIT_WORKSHOP', 'WAIT_EXTERNAL', 'SOLVED'],
-        'WAIT_CLIENT' => ['IN_PROGRESS', 'SOLVED'],
-        'WAIT_PARTS' => ['IN_PROGRESS', 'SOLVED'],
-        'WAIT_WORKSHOP' => ['IN_PROGRESS', 'SOLVED'],
-        'WAIT_EXTERNAL' => ['IN_PROGRESS', 'SOLVED'],
+        // "→ QUEUE": o operador pode devolver o processo à fila quando não
+        // consegue tratá-lo (ex.: indisponível), para outro assumir.
+        'ASSIGNED' => ['IN_PROGRESS', 'WAIT_CLIENT', 'WAIT_PARTS', 'WAIT_WORKSHOP', 'WAIT_EXTERNAL', 'SOLVED', 'QUEUE'],
+        'IN_PROGRESS' => ['WAIT_CLIENT', 'WAIT_PARTS', 'WAIT_WORKSHOP', 'WAIT_EXTERNAL', 'SOLVED', 'QUEUE'],
+        'WAIT_CLIENT' => ['IN_PROGRESS', 'SOLVED', 'QUEUE'],
+        'WAIT_PARTS' => ['IN_PROGRESS', 'SOLVED', 'QUEUE'],
+        'WAIT_WORKSHOP' => ['IN_PROGRESS', 'SOLVED', 'QUEUE'],
+        'WAIT_EXTERNAL' => ['IN_PROGRESS', 'SOLVED', 'QUEUE'],
         // Reabrir devolve o processo à Fila Inteligente™ para reatribuição
         // (o estado "REOPENED" do dicionário fica reservado para relatórios/analítica).
         'SOLVED' => ['CLOSED', 'QUEUE'],
@@ -182,6 +184,57 @@ final class ProcessService
         }
 
         $this->timeline->record($processId, 'PROCESS_ASSIGNED', 'Processo assumido', null, $userId);
+    }
+
+    /**
+     * Devolve o processo à Fila Inteligente™ — o operador não está
+     * disponível para o tratar e outro pode assumi-lo.
+     */
+    public function returnToQueue(int $processId, int $userId): void
+    {
+        $process = $this->processes->findById($processId);
+        if ($process === null) {
+            throw new RuntimeException('Processo não encontrado.');
+        }
+
+        $this->guardTransition($process['status_code'], 'QUEUE');
+
+        $queueStatusId = $this->processes->statusIdByCode('QUEUE');
+        $this->processes->releaseToQueue($processId, $queueStatusId, $userId);
+
+        $this->timeline->record($processId, 'PROCESS_RELEASED', 'Processo devolvido à fila', null, $userId);
+    }
+
+    /**
+     * Reatribui o processo a outro operador (Admin/Supervisor) — o novo
+     * responsável fica com o processo como se o tivesse assumido.
+     */
+    public function reassign(int $processId, int $newUserId, int $actingUserId): void
+    {
+        $process = $this->processes->findById($processId);
+        if ($process === null) {
+            throw new RuntimeException('Processo não encontrado.');
+        }
+
+        if (in_array($process['status_code'], ['SOLVED', 'CLOSED'], true)) {
+            throw new RuntimeException('Não é possível reatribuir um processo concluído. Reabra-o primeiro.');
+        }
+
+        $newUser = $this->users->findById($newUserId);
+        if ($newUser === null || !(bool) $newUser['active']) {
+            throw new RuntimeException('O utilizador escolhido não existe ou está inativo.');
+        }
+
+        $assignedStatusId = $this->processes->statusIdByCode('ASSIGNED');
+        $this->processes->reassign($processId, $newUserId, $assignedStatusId, $actingUserId);
+
+        $this->timeline->record(
+            $processId,
+            'PROCESS_REASSIGNED',
+            'Processo reatribuído a ' . $newUser['first_name'] . ' ' . $newUser['last_name'],
+            null,
+            $actingUserId
+        );
     }
 
     /**

@@ -73,6 +73,7 @@ $navItem = static function (string $href, string $icon, string $label, string $c
 
   <div class="ops-nav-section">Centro de Operações™</div>
   <?= $navItem('/dashboard', '📊', 'Dashboard', $currentPath) ?>
+  <?= $navItem('/team', '🖥️', 'Tela Operacional', $currentPath) ?>
   <?= $navItem('/processes/create', '➕', 'Novo Processo', $currentPath) ?>
   <?php if (in_array('process.assume', $permissions, true)): ?>
     <form method="POST" action="/processes/next" style="margin:0">
