@@ -24,7 +24,7 @@
         Criado por: <strong><?= $process['creator_first_name'] ? e($process['creator_first_name'] . ' ' . $process['creator_last_name']) : '—' ?></strong>
         em <?= e($process['created_at']) ?>
         <?php if ($process['assigned_first_name']): ?>
-          · Responsável: <strong><?= e($process['assigned_first_name'] . ' ' . $process['assigned_last_name']) ?></strong>
+          · Responsável: <?= online_dot($process['assigned_last_activity'] ?? null) ?><strong><?= e($process['assigned_first_name'] . ' ' . $process['assigned_last_name']) ?></strong>
         <?php endif; ?>
       </p>
 

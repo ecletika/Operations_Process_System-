@@ -125,7 +125,13 @@
               <td><?= e($process['subject_name']) ?></td>
               <td><?= e($process['status_name']) ?></td>
               <td><span class="ops-badge" style="background:<?= e($process['priority_color']) ?>"><?= e($process['priority_name']) ?></span></td>
-              <td><?= $process['assigned_first_name'] ? e($process['assigned_first_name'] . ' ' . $process['assigned_last_name']) : '—' ?></td>
+              <td>
+                <?php if ($process['assigned_first_name']): ?>
+                  <span style="display:flex;align-items:center"><?= online_dot($process['assigned_last_activity'] ?? null) ?><?= e($process['assigned_first_name'] . ' ' . $process['assigned_last_name']) ?></span>
+                <?php else: ?>
+                  —
+                <?php endif; ?>
+              </td>
               <td><?= $process['creator_first_name'] ? e($process['creator_first_name'] . ' ' . $process['creator_last_name']) : '—' ?></td>
               <td><?= (int) $process['contact_count'] ?></td>
               <td><?= e($process['created_at']) ?></td>

@@ -72,9 +72,12 @@
               <td><span class="ops-badge" style="background:<?= e($process['priority_color']) ?>"><?= e($process['priority_name']) ?></span></td>
               <td>
                 <?php if ($process['assigned_first_name']): ?>
-                  <?= (int) $process['assigned_to'] === (int) $userId
-                      ? '<strong>Eu</strong>'
-                      : e($process['assigned_first_name'] . ' ' . $process['assigned_last_name']) ?>
+                  <span style="display:flex;align-items:center">
+                    <?= online_dot($process['assigned_last_activity'] ?? null) ?>
+                    <?= (int) $process['assigned_to'] === (int) $userId
+                        ? '<strong>Eu</strong>'
+                        : e($process['assigned_first_name'] . ' ' . $process['assigned_last_name']) ?>
+                  </span>
                 <?php else: ?>
                   <span style="color:#9ca3af">— na fila</span>
                 <?php endif; ?>

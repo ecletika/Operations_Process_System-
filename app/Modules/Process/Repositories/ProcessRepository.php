@@ -97,6 +97,7 @@ final class ProcessRepository
                    pr.code AS priority_code, pr.name AS priority_name, pr.color AS priority_color,
                    pr.default_sla_minutes,
                    u.first_name AS assigned_first_name, u.last_name AS assigned_last_name,
+                   u.last_activity_at AS assigned_last_activity,
                    creator.first_name AS creator_first_name, creator.last_name AS creator_last_name
             FROM tb_process p
             JOIN tb_customer c ON c.id = p.customer_id
@@ -347,7 +348,8 @@ final class ProcessRepository
             SELECT p.*, v.plate AS vehicle_plate, c.name AS customer_name,
                    sub.name AS subject_name, st.code AS status_code, st.name AS status_name,
                    pr.code AS priority_code, pr.name AS priority_name, pr.color AS priority_color,
-                   u.first_name AS assigned_first_name, u.last_name AS assigned_last_name
+                   u.first_name AS assigned_first_name, u.last_name AS assigned_last_name,
+                   u.last_activity_at AS assigned_last_activity
             FROM tb_process p
             JOIN tb_vehicle v ON v.id = p.vehicle_id
             JOIN tb_customer c ON c.id = p.customer_id
@@ -542,6 +544,7 @@ final class ProcessRepository
                    st.code AS status_code, st.name AS status_name,
                    pr.name AS priority_name, pr.color AS priority_color,
                    u.first_name AS assigned_first_name, u.last_name AS assigned_last_name,
+                   u.last_activity_at AS assigned_last_activity,
                    creator.first_name AS creator_first_name, creator.last_name AS creator_last_name,
                    br.name AS branch_name, d.name AS department_name
             FROM tb_process p
