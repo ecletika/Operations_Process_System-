@@ -7,6 +7,7 @@ namespace App\Modules\Process\Repositories;
 use App\Core\Database;
 use App\Helpers\PlateHelper;
 use PDO;
+use PDOException;
 
 /**
  * OPS-PRD-001 5.6 / TABELA 11 - matrícula é índice único e normalizado.
@@ -40,21 +41,74 @@ final class VehicleRepository
         return $vehicle ?: null;
     }
 
+    /**
+     * "Find-or-create" resiliente a corrida: se dois pedidos concorrentes
+     * (ex.: duplo clique / reenvio) tentarem criar a mesma matrícula em
+     * simultâneo, o INSERT do segundo falha por violar uq_vehicle_plate —
+     * em vez de propagar o erro, devolvemos o registo que o primeiro
+     * pedido acabou de criar.
+     */
     public function create(string $plate, int $customerId, int $userId, ?string $brand = null, ?string $model = null): int
     {
-        $stmt = $this->pdo->prepare('
-            INSERT INTO tb_vehicle (uuid, plate, customer_id, brand, model, active, created_at, created_by)
-            VALUES (UUID(), :plate, :customer_id, :brand, :model, 1, NOW(), :created_by)
-        ');
-        $stmt->execute([
-            'plate' => PlateHelper::normalize($plate),
-            'customer_id' => $customerId,
-            'brand' => $brand,
-            'model' => $model,
-            'created_by' => $userId,
-        ]);
+        $normalizedPlate = PlateHelper::normalize($plate);
 
-        return (int) $this->pdo->lastInsertId();
+        try {
+            $stmt = $this->pdo->prepare('
+                INSERT INTO tb_vehicle (uuid, plate, customer_id, brand, model, active, created_at, created_by)
+                VALUES (UUID(), :plate, :customer_id, :brand, :model, 1, NOW(), :created_by)
+            ');
+            $stmt->execute([
+                'plate' => $normalizedPlate,
+                'customer_id' => $customerId,
+                'brand' => $brand,
+                'model' => $model,
+                'created_by' => $userId,
+            ]);
+
+            return (int) $this->pdo->lastInsertId();
+        } catch (PDOException $e) {
+            if ((int) $e->getCode() !== 23000) {
+                throw $e;
+            }
+
+            $existing = $this->findByPlate($normalizedPlate);
+            if ($existing !== null) {
+                return (int) $existing['id'];
+            }
+
+            // A matrícula existe mas está soft-deleted (ex.: foi para a
+            // Lixeira) — revivemos o registo em vez de duplicar, evitando
+            // violar uq_vehicle_plate (que ignora deleted_at).
+            $deleted = $this->findByPlateIncludingDeleted($normalizedPlate);
+            if ($deleted === null) {
+                throw $e;
+            }
+
+            $revive = $this->pdo->prepare('
+                UPDATE tb_vehicle
+                SET customer_id = :customer_id, brand = :brand, model = :model,
+                    deleted_at = NULL, deleted_by = NULL, updated_at = NOW(), updated_by = :updated_by
+                WHERE id = :id
+            ');
+            $revive->execute([
+                'id' => $deleted['id'],
+                'customer_id' => $customerId,
+                'brand' => $brand,
+                'model' => $model,
+                'updated_by' => $userId,
+            ]);
+
+            return (int) $deleted['id'];
+        }
+    }
+
+    private function findByPlateIncludingDeleted(string $normalizedPlate): ?array
+    {
+        $stmt = $this->pdo->prepare('SELECT * FROM tb_vehicle WHERE plate = :plate LIMIT 1');
+        $stmt->execute(['plate' => $normalizedPlate]);
+        $vehicle = $stmt->fetch();
+
+        return $vehicle ?: null;
     }
 
     /**
