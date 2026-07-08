@@ -24,8 +24,11 @@
             <label for="to">Até</label>
             <input type="date" id="to" name="to" value="<?= e($to) ?>">
           </div>
-          <div style="padding-bottom:12px">
+          <?php $excelQuery = http_build_query(array_filter(['from' => $from, 'to' => $to])); ?>
+          <div style="padding-bottom:12px;display:flex;gap:8px">
             <button type="submit" class="ops-btn ops-btn-sm">Aplicar período</button>
+            <a href="/reports/heatmap.xls<?= $excelQuery !== '' ? '?' . $excelQuery : '' ?>"
+               class="ops-btn ops-btn-sm" style="background:#16a34a;text-decoration:none">⬇️ Baixar Excel</a>
           </div>
         </div>
       </form>

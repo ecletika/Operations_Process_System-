@@ -37,9 +37,19 @@
               </select>
             </div>
           <?php endif; ?>
+          <?php
+            // Excel com exatamente os mesmos filtros aplicados na página
+            $excelQuery = http_build_query(array_filter([
+                'from' => $from,
+                'to' => $to,
+                'operators' => $selectedOperators ?? [],
+            ]));
+          ?>
           <div style="padding-bottom:12px;display:flex;gap:8px">
             <button type="submit" class="ops-btn ops-btn-sm">Aplicar filtros</button>
             <a href="/reports/view/<?= e($code) ?>" class="ops-btn ops-btn-sm" style="background:#6b7280;text-decoration:none">Limpar</a>
+            <a href="/reports/view/<?= e($code) ?>/excel<?= $excelQuery !== '' ? '?' . $excelQuery : '' ?>"
+               class="ops-btn ops-btn-sm" style="background:#16a34a;text-decoration:none">⬇️ Baixar Excel</a>
           </div>
         </div>
       </form>

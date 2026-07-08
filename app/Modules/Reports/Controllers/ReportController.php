@@ -49,12 +49,30 @@ final class ReportController extends Controller
             exit;
         }
 
+        $rows = $this->buildReportRows($code, $request);
+        $hasOperatorFilter = in_array($code, ['sla', 'operators'], true);
+        $operatorIds = array_map('intval', (array) $request->input('operators', []));
+
+        $this->view('Reports/Views/report', [
+            'code' => $code,
+            'title' => self::REPORTS[$code][0],
+            'description' => self::REPORTS[$code][1],
+            'rows' => $rows,
+            'from' => (string) $request->input('from', ''),
+            'to' => (string) $request->input('to', ''),
+            'operatorOptions' => $hasOperatorFilter ? (new \App\Modules\Auth\Repositories\UserRepository())->listAll() : [],
+            'selectedOperators' => $operatorIds,
+        ]);
+    }
+
+    /** Constrói as linhas de um relatório tabular (partilhado pela vista e pelo Excel). */
+    private function buildReportRows(string $code, Request $request): array
+    {
         [$from, $to] = $this->periodFromRequest($request);
         $repository = new AnalyticsRepository();
 
         // Filtro por operador(es) — só nos relatórios SLA e Produtividade.
         $operatorIds = array_map('intval', (array) $request->input('operators', []));
-        $hasOperatorFilter = in_array($code, ['sla', 'operators'], true);
 
         $rows = match ($code) {
             'sla' => $repository->sla($from, $to, $operatorIds),
@@ -75,16 +93,38 @@ final class ReportController extends Controller
             unset($row);
         }
 
-        $this->view('Reports/Views/report', [
-            'code' => $code,
-            'title' => self::REPORTS[$code][0],
-            'description' => self::REPORTS[$code][1],
-            'rows' => $rows,
-            'from' => (string) $request->input('from', ''),
-            'to' => (string) $request->input('to', ''),
-            'operatorOptions' => $hasOperatorFilter ? (new \App\Modules\Auth\Repositories\UserRepository())->listAll() : [],
-            'selectedOperators' => $operatorIds,
-        ]);
+        return $rows;
+    }
+
+    /** RF-0041 - descarrega qualquer relatório tabular em Excel, com os filtros atuais. */
+    public function exportReportXls(Request $request, array $params): never
+    {
+        $code = (string) $params['code'];
+
+        if (!isset(self::REPORTS[$code])) {
+            http_response_code(404);
+            echo 'Relatório não encontrado.';
+            exit;
+        }
+
+        $rows = $this->buildReportRows($code, $request);
+        [$from, $to] = $this->periodFromRequest($request);
+
+        $this->logAudit('EXPORTED', 'report_' . $code, 0, null, ['from' => $from, 'to' => $to, 'rows' => count($rows), 'format' => 'xls']);
+
+        // O id interno não interessa na folha de cálculo.
+        $rows = array_map(static function (array $row): array {
+            unset($row['id']);
+
+            return $row;
+        }, $rows);
+
+        $html = (new ExcelExportService())->render($rows, self::REPORTS[$code][0]);
+
+        header('Content-Type: application/vnd.ms-excel; charset=utf-8');
+        header('Content-Disposition: attachment; filename="relatorio_' . $code . '_' . date('Y-m-d_His') . '.xls"');
+        echo $html;
+        exit;
     }
 
     /** Heatmap de Contactos: interações por dia da semana × hora. */
@@ -106,6 +146,37 @@ final class ReportController extends Controller
             'from' => (string) $request->input('from', ''),
             'to' => (string) $request->input('to', ''),
         ]);
+    }
+
+    /** Excel do Heatmap: grelha dia da semana × hora (0-23) com totais. */
+    public function exportHeatmapXls(Request $request): never
+    {
+        [$from, $to] = $this->periodFromRequest($request);
+
+        $grid = array_fill(1, 7, array_fill(0, 24, 0));
+        foreach ((new AnalyticsRepository())->contactHeatmap($from, $to) as $cell) {
+            $grid[(int) $cell['weekday']][(int) $cell['hour']] = (int) $cell['total'];
+        }
+
+        $dayNames = [1 => 'Segunda', 2 => 'Terça', 3 => 'Quarta', 4 => 'Quinta', 5 => 'Sexta', 6 => 'Sábado', 7 => 'Domingo'];
+
+        $rows = [];
+        foreach ($grid as $weekday => $hours) {
+            $row = ['dia' => $dayNames[$weekday]];
+            foreach ($hours as $hour => $total) {
+                $row[sprintf('%02dh', $hour)] = $total;
+            }
+            $rows[] = $row;
+        }
+
+        $this->logAudit('EXPORTED', 'report_heatmap', 0, null, ['from' => $from, 'to' => $to, 'format' => 'xls']);
+
+        $html = (new ExcelExportService())->render($rows, 'Heatmap de Contactos');
+
+        header('Content-Type: application/vnd.ms-excel; charset=utf-8');
+        header('Content-Disposition: attachment; filename="relatorio_heatmap_' . date('Y-m-d_His') . '.xls"');
+        echo $html;
+        exit;
     }
 
     private function periodFromRequest(Request $request): array

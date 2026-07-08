@@ -100,7 +100,9 @@ $router->get('/intelligence', [IntelligenceController::class, 'index'], [Authent
 
 $router->get('/reports', [ReportController::class, 'index'], [Authenticate::class, [PermissionMiddleware::class, 'reports.export']]);
 $router->get('/reports/heatmap', [ReportController::class, 'heatmap'], [Authenticate::class, [PermissionMiddleware::class, 'reports.export']]);
+$router->get('/reports/heatmap.xls', [ReportController::class, 'exportHeatmapXls'], [Authenticate::class, [PermissionMiddleware::class, 'reports.export']]);
 $router->get('/reports/view/{code}', [ReportController::class, 'show'], [Authenticate::class, [PermissionMiddleware::class, 'reports.export']]);
+$router->get('/reports/view/{code}/excel', [ReportController::class, 'exportReportXls'], [Authenticate::class, [PermissionMiddleware::class, 'reports.export']]);
 $router->get('/reports/processes.csv', [ReportController::class, 'exportProcessesCsv'], [Authenticate::class, [PermissionMiddleware::class, 'reports.export']]);
 $router->get('/reports/processes.xls', [ReportController::class, 'exportProcessesXls'], [Authenticate::class, [PermissionMiddleware::class, 'reports.export']]);
 $router->get('/reports/processes.pdf', [ReportController::class, 'exportProcessesPdf'], [Authenticate::class, [PermissionMiddleware::class, 'reports.export']]);
