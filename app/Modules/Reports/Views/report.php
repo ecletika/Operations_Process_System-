@@ -16,27 +16,14 @@
 
       <form method="GET" action="/reports/view/<?= e($code) ?>" class="ops-panel" style="max-width:none">
         <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
-          <div class="ops-form-row" style="min-width:150px">
+          <div class="ops-form-row" style="min-width:150px;margin:0">
             <label for="from">De</label>
             <input type="date" id="from" name="from" value="<?= e($from) ?>">
           </div>
-          <div class="ops-form-row" style="min-width:150px">
+          <div class="ops-form-row" style="min-width:150px;margin:0">
             <label for="to">Até</label>
             <input type="date" id="to" name="to" value="<?= e($to) ?>">
           </div>
-          <?php if (!empty($operatorOptions)): ?>
-            <div class="ops-form-row" style="min-width:220px">
-              <label for="operators">Operador(es) <span style="font-weight:400;color:#9ca3af">(Ctrl+clique para vários)</span></label>
-              <select id="operators" name="operators[]" multiple size="4">
-                <?php foreach ($operatorOptions as $op): ?>
-                  <?php if ((int) $op['active'] !== 1) { continue; } ?>
-                  <option value="<?= (int) $op['id'] ?>" <?= in_array((int) $op['id'], $selectedOperators ?? [], true) ? 'selected' : '' ?>>
-                    <?= e($op['first_name'] . ' ' . $op['last_name']) ?>
-                  </option>
-                <?php endforeach; ?>
-              </select>
-            </div>
-          <?php endif; ?>
           <?php
             // Excel com exatamente os mesmos filtros aplicados na página
             $excelQuery = http_build_query(array_filter([
@@ -45,13 +32,27 @@
                 'operators' => $selectedOperators ?? [],
             ]));
           ?>
-          <div style="padding-bottom:12px;display:flex;gap:8px">
+          <div style="display:flex;gap:8px">
             <button type="submit" class="ops-btn ops-btn-sm">Aplicar filtros</button>
             <a href="/reports/view/<?= e($code) ?>" class="ops-btn ops-btn-sm" style="background:#6b7280;text-decoration:none">Limpar</a>
             <a href="/reports/view/<?= e($code) ?>/excel<?= $excelQuery !== '' ? '?' . $excelQuery : '' ?>"
                class="ops-btn ops-btn-sm" style="background:#16a34a;text-decoration:none">⬇️ Baixar Excel</a>
           </div>
         </div>
+
+        <?php if (!empty($operatorOptions)): ?>
+          <div class="ops-form-row" style="margin:16px 0 0">
+            <label for="operators">Operador(es) <span style="font-weight:400;color:#9ca3af">(Ctrl+clique / Cmd+clique para escolher vários)</span></label>
+            <select id="operators" name="operators[]" multiple size="4" style="width:100%;max-width:420px">
+              <?php foreach ($operatorOptions as $op): ?>
+                <?php if ((int) $op['active'] !== 1) { continue; } ?>
+                <option value="<?= (int) $op['id'] ?>" <?= in_array((int) $op['id'], $selectedOperators ?? [], true) ? 'selected' : '' ?>>
+                  <?= e($op['first_name'] . ' ' . $op['last_name']) ?>
+                </option>
+              <?php endforeach; ?>
+            </select>
+          </div>
+        <?php endif; ?>
       </form>
 
       <p style="color:#6b7280;margin-top:12px"><?= count($rows) ?> linha(s).</p>
