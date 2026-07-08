@@ -7,6 +7,7 @@ use App\Middleware\Authenticate;
 use App\Middleware\PermissionMiddleware;
 use App\Modules\Administration\Controllers\AdministrationController;
 use App\Modules\Administration\Controllers\AuditController;
+use App\Modules\Administration\Controllers\ImportController;
 use App\Modules\Administration\Controllers\LogController;
 use App\Modules\Administration\Controllers\OrganizationController;
 use App\Modules\Administration\Controllers\PermissionController;
@@ -120,6 +121,8 @@ $router->post('/admin/priorities/{id}/toggle', [AdministrationController::class,
 $router->post('/admin/subjects', [AdministrationController::class, 'createSubject'], [Authenticate::class, [PermissionMiddleware::class, 'settings.manage']]);
 $router->post('/admin/subjects/{id}', [AdministrationController::class, 'updateSubject'], [Authenticate::class, [PermissionMiddleware::class, 'settings.manage']]);
 $router->post('/admin/subjects/{id}/toggle', [AdministrationController::class, 'toggleSubject'], [Authenticate::class, [PermissionMiddleware::class, 'settings.manage']]);
+$router->get('/admin/import', [ImportController::class, 'index'], [Authenticate::class, [PermissionMiddleware::class, 'settings.manage']]);
+$router->post('/admin/import/customers', [ImportController::class, 'importCustomers'], [Authenticate::class, [PermissionMiddleware::class, 'settings.manage']]);
 
 $router->get('/admin/users', [UserController::class, 'index'], [Authenticate::class, [PermissionMiddleware::class, 'users.manage']]);
 $router->post('/admin/users', [UserController::class, 'store'], [Authenticate::class, [PermissionMiddleware::class, 'users.manage']]);

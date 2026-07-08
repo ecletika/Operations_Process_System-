@@ -126,6 +126,7 @@ $navItem = static function (string $href, string $icon, string $label, string $c
   <?php endif; ?>
   <?php if (in_array('settings.manage', $permissions, true)): ?>
     <?= $navItem('/admin/tools', '🔧', 'Ferramentas', $currentPath) ?>
+    <?= $navItem('/admin/import', '📥', 'Importação', $currentPath) ?>
   <?php endif; ?>
 
   <div class="ops-nav-section">Conta</div>

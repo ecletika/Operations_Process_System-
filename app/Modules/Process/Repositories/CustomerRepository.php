@@ -55,16 +55,17 @@ final class CustomerRepository
      * Um cliente pode ter sido identificado só por telefone ou só por email
      * (RF-0009: Tipo de Interação Email/Presencial pode não trazer telefone).
      */
-    public function create(string $name, ?string $phone, ?string $email, int $userId): int
+    public function create(string $name, ?string $phone, ?string $email, int $userId, ?string $nif = null): int
     {
         $stmt = $this->pdo->prepare('
-            INSERT INTO tb_customer (uuid, name, phone, email, active, created_at, created_by)
-            VALUES (UUID(), :name, :phone, :email, 1, NOW(), :created_by)
+            INSERT INTO tb_customer (uuid, name, phone, email, nif, active, created_at, created_by)
+            VALUES (UUID(), :name, :phone, :email, :nif, 1, NOW(), :created_by)
         ');
         $stmt->execute([
             'name' => $name,
             'phone' => $phone,
             'email' => $email,
+            'nif' => $nif,
             'created_by' => $userId,
         ]);
 
