@@ -102,17 +102,19 @@
 
       <p style="color:#6b7280;margin-top:12px"><?= count($processes) ?> processo(s) encontrado(s).</p>
 
+      <?php $canDelete = in_array('process.delete', \App\Core\Session::get('permissions', []), true); ?>
       <table class="ops-table">
         <thead>
           <tr>
             <th>Nº Processo</th><th>Filial / Departamento</th><th>Cliente</th><th>Matrícula</th><th>Assunto</th>
             <th>Estado</th><th>Prioridade</th><th>Responsável</th><th>Criado por</th><th>Contactos</th><th>Criado em</th>
             <th>Reatribuir</th>
+            <?php if ($canDelete): ?><th>Excluir</th><?php endif; ?>
           </tr>
         </thead>
         <tbody>
           <?php if (empty($processes)): ?>
-            <tr><td colspan="12" style="text-align:center;color:#6b7280">Nenhum processo encontrado com estes filtros.</td></tr>
+            <tr><td colspan="13" style="text-align:center;color:#6b7280">Nenhum processo encontrado com estes filtros.</td></tr>
           <?php endif; ?>
           <?php $activeUsers = array_values(array_filter($users, fn ($u) => (int) $u['active'] === 1)); ?>
           <?php $backUrl = '/processes/all?' . http_build_query($filters); ?>
@@ -152,6 +154,15 @@
                   <span style="color:#9ca3af">—</span>
                 <?php endif; ?>
               </td>
+              <?php if ($canDelete): ?>
+                <td>
+                  <form method="POST" action="/processes/<?= (int) $process['id'] ?>/delete"
+                        onsubmit="return confirm('Excluir definitivamente o processo <?= e($process['process_number']) ?> das listagens? Esta ação só pode ser desfeita por um Administrador diretamente na base de dados.');">
+                    <?= csrf_field() ?>
+                    <button type="submit" class="ops-btn ops-btn-sm" style="padding:4px 8px;background:#dc2626">🗑️</button>
+                  </form>
+                </td>
+              <?php endif; ?>
             </tr>
           <?php endforeach; ?>
         </tbody>
