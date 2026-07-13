@@ -10,6 +10,7 @@ use App\Core\Response;
 use App\Core\Session;
 use App\Modules\Administration\Services\CustomerImportService;
 use App\Modules\Administration\Services\SpreadsheetReader;
+use App\Modules\Administration\Services\VehicleImportService;
 use RuntimeException;
 
 /**
@@ -45,6 +46,29 @@ final class ImportController extends Controller
             $result = (new CustomerImportService())->import($rows, (int) Session::get('user_id'));
 
             Session::flash('import_result', ['type' => 'Clientes', 'stats' => $result]);
+        } catch (RuntimeException $e) {
+            Session::flash('errors', [$e->getMessage()]);
+        }
+
+        Response::redirect('/admin/import');
+    }
+
+    public function importVehicles(Request $request): never
+    {
+        if (!Session::verifyCsrfToken($request->input('_csrf'))) {
+            Session::flash('errors', ['Sessão expirada, tente novamente.']);
+            Response::redirect('/admin/import');
+        }
+
+        $file = $_FILES['file'] ?? null;
+
+        try {
+            $this->validateUpload($file);
+
+            $rows = SpreadsheetReader::read($file['tmp_name'], $file['name']);
+            $result = (new VehicleImportService())->import($rows, (int) Session::get('user_id'));
+
+            Session::flash('import_result', ['type' => 'Viaturas', 'stats' => $result]);
         } catch (RuntimeException $e) {
             Session::flash('errors', [$e->getMessage()]);
         }

@@ -29,7 +29,7 @@
           <p>
             ✅ <strong><?= (int) $stats['created'] ?></strong> criado(s) &nbsp;·&nbsp;
             🔁 <strong><?= (int) $stats['duplicates'] ?></strong> já existente(s) (ignorado) &nbsp;·&nbsp;
-            ⏭️ <strong><?= (int) $stats['skipped'] ?></strong> ignorado(s) (sem telefone/email)
+            ⏭️ <strong><?= (int) $stats['skipped'] ?></strong> ignorado(s) (ver avisos)
           </p>
           <?php if (!empty($stats['errors'])): ?>
             <details style="margin-top:8px">
@@ -65,13 +65,26 @@
         </p>
       </div>
 
-      <div class="ops-panel" style="max-width:640px;opacity:0.7">
+      <div class="ops-panel" style="max-width:640px">
         <h3 style="margin-top:0">Viaturas</h3>
         <p style="color:#6b7280">
-          Importação de Viaturas (Matrícula, Marca, Modelo) ainda não disponível — cada viatura
-          precisa de estar associada a um Cliente. Assim que definirmos como ligar as viaturas
-          aos clientes da folha, ativamos esta opção aqui.
+          Colunas esperadas (em qualquer ordem, cabeçalho na 1ª linha):
+          <strong>Nome</strong>, <strong>Matrícula</strong>, <strong>Marca</strong>, <strong>Modelo</strong>
+          e opcionalmente <strong>Ano Modelo</strong>.
+          A viatura é ligada ao Cliente pelo <strong>Nome</strong> — tem de corresponder exatamente
+          a um Cliente já importado (colunas como "Nº Cliente" são ignoradas para este efeito).
+          Se o nome não existir ou pertencer a mais de um Cliente, a linha é ignorada e listada nos
+          avisos. A matrícula é gravada sempre sem traços/espaços, por isso "AA-12-BB" e "AA12BB" são
+          tratadas como a mesma viatura e matrículas já existentes são ignoradas automaticamente.
         </p>
+        <form method="POST" action="/admin/import/vehicles" enctype="multipart/form-data">
+          <?= csrf_field() ?>
+          <div class="ops-form-row">
+            <label for="vehicle-file">Ficheiro (.xlsx ou .csv)</label>
+            <input type="file" id="vehicle-file" name="file" accept=".xlsx,.csv" required>
+          </div>
+          <button type="submit" class="ops-btn">Importar Viaturas</button>
+        </form>
       </div>
     </main>
   </div>

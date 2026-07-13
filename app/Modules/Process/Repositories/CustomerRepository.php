@@ -52,6 +52,21 @@ final class CustomerRepository
     }
 
     /**
+     * Nome não é único em tb_customer — devolve todos os clientes ativos
+     * com esse nome (comparação exata, tolerando espaços nas pontas) para
+     * quem chama decidir entre "não encontrado" e "ambíguo".
+     */
+    public function findAllByName(string $name): array
+    {
+        $stmt = $this->pdo->prepare('
+            SELECT * FROM tb_customer WHERE name = :name AND deleted_at IS NULL
+        ');
+        $stmt->execute(['name' => trim($name)]);
+
+        return $stmt->fetchAll();
+    }
+
+    /**
      * Um cliente pode ter sido identificado só por telefone ou só por email
      * (RF-0009: Tipo de Interação Email/Presencial pode não trazer telefone).
      */

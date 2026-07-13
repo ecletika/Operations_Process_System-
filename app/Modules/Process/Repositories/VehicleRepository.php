@@ -48,20 +48,21 @@ final class VehicleRepository
      * em vez de propagar o erro, devolvemos o registo que o primeiro
      * pedido acabou de criar.
      */
-    public function create(string $plate, int $customerId, int $userId, ?string $brand = null, ?string $model = null): int
+    public function create(string $plate, int $customerId, int $userId, ?string $brand = null, ?string $model = null, ?int $year = null): int
     {
         $normalizedPlate = PlateHelper::normalize($plate);
 
         try {
             $stmt = $this->pdo->prepare('
-                INSERT INTO tb_vehicle (uuid, plate, customer_id, brand, model, active, created_at, created_by)
-                VALUES (UUID(), :plate, :customer_id, :brand, :model, 1, NOW(), :created_by)
+                INSERT INTO tb_vehicle (uuid, plate, customer_id, brand, model, year, active, created_at, created_by)
+                VALUES (UUID(), :plate, :customer_id, :brand, :model, :year, 1, NOW(), :created_by)
             ');
             $stmt->execute([
                 'plate' => $normalizedPlate,
                 'customer_id' => $customerId,
                 'brand' => $brand,
                 'model' => $model,
+                'year' => $year,
                 'created_by' => $userId,
             ]);
 
@@ -86,7 +87,7 @@ final class VehicleRepository
 
             $revive = $this->pdo->prepare('
                 UPDATE tb_vehicle
-                SET customer_id = :customer_id, brand = :brand, model = :model,
+                SET customer_id = :customer_id, brand = :brand, model = :model, year = :year,
                     deleted_at = NULL, deleted_by = NULL, updated_at = NOW(), updated_by = :updated_by
                 WHERE id = :id
             ');
@@ -95,6 +96,7 @@ final class VehicleRepository
                 'customer_id' => $customerId,
                 'brand' => $brand,
                 'model' => $model,
+                'year' => $year,
                 'updated_by' => $userId,
             ]);
 
