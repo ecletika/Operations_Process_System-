@@ -280,14 +280,22 @@ final class ProcessRepository
 
     /**
      * Fila Inteligente™ - processos ainda sem responsável.
+     *
+     * Isolamento por departamento (RN-0011): $allowedBatchIds define o que o
+     * operador pode ver/assumir.
+     *   - null  → sem restrição (Supervisor/Admin ou "ver todos os lotes");
+     *   - [ids] → só processos destes lotes (o departamento do operador);
+     *   - []    → não vê nada (operador sem lotes atribuídos — caso-limite).
+     *
+     * @param array<int>|null $allowedBatchIds
      */
-    public function listQueue(?int $batchId = null): array
+    public function listQueue(?array $allowedBatchIds = null): array
     {
         $sql = "
             SELECT p.*, v.plate AS vehicle_plate, c.name AS customer_name,
                    sub.name AS subject_name, pr.code AS priority_code, pr.name AS priority_name, pr.color AS priority_color,
                    creator.first_name AS creator_first_name, creator.last_name AS creator_last_name,
-                   br.name AS branch_name
+                   br.name AS branch_name, d.name AS department_name
             FROM tb_process p
             JOIN tb_vehicle v ON v.id = p.vehicle_id
             JOIN tb_customer c ON c.id = p.customer_id
@@ -302,9 +310,17 @@ final class ProcessRepository
         ";
 
         $params = [];
-        if ($batchId !== null) {
-            $sql .= ' AND p.batch_id = :batch_id';
-            $params['batch_id'] = $batchId;
+        if ($allowedBatchIds !== null) {
+            if ($allowedBatchIds === []) {
+                return []; // operador sem lotes — não vê nenhum processo
+            }
+            $placeholders = [];
+            foreach (array_values($allowedBatchIds) as $i => $batchId) {
+                $key = "batch_{$i}";
+                $placeholders[] = ":{$key}";
+                $params[$key] = (int) $batchId;
+            }
+            $sql .= ' AND p.batch_id IN (' . implode(', ', $placeholders) . ')';
         }
 
         $sql .= ' ORDER BY pr.sort_order ASC, p.created_at ASC';

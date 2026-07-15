@@ -153,7 +153,13 @@ final class ProcessService
      * RF-0012 / RN-0011 / RN-0012 - transação com row lock, um único operador
      * consegue assumir o processo.
      */
-    public function assume(int $processId, int $userId): void
+    /**
+     * @param array<int>|null $allowedBatchIds Isolamento por departamento
+     *   (RN-0011): quando não é null, o operador só pode assumir processos
+     *   cujo lote esteja nesta lista (o seu departamento). null = sem
+     *   restrição (Supervisor/Admin ou "ver todos os lotes").
+     */
+    public function assume(int $processId, int $userId, ?array $allowedBatchIds = null): void
     {
         // RN-0057 - operador sobrecarregado deixa de poder assumir novos processos.
         $overloadLimit = (int) Settings::get('operator_overload_limit', 30);
@@ -169,6 +175,12 @@ final class ProcessService
 
             if ($process === null) {
                 throw new RuntimeException('Processo não encontrado.');
+            }
+
+            // Isolamento por departamento: um operador não pode assumir um
+            // processo de um departamento que não é o seu.
+            if ($allowedBatchIds !== null && !in_array((int) $process['batch_id'], $allowedBatchIds, true)) {
+                throw new RuntimeException('Este processo pertence a outro departamento; não o pode assumir.');
             }
 
             $currentStatus = $this->processes->statusCodeById((int) $process['status_id']);

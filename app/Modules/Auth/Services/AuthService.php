@@ -71,8 +71,9 @@ final class AuthService
     {
         $permissions = $this->users->permissionsForRole((int) $user['role_id']);
         $batchId = $this->users->primaryBatchId((int) $user['id']);
+        $allowedBatchIds = $this->users->batchIdsForUser((int) $user['id']);
 
-        $this->establishSession($user, $permissions, $batchId);
+        $this->establishSession($user, $permissions, $batchId, $allowedBatchIds);
         Session::forget('mfa_pending_user_id');
         $this->logAudit('LOGIN', 'tb_user', (int) $user['id']);
     }
@@ -142,7 +143,7 @@ final class AuthService
         Session::destroy();
     }
 
-    private function establishSession(array $user, array $permissions, ?int $batchId): void
+    private function establishSession(array $user, array $permissions, ?int $batchId, array $allowedBatchIds = []): void
     {
         Session::regenerate();
         Session::put('user_id', (int) $user['id']);
@@ -152,7 +153,12 @@ final class AuthService
         Session::put('permissions', $permissions);
         Session::put('company_id', (int) $user['company_id']);
         Session::put('branch_id', (int) $user['branch_id']);
+        Session::put('department_id', (int) $user['department_id']);
         Session::put('batch_id', $batchId);
+        // Lotes que o operador pode ver/assumir (o seu departamento). O
+        // isolamento por departamento (RN-0011) usa esta lista: só os
+        // processos destes lotes entram na Fila Inteligente™ do operador.
+        Session::put('allowed_batch_ids', $allowedBatchIds);
         Session::put('view_all_batches', !empty($user['view_all_batches']));
     }
 }

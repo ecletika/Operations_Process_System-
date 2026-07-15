@@ -33,17 +33,42 @@ final class ProcessController extends Controller
      */
     public function queue(Request $request): never
     {
-        // Operador vê só o seu lote, exceto se o Admin lhe deu visibilidade
-        // total (view_all_batches, definido na ficha do utilizador).
-        $isOperator = Session::get('role_code') === 'ROLE_OPERATOR';
-        $viewAllBatches = (bool) Session::get('view_all_batches', false);
-        $batchId = ($isOperator && !$viewAllBatches) ? Session::get('batch_id') : null;
-
-        $processes = (new ProcessRepository())->listQueue($batchId);
+        // Isolamento por departamento (RN-0011): o operador só vê os processos
+        // dos seus lotes; Supervisor/Admin (ou "ver todos os lotes") veem tudo.
+        $processes = (new ProcessRepository())->listQueue($this->allowedBatchIds());
 
         $this->view('Process/Views/queue', [
             'processes' => $processes,
         ]);
+    }
+
+    /**
+     * Lotes que o utilizador atual pode ver/assumir na Fila Inteligente™.
+     * Devolve null quando pode ver tudo (Supervisor/Admin com process.view_all,
+     * ou operador com "ver todos os lotes"); caso contrário, a lista dos lotes
+     * do seu departamento. Cai para o lote principal em sessões antigas que
+     * ainda não tenham a lista completa.
+     *
+     * @return array<int>|null
+     */
+    private function allowedBatchIds(): ?array
+    {
+        $canSeeAll = (bool) Session::get('view_all_batches', false)
+            || in_array('process.view_all', (array) Session::get('permissions', []), true);
+
+        if ($canSeeAll) {
+            return null;
+        }
+
+        $allowed = Session::get('allowed_batch_ids');
+        if ($allowed === null) {
+            // Sessão iniciada antes desta versão: usa o lote principal.
+            $single = Session::get('batch_id');
+
+            return $single !== null ? [(int) $single] : [];
+        }
+
+        return array_map('intval', (array) $allowed);
     }
 
     /**
@@ -232,7 +257,8 @@ final class ProcessController extends Controller
 
     public function assume(Request $request, array $params): never
     {
-        $this->runAction($request, $params, fn (ProcessService $service, int $id, int $userId) => $service->assume($id, $userId));
+        $allowed = $this->allowedBatchIds();
+        $this->runAction($request, $params, fn (ProcessService $service, int $id, int $userId) => $service->assume($id, $userId, $allowed));
     }
 
     /**
@@ -246,11 +272,8 @@ final class ProcessController extends Controller
             Response::redirect('/processes/queue');
         }
 
-        $isOperator = Session::get('role_code') === 'ROLE_OPERATOR';
-        $viewAllBatches = (bool) Session::get('view_all_batches', false);
-        $batchId = ($isOperator && !$viewAllBatches) ? Session::get('batch_id') : null;
-
-        $queue = (new ProcessRepository())->listQueue($batchId !== null ? (int) $batchId : null);
+        $allowed = $this->allowedBatchIds();
+        $queue = (new ProcessRepository())->listQueue($allowed);
 
         if ($queue === []) {
             Session::flash('success', 'Fila vazia — não há nenhum processo à espera. Bom trabalho!');
@@ -261,7 +284,7 @@ final class ProcessController extends Controller
         $userId = (int) Session::get('user_id');
 
         try {
-            (new ProcessService())->assume($processId, $userId);
+            (new ProcessService())->assume($processId, $userId, $allowed);
         } catch (RuntimeException $e) {
             Session::flash('errors', [$e->getMessage()]);
             Response::redirect('/processes/queue');
