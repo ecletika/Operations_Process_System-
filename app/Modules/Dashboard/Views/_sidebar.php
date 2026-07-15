@@ -134,3 +134,43 @@ $navItem = static function (string $href, string $icon, string $label, string $c
   <?= $navItem('/profile', '🪪', 'Meu Perfil', $currentPath) ?>
   <?= $navItem('/logout', '🚪', 'Terminar Sessão', $currentPath) ?>
 </aside>
+
+<!-- #6: Pop-up (toast) de novas notificações — ex.: nova lead na fila. -->
+<div id="ops-toasts" style="position:fixed;top:16px;right:16px;z-index:9999;display:flex;flex-direction:column;gap:8px;max-width:340px"></div>
+<script>
+  (function () {
+    var STORAGE_KEY = 'ops_last_notif_id';
+    var container = document.getElementById('ops-toasts');
+    if (!container) { return; }
+
+    function showToast(item) {
+      var el = document.createElement('div');
+      el.style.cssText = 'background:#0f172a;color:#fff;border-left:4px solid #22c55e;border-radius:8px;padding:12px 14px;box-shadow:0 6px 20px rgba(0,0,0,.25);cursor:pointer;font-size:14px';
+      el.innerHTML = '<strong style="display:block;margin-bottom:2px">' + item.title.replace(/</g,'&lt;') + '</strong><span style="opacity:.85">' + item.message.replace(/</g,'&lt;') + '</span>';
+      el.addEventListener('click', function () { window.location.href = '/processes/queue'; });
+      container.appendChild(el);
+      setTimeout(function () { el.style.transition = 'opacity .4s'; el.style.opacity = '0'; setTimeout(function () { el.remove(); }, 400); }, 8000);
+    }
+
+    function poll() {
+      fetch('/notifications/poll', { headers: { 'Accept': 'application/json' } })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (data) {
+          if (!data || !data.items) { return; }
+          var lastSeen = parseInt(localStorage.getItem(STORAGE_KEY) || '0', 10);
+          var maxId = lastSeen;
+          var isFirstRun = localStorage.getItem(STORAGE_KEY) === null;
+          data.items.forEach(function (item) {
+            if (item.id > maxId) { maxId = item.id; }
+            // Na primeira execução não faz pop-up do histórico; só marca o ponto.
+            if (!isFirstRun && item.id > lastSeen) { showToast(item); }
+          });
+          localStorage.setItem(STORAGE_KEY, String(maxId));
+        })
+        .catch(function () { /* silencioso */ });
+    }
+
+    poll();
+    setInterval(poll, 30000);
+  })();
+</script>

@@ -111,6 +111,7 @@ $router->get('/reports/processes.xls', [ReportController::class, 'exportProcesse
 $router->get('/reports/processes.pdf', [ReportController::class, 'exportProcessesPdf'], [Authenticate::class, [PermissionMiddleware::class, 'reports.export']]);
 
 $router->get('/notifications', [NotificationController::class, 'index'], [Authenticate::class]);
+$router->get('/notifications/poll', [NotificationController::class, 'poll'], [Authenticate::class]);
 $router->post('/notifications/read-all', [NotificationController::class, 'markAllRead'], [Authenticate::class]);
 $router->post('/notifications/{id}/read', [NotificationController::class, 'markRead'], [Authenticate::class]);
 

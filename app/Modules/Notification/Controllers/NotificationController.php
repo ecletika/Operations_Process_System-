@@ -22,6 +22,28 @@ final class NotificationController extends Controller
         ]);
     }
 
+    /**
+     * #6 - Polling leve para o pop-up: devolve as notificações não lidas
+     * (as mais recentes primeiro) para o JS mostrar um toast das novas.
+     */
+    public function poll(Request $request): never
+    {
+        $userId = (int) Session::get('user_id');
+        $service = new NotificationService();
+
+        $items = array_map(static fn (array $n): array => [
+            'id' => (int) $n['id'],
+            'title' => $n['title'],
+            'message' => $n['message'],
+            'severity' => $n['severity'],
+        ], array_filter($service->listForUser($userId, 10), static fn (array $n): bool => $n['read_at'] === null));
+
+        Response::json([
+            'count' => $service->countUnread($userId),
+            'items' => array_values($items),
+        ]);
+    }
+
     public function markRead(Request $request, array $params): never
     {
         if (Session::verifyCsrfToken($request->input('_csrf'))) {

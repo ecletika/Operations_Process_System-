@@ -321,4 +321,24 @@ final class UserRepository
 
         return array_map('intval', array_column($stmt->fetchAll(), 'batch_id'));
     }
+
+    /**
+     * IDs dos utilizadores ativos atribuídos a um lote (#6): usado para
+     * notificar os elementos do departamento quando entra uma nova lead.
+     *
+     * @return int[]
+     */
+    public function activeUserIdsForBatch(int $batchId): array
+    {
+        $stmt = $this->pdo->prepare('
+            SELECT DISTINCT ub.user_id
+            FROM tb_user_batch ub
+            JOIN tb_user u ON u.id = ub.user_id
+            WHERE ub.batch_id = :batch_id AND ub.deleted_at IS NULL
+              AND u.active = 1 AND u.deleted_at IS NULL
+        ');
+        $stmt->execute(['batch_id' => $batchId]);
+
+        return array_map('intval', array_column($stmt->fetchAll(), 'user_id'));
+    }
 }

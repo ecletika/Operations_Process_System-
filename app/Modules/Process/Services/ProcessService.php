@@ -146,6 +146,16 @@ final class ProcessService
             'INFO'
         );
 
+        // #6 - Pop-up de nova lead para os elementos do departamento de destino
+        // (o lote onde o processo entra na fila), exceto quem o criou.
+        $this->notifications->notifyBatchUsers(
+            $batchId,
+            "📥 Nova lead na fila: {$processNumber}",
+            "Novo pedido no seu departamento. Abra a Fila Inteligente™ para assumir.",
+            'INFO',
+            $userId
+        );
+
         return ProcessResult::created($processId, $processNumber);
     }
 

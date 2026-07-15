@@ -31,6 +31,20 @@ final class NotificationService
     }
 
     /**
+     * #6 - Notifica todos os elementos ativos do lote/departamento de destino
+     * (ex.: nova lead na fila), exceto quem gerou a ação.
+     */
+    public function notifyBatchUsers(int $batchId, string $title, string $message, string $severity = 'INFO', ?int $excludeUserId = null): void
+    {
+        foreach ($this->users->activeUserIdsForBatch($batchId) as $userId) {
+            if ($excludeUserId !== null && $userId === $excludeUserId) {
+                continue;
+            }
+            $this->notifications->create($userId, $title, $message, $severity);
+        }
+    }
+
+    /**
      * Evita spam: só notifica de novo se não tiver havido o mesmo alerta
      * nas últimas $withinMinutes.
      */
