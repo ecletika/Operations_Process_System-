@@ -113,6 +113,7 @@ $navItem = static function (string $href, string $icon, string $label, string $c
   <?php endif; ?>
   <?php if (in_array('settings.manage', $permissions, true)): ?>
     <?= $navItem('/admin', '⚙️', 'Configurações', $currentPath, 'exact') ?>
+    <?= $navItem('/admin/subject-departments', '🧩', 'Assuntos por Depto.', $currentPath) ?>
   <?php endif; ?>
   <?php if (in_array('audit.view', $permissions, true)): ?>
     <?= $navItem('/admin/audit', '📋', 'Auditoria', $currentPath) ?>

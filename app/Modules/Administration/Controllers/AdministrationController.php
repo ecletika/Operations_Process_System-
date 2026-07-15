@@ -175,6 +175,36 @@ final class AdministrationController extends Controller
         $this->back();
     }
 
+    /**
+     * #5 - Assuntos por Departamento: matriz para escolher que assuntos
+     * aparecem no Novo Processo consoante o departamento escolhido.
+     */
+    public function subjectDepartments(Request $request): never
+    {
+        $this->view('Administration/Views/subject_departments', [
+            'departments' => (new \App\Modules\Administration\Repositories\DepartmentRepository())->listAll(),
+            'subjects' => (new SubjectRepository())->listActive(),
+            'map' => (new SubjectRepository())->subjectIdsByDepartment(),
+            'success' => Session::pullFlash('success'),
+            'errors' => Session::pullFlash('errors', []),
+        ]);
+    }
+
+    public function saveSubjectDepartments(Request $request, array $params): never
+    {
+        if (!$this->checkCsrf($request)) {
+            Response::redirect('/admin/subject-departments');
+        }
+
+        $departmentId = (int) $params['id'];
+        $subjectIds = array_map('intval', (array) $request->input('subjects', []));
+        (new SubjectRepository())->setForDepartment($departmentId, $subjectIds, (int) Session::get('user_id'));
+        $this->logAudit('UPDATE', 'tb_department_subject', $departmentId, null, ['subjects' => $subjectIds]);
+
+        Session::flash('success', 'Assuntos do departamento atualizados.');
+        Response::redirect('/admin/subject-departments');
+    }
+
     private function checkCsrf(Request $request): bool
     {
         if (Session::verifyCsrfToken($request->input('_csrf'))) {

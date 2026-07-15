@@ -481,16 +481,44 @@ final class ProcessController extends Controller
         // ou operador com view_all_batches) escolhe em que Filial/Lote o
         // processo entra; caso contrário entra sempre no lote do próprio.
         $canChooseBatch = $this->canChooseBatch();
+        $batches = $canChooseBatch ? (new BatchRepository())->listAll() : [];
+        $sessionBatchId = (int) Session::get('batch_id');
+        $subjectRepo = new SubjectRepository();
+
+        // Departamento inicial: se o utilizador escolhe filial, vem do lote
+        // selecionado; caso contrário, é o departamento do próprio (sessão).
+        $selectedBatchId = (int) ($old['batch_id'] ?? $sessionBatchId);
+        $initialDeptId = (int) Session::get('department_id') ?: null;
+        foreach ($batches as $batch) {
+            if ((int) $batch['id'] === $selectedBatchId) {
+                $initialDeptId = (int) $batch['department_id'];
+                break;
+            }
+        }
+
+        // Mapa departamento → assuntos permitidos (#5), para o JS trocar a
+        // lista de Assuntos quando muda a Filial/Departamento sem recarregar.
+        $subjectsByDept = [];
+        foreach ($batches as $batch) {
+            $deptId = (int) $batch['department_id'];
+            if (!isset($subjectsByDept[$deptId])) {
+                $subjectsByDept[$deptId] = array_map(
+                    static fn (array $s): array => ['id' => (int) $s['id'], 'name' => $s['name']],
+                    $subjectRepo->listActiveForDepartment($deptId)
+                );
+            }
+        }
 
         $this->view('Process/Views/create', [
             'errors' => $errors,
             'old' => $old,
             'reopenCandidate' => $reopenCandidate,
-            'subjects' => (new SubjectRepository())->listActive(),
+            'subjects' => $subjectRepo->listActiveForDepartment($initialDeptId),
             'priorities' => (new PriorityRepository())->listActive(),
             'canChooseBatch' => $canChooseBatch,
-            'batches' => $canChooseBatch ? (new BatchRepository())->listAll() : [],
-            'sessionBatchId' => (int) Session::get('batch_id'),
+            'batches' => $batches,
+            'sessionBatchId' => $sessionBatchId,
+            'subjectsByDept' => $subjectsByDept,
         ]);
     }
 

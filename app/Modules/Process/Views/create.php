@@ -157,6 +157,33 @@
               <label for="description">Descrição do contacto</label>
               <textarea id="description" name="description" rows="4" required><?= e($old['description'] ?? '') ?></textarea>
             </div>
+            <?php if (!empty($canChooseBatch) && !empty($batches)): ?>
+            <script>
+              // #5: a lista de Assuntos muda conforme a Filial/Departamento.
+              (function () {
+                var subjectsByDept = <?= json_encode($subjectsByDept ?? [], JSON_UNESCAPED_UNICODE) ?>;
+                var batchDept = <?= json_encode(array_column($batches, 'department_id', 'id'), JSON_UNESCAPED_UNICODE) ?>;
+                var batchSelect = document.getElementById('batch_id');
+                var subjectSelect = document.getElementById('subject_id');
+                if (!batchSelect || !subjectSelect) { return; }
+
+                batchSelect.addEventListener('change', function () {
+                  var deptId = batchDept[batchSelect.value];
+                  var list = subjectsByDept[deptId];
+                  if (!list) { return; } // sem config específica: mantém a lista atual
+                  var previous = subjectSelect.value;
+                  subjectSelect.innerHTML = '<option value="">Selecione</option>';
+                  list.forEach(function (s) {
+                    var opt = document.createElement('option');
+                    opt.value = s.id;
+                    opt.textContent = s.name;
+                    if (String(s.id) === previous) { opt.selected = true; }
+                    subjectSelect.appendChild(opt);
+                  });
+                });
+              })();
+            </script>
+            <?php endif; ?>
             <button type="submit" class="ops-btn">Criar Processo</button>
           </form>
         </div>
