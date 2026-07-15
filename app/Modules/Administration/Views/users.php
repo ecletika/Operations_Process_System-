@@ -16,6 +16,13 @@
       <?php if ($success): ?><div class="ops-alert ops-alert-success"><?= e($success) ?></div><?php endif; ?>
       <?php foreach ($errors as $error): ?><div class="ops-alert" style="background:#fef2f2;border:1px solid #fecaca;color:#dc2626"><?= e($error) ?></div><?php endforeach; ?>
 
+      <div style="display:flex;gap:8px;align-items:center;margin:12px 0">
+        <input type="text" id="user_search" placeholder="🔎 Procurar por nome, utilizador, email ou perfil..."
+               style="flex:1;max-width:480px;padding:9px 12px;border:1px solid #e5e7eb;border-radius:8px">
+        <button type="button" id="user_search_clear" class="ops-btn ops-btn-sm" style="background:#6b7280">Limpar</button>
+        <span id="user_search_count" style="color:#6b7280;font-size:13px"></span>
+      </div>
+
       <table class="ops-table">
         <thead><tr><th>Nome</th><th>Utilizador</th><th>Email</th><th>Perfil</th><th>Ativo</th><th></th></tr></thead>
         <tbody>
@@ -23,14 +30,14 @@
           <?php foreach ($users as $user): ?>
             <?php $group = $user['branch_name'] . ' · ' . $user['department_name']; ?>
             <?php if ($group !== $currentGroup): $currentGroup = $group; ?>
-              <tr>
+              <tr class="user-group">
                 <td colspan="6" style="background:#f3f4f6;font-weight:600;color:#374151">
                   🏢 <?= e($user['branch_name']) ?> <span style="color:#9ca3af">·</span> <?= e($user['department_name']) ?>
                   <span style="font-weight:400;font-size:12px;color:#6b7280">(<?= e($user['company_name']) ?>)</span>
                 </td>
               </tr>
             <?php endif; ?>
-            <tr>
+            <tr class="user-row" data-search="<?= e(mb_strtolower($user['first_name'] . ' ' . $user['last_name'] . ' ' . $user['username'] . ' ' . $user['email'] . ' ' . $user['role_name'])) ?>">
               <td><?= e($user['first_name'] . ' ' . $user['last_name']) ?></td>
               <td><code><?= e($user['username']) ?></code></td>
               <td><?= e($user['email']) ?></td>
@@ -45,6 +52,18 @@
                     <?= $user['active'] ? 'Desativar' : 'Reativar' ?>
                   </button>
                 </form>
+                <details style="position:relative">
+                  <summary class="ops-btn ops-btn-sm" style="background:#0ea5e9;list-style:none;cursor:pointer" title="Repor password">🔑 Password</summary>
+                  <form method="POST" action="/admin/users/<?= (int) $user['id'] ?>/reset-password"
+                        onsubmit="return confirm('Repor a password de <?= e($user['username']) ?>?');"
+                        style="position:absolute;z-index:20;top:110%;left:0;background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:10px;box-shadow:0 6px 20px rgba(0,0,0,.15);display:flex;flex-direction:column;gap:6px;width:220px">
+                    <?= csrf_field() ?>
+                    <label style="font-size:12px;color:#374151">Nova password (mín. 8)</label>
+                    <input type="text" name="password" minlength="8" required autocomplete="new-password"
+                           placeholder="Nova password" style="padding:6px 8px;border:1px solid #e5e7eb;border-radius:6px">
+                    <button type="submit" class="ops-btn ops-btn-sm" style="background:#0ea5e9">Repor password</button>
+                  </form>
+                </details>
                 <?php if ((int) ($user['mfa_enabled'] ?? 0) === 1): ?>
                   <form method="POST" action="/admin/users/<?= (int) $user['id'] ?>/reset-mfa"
                         onsubmit="return confirm('Repor o MFA de <?= e($user['username']) ?>? Ele terá de configurar de novo.');">
@@ -184,6 +203,44 @@
 
       branchSelect.addEventListener('change', function () { refresh(false); });
       refresh(true);
+    })();
+  </script>
+  <script>
+    // Pesquisa de utilizadores: filtra as linhas e esconde os cabeçalhos de
+    // departamento que fiquem sem nenhum utilizador visível.
+    (function () {
+      var input = document.getElementById('user_search');
+      var clear = document.getElementById('user_search_clear');
+      var count = document.getElementById('user_search_count');
+      if (!input) { return; }
+
+      var rows = Array.prototype.slice.call(document.querySelectorAll('tr.user-row'));
+
+      function apply() {
+        var q = input.value.trim().toLowerCase();
+        var visible = 0;
+        rows.forEach(function (row) {
+          var match = q === '' || (row.getAttribute('data-search') || '').indexOf(q) !== -1;
+          row.style.display = match ? '' : 'none';
+          if (match) { visible++; }
+        });
+
+        // Esconde cabeçalhos de grupo sem utilizadores visíveis a seguir.
+        document.querySelectorAll('tr.user-group').forEach(function (header) {
+          var anyVisible = false;
+          var node = header.nextElementSibling;
+          while (node && !node.classList.contains('user-group')) {
+            if (node.classList.contains('user-row') && node.style.display !== 'none') { anyVisible = true; break; }
+            node = node.nextElementSibling;
+          }
+          header.style.display = anyVisible ? '' : 'none';
+        });
+
+        count.textContent = q === '' ? '' : (visible + ' utilizador(es)');
+      }
+
+      input.addEventListener('input', apply);
+      clear.addEventListener('click', function () { input.value = ''; apply(); input.focus(); });
     })();
   </script>
 </body>

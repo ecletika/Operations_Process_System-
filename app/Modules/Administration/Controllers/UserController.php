@@ -142,6 +142,25 @@ final class UserController extends Controller
         $this->back();
     }
 
+    /** Reposição de password pelo Administrador (utilizador trancado fora / esqueceu-se). */
+    public function resetPassword(Request $request, array $params): never
+    {
+        if (!$this->checkCsrf($request)) {
+            $this->back();
+        }
+
+        $id = (int) $params['id'];
+        $errors = (new UserManagementService())->resetPassword($id, (string) $request->input('password', ''), (int) Session::get('user_id'));
+
+        if ($errors !== []) {
+            Session::flash('errors', $errors);
+        } else {
+            Session::flash('success', 'Password reposta. Já pode entregar a nova password ao utilizador.');
+        }
+
+        $this->back();
+    }
+
     private function checkCsrf(Request $request): bool
     {
         if (Session::verifyCsrfToken($request->input('_csrf'))) {

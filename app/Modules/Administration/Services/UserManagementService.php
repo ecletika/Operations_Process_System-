@@ -150,6 +150,28 @@ final class UserManagementService
         $this->logAudit('DELETE', 'tb_user', $id);
     }
 
+    /**
+     * Reposição de password pelo Administrador (ex.: utilizador não consegue
+     * entrar porque a password inicial foi mal digitada, ou esqueceu-se).
+     *
+     * @return string[] erros (vazio se reposta com sucesso)
+     */
+    public function resetPassword(int $id, string $newPassword, int $actingUserId): array
+    {
+        if (strlen($newPassword) < 8) {
+            return ['A nova password deve ter pelo menos 8 caracteres.'];
+        }
+
+        if ($this->users->findById($id) === null) {
+            return ['Utilizador não encontrado.'];
+        }
+
+        $this->users->updatePassword($id, password_hash($newPassword, PASSWORD_BCRYPT));
+        $this->logAudit('UPDATE', 'tb_user', $id, null, ['password_reset' => true, 'by' => $actingUserId]);
+
+        return [];
+    }
+
     /** @return string[] */
     private function validateCommon(array $input): array
     {

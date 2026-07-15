@@ -136,6 +136,7 @@ $router->get('/admin/users/{id}/edit', [UserController::class, 'edit'], [Authent
 $router->post('/admin/users/{id}', [UserController::class, 'update'], [Authenticate::class, [PermissionMiddleware::class, 'users.manage']]);
 $router->post('/admin/users/{id}/toggle', [UserController::class, 'toggleActive'], [Authenticate::class, [PermissionMiddleware::class, 'users.manage']]);
 $router->post('/admin/users/{id}/reset-mfa', [UserController::class, 'resetMfa'], [Authenticate::class, [PermissionMiddleware::class, 'users.manage']]);
+$router->post('/admin/users/{id}/reset-password', [UserController::class, 'resetPassword'], [Authenticate::class, [PermissionMiddleware::class, 'users.manage']]);
 $router->post('/admin/users/{id}/delete', [UserController::class, 'destroy'], [Authenticate::class, [PermissionMiddleware::class, 'records.delete']]);
 
 $router->get('/admin/permissions', [PermissionController::class, 'index'], [Authenticate::class, [PermissionMiddleware::class, 'users.manage']]);
