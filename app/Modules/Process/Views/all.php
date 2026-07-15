@@ -111,14 +111,14 @@
         <thead>
           <tr>
             <th>Nº Processo</th><th>Filial / Departamento</th><th>Cliente</th><th>Matrícula</th><th>Assunto</th>
-            <th>Estado</th><th>Prioridade</th><th>Responsável</th><th>Criado por</th><th>Contactos</th><th>Criado em</th>
+            <th>Estado</th><th>Prioridade</th><th>Falta p/ SLA</th><th>Responsável</th><th>Criado por</th><th>Contactos</th><th>Criado em</th>
             <th>Reatribuir</th>
             <?php if ($canDelete): ?><th>Excluir</th><?php endif; ?>
           </tr>
         </thead>
         <tbody>
           <?php if (empty($processes)): ?>
-            <tr><td colspan="13" style="text-align:center;color:#6b7280">Nenhum processo encontrado com estes filtros.</td></tr>
+            <tr><td colspan="14" style="text-align:center;color:#6b7280">Nenhum processo encontrado com estes filtros.</td></tr>
           <?php endif; ?>
           <?php $activeUsers = array_values(array_filter($users, fn ($u) => (int) $u['active'] === 1)); ?>
           <?php $backUrl = '/processes/all?' . http_build_query($filters); ?>
@@ -131,6 +131,7 @@
               <td><?= e($process['subject_name']) ?></td>
               <td><?= e($process['status_name']) ?></td>
               <td><span class="ops-badge" style="background:<?= e($process['priority_color']) ?>"><?= e($process['priority_name']) ?></span></td>
+              <td><?= sla_badge($process['created_at'] ?? null, $process['closed_at'] ?? null, $process['default_sla_minutes'] ?? null) ?></td>
               <td>
                 <?php if ($process['assigned_first_name']): ?>
                   <span style="display:flex;align-items:center"><?= online_dot($process['assigned_last_activity'] ?? null) ?><?= e($process['assigned_first_name'] . ' ' . $process['assigned_last_name']) ?></span>

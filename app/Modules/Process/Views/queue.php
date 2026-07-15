@@ -22,6 +22,7 @@
             <th>Matrícula</th>
             <th>Assunto</th>
             <th>Prioridade</th>
+            <th>Falta p/ SLA</th>
             <th>Criado por</th>
             <th>Criado em</th>
             <th></th>
@@ -29,7 +30,7 @@
         </thead>
         <tbody>
           <?php if (empty($processes)): ?>
-            <tr><td colspan="9" style="text-align:center;color:#6b7280">Fila vazia. Bom trabalho!</td></tr>
+            <tr><td colspan="10" style="text-align:center;color:#6b7280">Fila vazia. Bom trabalho!</td></tr>
           <?php endif; ?>
           <?php foreach ($processes as $process): ?>
             <tr>
@@ -39,6 +40,7 @@
               <td><?= e($process['vehicle_plate']) ?></td>
               <td><?= e($process['subject_name']) ?></td>
               <td><span class="ops-badge" style="background:<?= e($process['priority_color']) ?>"><?= e($process['priority_name']) ?></span></td>
+              <td><?= sla_badge($process['created_at'], $process['closed_at'] ?? null, $process['default_sla_minutes'] ?? null) ?></td>
               <td style="color:#6b7280"><?= e(trim(($process['creator_first_name'] ?? '') . ' ' . ($process['creator_last_name'] ?? '')) ?: '—') ?></td>
               <td><?= e($process['created_at']) ?></td>
               <td>

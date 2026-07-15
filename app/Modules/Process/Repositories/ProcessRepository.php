@@ -293,7 +293,7 @@ final class ProcessRepository
     {
         $sql = "
             SELECT p.*, v.plate AS vehicle_plate, c.name AS customer_name,
-                   sub.name AS subject_name, pr.code AS priority_code, pr.name AS priority_name, pr.color AS priority_color,
+                   sub.name AS subject_name, pr.code AS priority_code, pr.name AS priority_name, pr.color AS priority_color, pr.default_sla_minutes,
                    creator.first_name AS creator_first_name, creator.last_name AS creator_last_name,
                    br.name AS branch_name, d.name AS department_name
             FROM tb_process p
@@ -344,7 +344,7 @@ final class ProcessRepository
         $stmt = $this->pdo->prepare("
             SELECT p.*, v.plate AS vehicle_plate, c.name AS customer_name,
                    sub.name AS subject_name, st.code AS status_code, st.name AS status_name,
-                   pr.code AS priority_code, pr.name AS priority_name, pr.color AS priority_color
+                   pr.code AS priority_code, pr.name AS priority_name, pr.color AS priority_color, pr.default_sla_minutes
             FROM tb_process p
             JOIN tb_vehicle v ON v.id = p.vehicle_id
             JOIN tb_customer c ON c.id = p.customer_id
@@ -370,7 +370,7 @@ final class ProcessRepository
         $stmt = $this->pdo->prepare("
             SELECT p.*, v.plate AS vehicle_plate, c.name AS customer_name,
                    sub.name AS subject_name, st.code AS status_code, st.name AS status_name,
-                   pr.code AS priority_code, pr.name AS priority_name, pr.color AS priority_color,
+                   pr.code AS priority_code, pr.name AS priority_name, pr.color AS priority_color, pr.default_sla_minutes,
                    u.first_name AS assigned_first_name, u.last_name AS assigned_last_name,
                    u.last_activity_at AS assigned_last_activity
             FROM tb_process p
@@ -565,7 +565,7 @@ final class ProcessRepository
                    c.name AS customer_name, v.plate AS vehicle_plate,
                    sub.name AS subject_name,
                    st.code AS status_code, st.name AS status_name,
-                   pr.name AS priority_name, pr.color AS priority_color,
+                   pr.name AS priority_name, pr.color AS priority_color, pr.default_sla_minutes,
                    u.first_name AS assigned_first_name, u.last_name AS assigned_last_name,
                    u.last_activity_at AS assigned_last_activity,
                    creator.first_name AS creator_first_name, creator.last_name AS creator_last_name,

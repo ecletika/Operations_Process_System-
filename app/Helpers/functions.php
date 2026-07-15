@@ -57,3 +57,51 @@ if (!function_exists('online_dot')) {
         return '<span title="' . $title . '" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' . $color . ';margin-right:5px;flex-shrink:0"></span>';
     }
 }
+
+if (!function_exists('sla_minutes_left')) {
+    /**
+     * Minutos que faltam para o prazo do SLA de um processo, contando desde a
+     * criação (prazo = created_at + SLA da prioridade). Devolve:
+     *   - int positivo → ainda dentro do prazo (minutos a faltar);
+     *   - int negativo → prazo ultrapassado (minutos de atraso);
+     *   - null → sem SLA definido, sem data, ou processo já concluído.
+     * Tudo em UTC (o app usa UTC de ponta a ponta), coerente com o resto.
+     */
+    function sla_minutes_left(?string $createdAt, ?string $closedAt, int|string|null $slaMinutes): ?int
+    {
+        if ($slaMinutes === null || $slaMinutes === '' || $createdAt === null || $createdAt === '' || $closedAt !== null) {
+            return null;
+        }
+
+        $elapsed = (int) floor((time() - strtotime($createdAt)) / 60);
+
+        return (int) $slaMinutes - $elapsed;
+    }
+}
+
+if (!function_exists('sla_badge')) {
+    /**
+     * Etiqueta "tempo para o SLA" de um processo (para listas e detalhe).
+     * Verde = folga; laranja = a menos de 30 min do prazo; vermelho = atrasado.
+     */
+    function sla_badge(?string $createdAt, ?string $closedAt, int|string|null $slaMinutes): string
+    {
+        $left = sla_minutes_left($createdAt, $closedAt, $slaMinutes);
+        if ($left === null) {
+            return '<span style="color:#9ca3af">—</span>';
+        }
+
+        $abs = abs($left);
+        $txt = $abs >= 60 ? intdiv($abs, 60) . 'h' . str_pad((string) ($abs % 60), 2, '0', STR_PAD_LEFT) . 'm' : $abs . 'm';
+
+        if ($left < 0) {
+            return '<span title="Prazo do SLA ultrapassado" style="color:#dc2626;font-weight:600;white-space:nowrap">🔴 -' . $txt . '</span>';
+        }
+
+        $warn = $left <= 30;
+        $color = $warn ? '#b45309' : '#16a34a';
+        $emoji = $warn ? '🟠' : '🟢';
+
+        return '<span title="Tempo restante até ao prazo do SLA" style="color:' . $color . ';white-space:nowrap">' . $emoji . ' ' . $txt . '</span>';
+    }
+}

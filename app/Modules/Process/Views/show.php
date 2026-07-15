@@ -94,6 +94,19 @@
           <div class="value"><?= $dna['sla_met'] === null ? '—' : ($dna['sla_met'] ? '🟢' : '🔴') ?></div>
           <div class="label">SLA <?= $dna['sla_minutes'] !== null ? "({$dna['sla_minutes']} min)" : '' ?></div>
         </div>
+        <?php
+          // Tempo que falta para o prazo do SLA (só faz sentido em aberto).
+          $slaLeft = sla_minutes_left($process['created_at'], $process['closed_at'], $process['default_sla_minutes'] ?? null);
+        ?>
+        <?php if ($slaLeft !== null): ?>
+          <?php $abs = abs($slaLeft); $slaTxt = $abs >= 60 ? intdiv($abs, 60) . 'h' . str_pad((string) ($abs % 60), 2, '0', STR_PAD_LEFT) . 'm' : $abs . 'm'; ?>
+          <div class="ops-kpi">
+            <div class="value" style="color:<?= $slaLeft < 0 ? '#dc2626' : ($slaLeft <= 30 ? '#b45309' : '#16a34a') ?>">
+              <?= $slaLeft < 0 ? '−' . $slaTxt : $slaTxt ?>
+            </div>
+            <div class="label"><?= $slaLeft < 0 ? 'SLA em atraso' : 'Falta p/ SLA' ?></div>
+          </div>
+        <?php endif; ?>
       </div>
 
       <h2 style="margin-top:32px">Timeline Viva™</h2>
