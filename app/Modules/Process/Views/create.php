@@ -47,7 +47,37 @@
             <div class="ops-form-row">
               <label for="customer_name">Nome do Cliente</label>
               <input type="text" id="customer_name" name="customer_name" value="<?= e($old['customer_name'] ?? '') ?>" required>
+              <small id="plate_hint" style="display:none;color:#16a34a;font-size:12px"></small>
             </div>
+            <script>
+              // RF-0037: ao sair do campo Matrícula, procura a viatura e, se já
+              // existir, preenche automaticamente o nome do cliente.
+              (function () {
+                var plate = document.getElementById('plate');
+                var name = document.getElementById('customer_name');
+                var hint = document.getElementById('plate_hint');
+                if (!plate || !name) { return; }
+
+                plate.addEventListener('blur', function () {
+                  var value = plate.value.trim();
+                  if (value === '') { return; }
+                  fetch('/processes/vehicle-lookup?plate=' + encodeURIComponent(value), { headers: { 'Accept': 'application/json' } })
+                    .then(function (r) { return r.json(); })
+                    .then(function (data) {
+                      if (!data.found) {
+                        hint.style.display = 'none';
+                        return;
+                      }
+                      // Só preenche se o utilizador ainda não escreveu um nome.
+                      if (name.value.trim() === '') { name.value = data.customer_name; }
+                      var veic = [data.brand, data.model].filter(Boolean).join(' ');
+                      hint.textContent = '✓ Viatura reconhecida: ' + data.customer_name + (veic ? ' — ' + veic : '');
+                      hint.style.display = 'block';
+                    })
+                    .catch(function () { /* silencioso: o preenchimento é apenas uma ajuda */ });
+                });
+              })();
+            </script>
             <?php if (!empty($canChooseBatch) && !empty($batches)): ?>
             <div class="ops-form-row">
               <label for="batch_id">Filial / Departamento (onde o processo entra na fila)</label>

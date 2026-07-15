@@ -174,6 +174,38 @@ final class ProcessController extends Controller
         exit;
     }
 
+    /**
+     * Lookup de matrícula (RF-0037): ao escrever a matrícula no Novo Processo,
+     * devolve o cliente associado (se a viatura já existir) para preencher o
+     * nome automaticamente. Responde JSON.
+     */
+    public function vehicleLookup(Request $request): never
+    {
+        $plate = trim((string) $request->input('plate', ''));
+        if ($plate === '') {
+            Response::json(['found' => false]);
+        }
+
+        $vehicle = (new \App\Modules\Process\Repositories\VehicleRepository())->findByPlate($plate);
+        if ($vehicle === null) {
+            Response::json(['found' => false]);
+        }
+
+        $customer = (new \App\Modules\Process\Repositories\CustomerRepository())->findById((int) $vehicle['customer_id']);
+        if ($customer === null) {
+            Response::json(['found' => false]);
+        }
+
+        Response::json([
+            'found' => true,
+            'customer_name' => $customer['name'],
+            'phone' => $customer['phone'],
+            'email' => $customer['email'],
+            'brand' => $vehicle['brand'],
+            'model' => $vehicle['model'],
+        ]);
+    }
+
     public function create(Request $request): never
     {
         $this->renderCreateForm(

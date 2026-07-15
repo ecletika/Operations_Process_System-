@@ -61,6 +61,7 @@ $router->get('/processes/mine', [ProcessController::class, 'mine'], [Authenticat
 $router->get('/processes/all', [ProcessController::class, 'all'], [Authenticate::class, [PermissionMiddleware::class, 'process.view_all']]);
 $router->get('/processes/all.xls', [ProcessController::class, 'allExcel'], [Authenticate::class, [PermissionMiddleware::class, 'process.view_all']]);
 $router->get('/processes/create', [ProcessController::class, 'create'], [Authenticate::class, [PermissionMiddleware::class, 'process.create']]);
+$router->get('/processes/vehicle-lookup', [ProcessController::class, 'vehicleLookup'], [Authenticate::class, [PermissionMiddleware::class, 'process.create']]);
 $router->post('/processes', [ProcessController::class, 'store'], [Authenticate::class, [PermissionMiddleware::class, 'process.create']]);
 $router->get('/processes/{id}', [ProcessController::class, 'show'], [Authenticate::class]);
 $router->get('/processes/{id}/replay', [ProcessController::class, 'replay'], [Authenticate::class]);
