@@ -15,8 +15,14 @@ use Throwable;
  */
 final class Authenticate
 {
-    /** Intervalo mínimo entre "toques" de presença (segundos). */
-    private const ACTIVITY_TOUCH_SECONDS = 120;
+    /**
+     * Intervalo mínimo entre "toques" de presença (segundos). O pop-up de
+     * notificações (#6) faz polling a cada 30s e passa por este middleware,
+     * pelo que serve também de "heartbeat": o utilizador continua a marcar
+     * presença mesmo que fique numa página sem navegar (corrige #9 — deixava
+     * de aparecer online ao fim de ~30 min parado no mesmo separador).
+     */
+    private const ACTIVITY_TOUCH_SECONDS = 60;
 
     public function handle(Request $request): void
     {

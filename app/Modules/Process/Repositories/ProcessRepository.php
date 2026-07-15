@@ -333,9 +333,14 @@ final class ProcessRepository
 
     /**
      * Meus Processos - operador vê apenas o que lhe está atribuído (3.9).
+     *
+     * $archived=false → caixa "em curso" (não concluídos);
+     * $archived=true  → "Caixa de Entrada Arquivada" (Resolvidos/Encerrados) (#10).
      */
-    public function listAssignedTo(int $userId): array
+    public function listAssignedTo(int $userId, bool $archived = false): array
     {
+        $statusFilter = $archived ? "st.code IN ('SOLVED', 'CLOSED')" : "st.code NOT IN ('SOLVED', 'CLOSED')";
+
         $stmt = $this->pdo->prepare("
             SELECT p.*, v.plate AS vehicle_plate, c.name AS customer_name,
                    sub.name AS subject_name, st.code AS status_code, st.name AS status_name,
@@ -346,7 +351,7 @@ final class ProcessRepository
             JOIN tb_subject sub ON sub.id = p.subject_id
             JOIN tb_status st ON st.id = p.status_id
             JOIN tb_priority pr ON pr.id = p.priority_id
-            WHERE p.deleted_at IS NULL AND p.assigned_to = :user_id AND st.code NOT IN ('CLOSED')
+            WHERE p.deleted_at IS NULL AND p.assigned_to = :user_id AND {$statusFilter}
             ORDER BY p.last_contact_at DESC
         ");
         $stmt->execute(['user_id' => $userId]);
@@ -358,8 +363,10 @@ final class ProcessRepository
      * Processos Criados por mim — o criador acompanha (e pode interagir),
      * mesmo que outro operador os tenha assumido.
      */
-    public function listCreatedBy(int $userId): array
+    public function listCreatedBy(int $userId, bool $archived = false): array
     {
+        $statusFilter = $archived ? "st.code IN ('SOLVED', 'CLOSED')" : "st.code NOT IN ('SOLVED', 'CLOSED')";
+
         $stmt = $this->pdo->prepare("
             SELECT p.*, v.plate AS vehicle_plate, c.name AS customer_name,
                    sub.name AS subject_name, st.code AS status_code, st.name AS status_name,
@@ -373,7 +380,7 @@ final class ProcessRepository
             JOIN tb_status st ON st.id = p.status_id
             JOIN tb_priority pr ON pr.id = p.priority_id
             LEFT JOIN tb_user u ON u.id = p.assigned_to
-            WHERE p.deleted_at IS NULL AND p.created_by = :user_id AND st.code NOT IN ('CLOSED')
+            WHERE p.deleted_at IS NULL AND p.created_by = :user_id AND {$statusFilter}
             ORDER BY p.last_contact_at DESC
         ");
         $stmt->execute(['user_id' => $userId]);

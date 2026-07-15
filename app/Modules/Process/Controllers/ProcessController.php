@@ -78,11 +78,13 @@ final class ProcessController extends Controller
     {
         $userId = (int) Session::get('user_id');
         $repository = new ProcessRepository();
+        $archived = (string) $request->input('view', '') === 'archived';
 
         $this->view('Process/Views/mine', [
-            'processes' => $repository->listAssignedTo($userId),
-            'createdProcesses' => $repository->listCreatedBy($userId),
+            'processes' => $repository->listAssignedTo($userId, $archived),
+            'createdProcesses' => $repository->listCreatedBy($userId, $archived),
             'userId' => $userId,
+            'archived' => $archived,
         ]);
     }
 

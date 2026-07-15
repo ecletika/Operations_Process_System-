@@ -13,6 +13,17 @@
       <h1>📥 Minha Caixa de Entrada™</h1>
       <p style="color:#6b7280">Os processos que assumiu e os que criou — para tratar e para acompanhar.</p>
 
+      <?php $archived = !empty($archived); ?>
+      <div style="display:flex;gap:6px;margin:12px 0 16px;border-bottom:1px solid #e5e7eb">
+        <a href="/processes/mine"
+           style="padding:10px 16px;text-decoration:none;font-weight:600;font-size:14px;color:<?= !$archived ? '#2563eb' : '#6b7280' ?>;border-bottom:2px solid <?= !$archived ? '#2563eb' : 'transparent' ?>">📨 Em curso</a>
+        <a href="/processes/mine?view=archived"
+           style="padding:10px 16px;text-decoration:none;font-weight:600;font-size:14px;color:<?= $archived ? '#2563eb' : '#6b7280' ?>;border-bottom:2px solid <?= $archived ? '#2563eb' : 'transparent' ?>">🗄️ Caixa Arquivada</a>
+      </div>
+      <?php if ($archived): ?>
+        <p style="color:#6b7280;font-size:13px">Processos já finalizados (Resolvidos/Encerrados) que assumiu ou criou.</p>
+      <?php endif; ?>
+
       <?php
         // Lista de temas presentes nas duas tabelas, para o filtro por Assunto.
         $subjectNames = [];
@@ -53,7 +64,7 @@
         </thead>
         <tbody>
           <?php if (empty($processes)): ?>
-            <tr><td colspan="7" style="text-align:center;color:#6b7280">Ainda não tem processos atribuídos.</td></tr>
+            <tr><td colspan="7" style="text-align:center;color:#6b7280"><?= $archived ? 'Ainda não tem processos finalizados.' : 'Ainda não tem processos atribuídos.' ?></td></tr>
           <?php endif; ?>
           <?php foreach ($processes as $process): ?>
             <tr class="proc-row" data-subject="<?= e(mb_strtolower($process['subject_name'] ?? '')) ?>" data-plate="<?= e(strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $process['vehicle_plate'] ?? ''))) ?>">
@@ -85,7 +96,7 @@
         </thead>
         <tbody>
           <?php if (empty($createdProcesses)): ?>
-            <tr><td colspan="8" style="text-align:center;color:#6b7280">Ainda não criou processos.</td></tr>
+            <tr><td colspan="8" style="text-align:center;color:#6b7280"><?= $archived ? 'Ainda não tem processos criados finalizados.' : 'Ainda não criou processos.' ?></td></tr>
           <?php endif; ?>
           <?php foreach ($createdProcesses as $process): ?>
             <tr class="proc-row" data-subject="<?= e(mb_strtolower($process['subject_name'] ?? '')) ?>" data-plate="<?= e(strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $process['vehicle_plate'] ?? ''))) ?>">
