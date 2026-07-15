@@ -31,7 +31,7 @@
 
       <form method="GET" action="/customers" style="margin-bottom:16px;display:flex;gap:8px">
         <input type="hidden" name="tab" value="<?= e($tab) ?>">
-        <input type="text" name="q" value="<?= e($search) ?>" placeholder="Pesquisar por nome, telefone ou email..."
+        <input type="text" name="q" value="<?= e($search) ?>" placeholder="Pesquisar por nome, telefone, email ou NIF..."
                style="flex:1;max-width:420px;padding:8px 12px;border:1px solid #e5e7eb;border-radius:6px">
         <button type="submit" class="ops-btn ops-btn-sm">Pesquisar</button>
       </form>
@@ -40,11 +40,11 @@
 
       <table class="ops-table">
         <thead>
-          <tr><th>Nome</th><th>Telefone</th><th>Email</th><th>Viaturas</th><th>Processos</th><th>Últimos <?= (int) $windowDays ?>d</th><th>Último processo</th><th></th></tr>
+          <tr><th>Nome</th><th>Telefone</th><th>Email</th><th>NIF</th><th>Viaturas</th><th>Processos</th><th>Últimos <?= (int) $windowDays ?>d</th><th>Último processo</th><th></th></tr>
         </thead>
         <tbody>
           <?php if (empty($customers)): ?>
-            <tr><td colspan="8" style="text-align:center;color:#6b7280">Nenhum cliente encontrado.</td></tr>
+            <tr><td colspan="9" style="text-align:center;color:#6b7280">Nenhum cliente encontrado.</td></tr>
           <?php endif; ?>
           <?php foreach ($customers as $customer): ?>
             <tr>
@@ -56,6 +56,7 @@
               </td>
               <td><?= e($customer['phone'] ?? '—') ?></td>
               <td><?= e($customer['email'] ?? '—') ?></td>
+              <td><?= e($customer['nif'] ?? '—') ?></td>
               <td><?= (int) $customer['vehicle_count'] ?></td>
               <td><?= (int) $customer['process_count'] ?></td>
               <td><?= (int) $customer['recent_processes'] ?></td>

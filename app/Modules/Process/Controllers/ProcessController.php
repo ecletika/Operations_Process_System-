@@ -94,26 +94,11 @@ final class ProcessController extends Controller
      */
     public function all(Request $request): never
     {
-        $tab = (string) $request->input('tab', 'in_progress');
-        $validTabs = ['in_progress', 'em_tratamento', 'em_espera', 'resolvidos', 'encerrados', 'reabertos', 'arquivados', 'no_interaction', 'all'];
-        if (!in_array($tab, $validTabs, true)) {
-            $tab = 'in_progress';
-        }
-
-        $filters = [
-            'tab' => $tab,
-            'status_id' => $request->input('status_id', ''),
-            'batch_id' => $request->input('batch_id', ''),
-            'priority_id' => $request->input('priority_id', ''),
-            'subject_id' => $request->input('subject_id', ''),
-            'assigned_to' => $request->input('assigned_to', ''),
-            'date_from' => $request->input('date_from', ''),
-            'date_to' => $request->input('date_to', ''),
-        ];
+        $filters = $this->buildAllFilters($request);
 
         $this->view('Process/Views/all', [
             'processes' => (new ProcessRepository())->filterAll($filters),
-            'tab' => $tab,
+            'tab' => $filters['tab'],
             'filters' => $filters,
             'statuses' => (new StatusRepository())->listAll(),
             'batches' => (new BatchRepository())->listAll(),
@@ -121,6 +106,72 @@ final class ProcessController extends Controller
             'subjects' => (new SubjectRepository())->listActive(),
             'users' => (new UserRepository())->listAll(),
         ]);
+    }
+
+    /**
+     * Filtros de "Todos os Processos". Os campos estado/lote/prioridade/
+     * assunto/responsável aceitam multi-seleção (arrays de ids); a aba e as
+     * datas são escalares. Partilhado entre a página e a exportação Excel.
+     *
+     * @return array<string, mixed>
+     */
+    private function buildAllFilters(Request $request): array
+    {
+        $tab = (string) $request->input('tab', 'in_progress');
+        $validTabs = ['in_progress', 'em_tratamento', 'em_espera', 'resolvidos', 'encerrados', 'reabertos', 'arquivados', 'no_interaction', 'all'];
+        if (!in_array($tab, $validTabs, true)) {
+            $tab = 'in_progress';
+        }
+
+        $multi = static fn (mixed $v): array => array_values(array_filter(
+            array_map('intval', (array) $v),
+            static fn (int $x): bool => $x > 0
+        ));
+
+        return [
+            'tab' => $tab,
+            'status_id' => $multi($request->input('status_id', [])),
+            'batch_id' => $multi($request->input('batch_id', [])),
+            'priority_id' => $multi($request->input('priority_id', [])),
+            'subject_id' => $multi($request->input('subject_id', [])),
+            'assigned_to' => $multi($request->input('assigned_to', [])),
+            'date_from' => (string) $request->input('date_from', ''),
+            'date_to' => (string) $request->input('date_to', ''),
+        ];
+    }
+
+    /**
+     * Exporta a lista "Todos os Processos" para Excel, respeitando os mesmos
+     * filtros aplicados na página (RF-0041).
+     */
+    public function allExcel(Request $request): never
+    {
+        $filters = $this->buildAllFilters($request);
+        $processes = (new ProcessRepository())->filterAll($filters, 5000);
+
+        $rows = array_map(static fn (array $p): array => [
+            'Nº Processo' => $p['process_number'],
+            'Filial' => $p['branch_name'] ?? '',
+            'Departamento' => $p['department_name'] ?? '',
+            'Cliente' => $p['customer_name'],
+            'Matrícula' => $p['vehicle_plate'],
+            'Assunto' => $p['subject_name'],
+            'Estado' => $p['status_name'],
+            'Prioridade' => $p['priority_name'],
+            'Responsável' => trim(($p['assigned_first_name'] ?? '') . ' ' . ($p['assigned_last_name'] ?? '')),
+            'Criado por' => trim(($p['creator_first_name'] ?? '') . ' ' . ($p['creator_last_name'] ?? '')),
+            'Contactos' => (int) $p['contact_count'],
+            'Reaberturas' => (int) $p['reopen_count'],
+            'Criado em' => $p['created_at'],
+            'Concluído em' => $p['closed_at'] ?? '',
+        ], $processes);
+
+        $html = (new \App\Modules\Reports\Services\ExcelExportService())->render($rows, 'Todos os Processos');
+
+        header('Content-Type: application/vnd.ms-excel; charset=utf-8');
+        header('Content-Disposition: attachment; filename="todos_os_processos_' . date('Y-m-d_His') . '.xls"');
+        echo $html;
+        exit;
     }
 
     public function create(Request $request): never

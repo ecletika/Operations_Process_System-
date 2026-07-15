@@ -518,30 +518,30 @@ final class ProcessRepository
                 break;
         }
 
-        if (!empty($filters['status_id'])) {
-            $conditions[] = 'p.status_id = :status_id';
-            $params['status_id'] = (int) $filters['status_id'];
-        }
+        // Filtros combináveis que aceitam um OU vários valores (multi-seleção).
+        // Aceita tanto escalar ('5') como lista (['5','7']) e monta um IN (...).
+        $inClause = function (string $column, mixed $value, string $prefix) use (&$conditions, &$params): void {
+            $values = array_values(array_unique(array_filter(
+                array_map('intval', (array) $value),
+                static fn (int $v): bool => $v > 0
+            )));
+            if ($values === []) {
+                return;
+            }
+            $placeholders = [];
+            foreach ($values as $i => $v) {
+                $key = $prefix . $i;
+                $placeholders[] = ':' . $key;
+                $params[$key] = $v;
+            }
+            $conditions[] = $column . ' IN (' . implode(', ', $placeholders) . ')';
+        };
 
-        if (!empty($filters['batch_id'])) {
-            $conditions[] = 'p.batch_id = :batch_id';
-            $params['batch_id'] = (int) $filters['batch_id'];
-        }
-
-        if (!empty($filters['priority_id'])) {
-            $conditions[] = 'p.priority_id = :priority_id';
-            $params['priority_id'] = (int) $filters['priority_id'];
-        }
-
-        if (!empty($filters['subject_id'])) {
-            $conditions[] = 'p.subject_id = :subject_id';
-            $params['subject_id'] = (int) $filters['subject_id'];
-        }
-
-        if (!empty($filters['assigned_to'])) {
-            $conditions[] = 'p.assigned_to = :assigned_to';
-            $params['assigned_to'] = (int) $filters['assigned_to'];
-        }
+        $inClause('p.status_id', $filters['status_id'] ?? [], 'status_');
+        $inClause('p.batch_id', $filters['batch_id'] ?? [], 'batch_');
+        $inClause('p.priority_id', $filters['priority_id'] ?? [], 'prio_');
+        $inClause('p.subject_id', $filters['subject_id'] ?? [], 'subj_');
+        $inClause('p.assigned_to', $filters['assigned_to'] ?? [], 'assg_');
 
         if (!empty($filters['date_from'])) {
             $conditions[] = 'p.created_at >= :date_from';

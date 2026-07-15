@@ -39,51 +39,52 @@
         <?php endforeach; ?>
       </div>
 
+      <?php
+        // Filtros com multi-seleção: cada um destes aceita vários valores
+        // (Ctrl/Cmd+clique). $filters[...] vem sempre como array de ids.
+        $sel = static fn (int $id, array $chosen): string => in_array($id, $chosen, true) ? 'selected' : '';
+      ?>
       <form method="GET" action="/processes/all" class="ops-panel" style="max-width:none">
         <input type="hidden" name="tab" value="<?= e($tab) ?>">
+        <p style="color:#9ca3af;font-size:12px;margin:0 0 8px">Pode escolher vários valores em cada filtro (Ctrl+clique / Cmd+clique).</p>
         <div style="display:flex;gap:12px;flex-wrap:wrap">
           <div class="ops-form-row" style="flex:1;min-width:160px">
             <label for="status_id">Estado</label>
-            <select id="status_id" name="status_id">
-              <option value="">Todos</option>
+            <select id="status_id" name="status_id[]" multiple size="4">
               <?php foreach ($statuses as $status): ?>
-                <option value="<?= (int) $status['id'] ?>" <?= (string) $filters['status_id'] === (string) $status['id'] ? 'selected' : '' ?>><?= e($status['name']) ?></option>
+                <option value="<?= (int) $status['id'] ?>" <?= $sel((int) $status['id'], $filters['status_id']) ?>><?= e($status['name']) ?></option>
               <?php endforeach; ?>
             </select>
           </div>
           <div class="ops-form-row" style="flex:1;min-width:160px">
             <label for="batch_id">Filial / Departamento</label>
-            <select id="batch_id" name="batch_id">
-              <option value="">Todos</option>
+            <select id="batch_id" name="batch_id[]" multiple size="4">
               <?php foreach ($batches as $batch): ?>
-                <option value="<?= (int) $batch['id'] ?>" <?= (string) $filters['batch_id'] === (string) $batch['id'] ? 'selected' : '' ?>><?= e(($batch['branch_name'] ?? '') !== '' ? $batch['branch_name'] . ' · ' . $batch['department_name'] : $batch['department_name']) ?></option>
+                <option value="<?= (int) $batch['id'] ?>" <?= $sel((int) $batch['id'], $filters['batch_id']) ?>><?= e(($batch['branch_name'] ?? '') !== '' ? $batch['branch_name'] . ' · ' . $batch['department_name'] : $batch['department_name']) ?></option>
               <?php endforeach; ?>
             </select>
           </div>
           <div class="ops-form-row" style="flex:1;min-width:160px">
             <label for="priority_id">Prioridade</label>
-            <select id="priority_id" name="priority_id">
-              <option value="">Todas</option>
+            <select id="priority_id" name="priority_id[]" multiple size="4">
               <?php foreach ($priorities as $priority): ?>
-                <option value="<?= (int) $priority['id'] ?>" <?= (string) $filters['priority_id'] === (string) $priority['id'] ? 'selected' : '' ?>><?= e($priority['name']) ?></option>
+                <option value="<?= (int) $priority['id'] ?>" <?= $sel((int) $priority['id'], $filters['priority_id']) ?>><?= e($priority['name']) ?></option>
               <?php endforeach; ?>
             </select>
           </div>
           <div class="ops-form-row" style="flex:1;min-width:160px">
             <label for="subject_id">Assunto</label>
-            <select id="subject_id" name="subject_id">
-              <option value="">Todos</option>
+            <select id="subject_id" name="subject_id[]" multiple size="4">
               <?php foreach ($subjects as $subject): ?>
-                <option value="<?= (int) $subject['id'] ?>" <?= (string) $filters['subject_id'] === (string) $subject['id'] ? 'selected' : '' ?>><?= e($subject['name']) ?></option>
+                <option value="<?= (int) $subject['id'] ?>" <?= $sel((int) $subject['id'], $filters['subject_id']) ?>><?= e($subject['name']) ?></option>
               <?php endforeach; ?>
             </select>
           </div>
           <div class="ops-form-row" style="flex:1;min-width:160px">
             <label for="assigned_to">Responsável</label>
-            <select id="assigned_to" name="assigned_to">
-              <option value="">Todos</option>
+            <select id="assigned_to" name="assigned_to[]" multiple size="4">
               <?php foreach ($users as $user): ?>
-                <option value="<?= (int) $user['id'] ?>" <?= (string) $filters['assigned_to'] === (string) $user['id'] ? 'selected' : '' ?>><?= e($user['first_name'] . ' ' . $user['last_name']) ?></option>
+                <option value="<?= (int) $user['id'] ?>" <?= $sel((int) $user['id'], $filters['assigned_to']) ?>><?= e($user['first_name'] . ' ' . $user['last_name']) ?></option>
               <?php endforeach; ?>
             </select>
           </div>
@@ -96,8 +97,11 @@
             <input type="date" id="date_to" name="date_to" value="<?= e($filters['date_to']) ?>">
           </div>
         </div>
-        <button type="submit" class="ops-btn ops-btn-sm">Filtrar</button>
-        <a href="/processes/all?tab=<?= e($tab) ?>" class="ops-btn ops-btn-sm" style="background:#6b7280;text-decoration:none">Limpar filtros</a>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button type="submit" class="ops-btn ops-btn-sm">Filtrar</button>
+          <a href="/processes/all?tab=<?= e($tab) ?>" class="ops-btn ops-btn-sm" style="background:#6b7280;text-decoration:none">Limpar filtros</a>
+          <a href="/processes/all.xls?<?= http_build_query($filters) ?>" class="ops-btn ops-btn-sm" style="background:#16a34a;text-decoration:none">⬇️ Baixar Excel</a>
+        </div>
       </form>
 
       <p style="color:#6b7280;margin-top:12px"><?= count($processes) ?> processo(s) encontrado(s).</p>

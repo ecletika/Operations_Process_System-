@@ -97,10 +97,11 @@ final class CustomerRepository
         $params = [];
 
         if ($search !== '') {
-            $conditions[] = '(c.name LIKE :search1 OR c.phone LIKE :search2 OR c.email LIKE :search3)';
+            $conditions[] = '(c.name LIKE :search1 OR c.phone LIKE :search2 OR c.email LIKE :search3 OR c.nif LIKE :search4)';
             $params['search1'] = "%{$search}%";
             $params['search2'] = "%{$search}%";
             $params['search3'] = "%{$search}%";
+            $params['search4'] = "%{$search}%";
         }
 
         $having = $onlyFrequent ? 'HAVING recent_processes >= :threshold' : '';
@@ -109,7 +110,7 @@ final class CustomerRepository
         }
 
         $sql = '
-            SELECT c.id, c.name, c.phone, c.email, c.created_at,
+            SELECT c.id, c.name, c.phone, c.email, c.nif, c.created_at,
                    COUNT(DISTINCT v.id) AS vehicle_count,
                    COUNT(DISTINCT p.id) AS process_count,
                    COUNT(DISTINCT CASE WHEN p.created_at >= DATE_SUB(NOW(), INTERVAL :window_days DAY) THEN p.id END) AS recent_processes,
@@ -118,7 +119,7 @@ final class CustomerRepository
             LEFT JOIN tb_vehicle v ON v.customer_id = c.id AND v.deleted_at IS NULL
             LEFT JOIN tb_process p ON p.customer_id = c.id AND p.deleted_at IS NULL
             WHERE ' . implode(' AND ', $conditions) . '
-            GROUP BY c.id, c.name, c.phone, c.email, c.created_at
+            GROUP BY c.id, c.name, c.phone, c.email, c.nif, c.created_at
             ' . $having . '
             ORDER BY c.name ASC
             LIMIT :limit
