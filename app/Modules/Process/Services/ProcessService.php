@@ -208,6 +208,38 @@ final class ProcessService
         $this->timeline->record($processId, 'PROCESS_ASSIGNED', 'Processo assumido', null, $userId);
     }
 
+    /** Estados em que o relógio do SLA fica em pausa (espera de terceiros). */
+    public const WAITING_STATUSES = ['WAIT_CLIENT', 'WAIT_PARTS', 'WAIT_WORKSHOP', 'WAIT_EXTERNAL'];
+
+    /**
+     * Muda o estado do processo (ex.: "Aguarda Cliente" quando o cliente não
+     * atende, ou retomar o tratamento). Enquanto está à espera, o relógio do
+     * SLA fica parado — o operador não é penalizado por demoras que não
+     * dependem dele. O "Tempo Total" (espera real do cliente) não é afetado.
+     */
+    public function changeStatus(int $processId, string $targetStatusCode, int $userId): void
+    {
+        $process = $this->processes->findById($processId);
+        if ($process === null) {
+            throw new RuntimeException('Processo não encontrado.');
+        }
+
+        $this->guardTransition($process['status_code'], $targetStatusCode);
+
+        $isWaiting = in_array($targetStatusCode, self::WAITING_STATUSES, true);
+        $statusId = $this->processes->statusIdByCode($targetStatusCode);
+        $this->processes->changeStatus($processId, $statusId, $userId, $isWaiting);
+
+        $label = $this->processes->statusNameByCode($targetStatusCode);
+        $this->timeline->record(
+            $processId,
+            $isWaiting ? 'PROCESS_WAITING' : 'PROCESS_RESUMED',
+            $isWaiting ? "Em espera: {$label} (SLA em pausa)" : "Tratamento retomado ({$label}) — SLA a contar",
+            null,
+            $userId
+        );
+    }
+
     /**
      * Devolve o processo à Fila Inteligente™ — o operador não está
      * disponível para o tratar e outro pode assumi-lo.

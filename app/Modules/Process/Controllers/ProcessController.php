@@ -383,6 +383,23 @@ final class ProcessController extends Controller
         Response::redirect('/processes/' . $processId);
     }
 
+    /**
+     * Mudar o estado: pôr em espera (Aguarda Cliente/Peças/Oficina/Terceiros,
+     * que param o relógio do SLA) ou retomar o tratamento.
+     */
+    public function changeStatus(Request $request, array $params): never
+    {
+        $status = (string) $request->input('status', '');
+        $allowed = array_merge(ProcessService::WAITING_STATUSES, ['IN_PROGRESS']);
+
+        if (!in_array($status, $allowed, true)) {
+            Session::flash('errors', ['Estado inválido.']);
+            Response::redirect('/processes/' . (int) $params['id']);
+        }
+
+        $this->runAction($request, $params, fn (ProcessService $service, int $id, int $userId) => $service->changeStatus($id, $status, $userId));
+    }
+
     public function close(Request $request, array $params): never
     {
         $this->runAction($request, $params, fn (ProcessService $service, int $id, int $userId) => $service->close($id, $userId));

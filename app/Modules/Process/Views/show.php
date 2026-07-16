@@ -74,6 +74,39 @@
           </form>
         <?php endif; ?>
 
+        <?php
+          // Pôr em espera (pára o relógio do SLA) ou retomar o tratamento.
+          $podeMudarEstado = in_array('process.change_status', \App\Core\Session::get('permissions', []), true);
+          $emEspera = in_array($process['status_code'], ['WAIT_CLIENT', 'WAIT_PARTS', 'WAIT_WORKSHOP', 'WAIT_EXTERNAL'], true);
+          $podeEsperar = in_array($process['status_code'], ['ASSIGNED', 'IN_PROGRESS'], true);
+          $esperas = [
+            'WAIT_CLIENT' => '⏸ Aguarda Cliente',
+            'WAIT_PARTS' => '⏸ Aguarda Peças',
+            'WAIT_WORKSHOP' => '⏸ Aguarda Oficina',
+            'WAIT_EXTERNAL' => '⏸ Aguarda Terceiros',
+          ];
+        ?>
+        <?php if ($podeMudarEstado && $podeEsperar): ?>
+          <form method="POST" action="/processes/<?= (int) $process['id'] ?>/status" style="display:flex;gap:4px;align-items:center">
+            <?= csrf_field() ?>
+            <select name="status" required style="padding:5px 8px;border:1px solid #e5e7eb;border-radius:6px;font-size:13px">
+              <option value="">Pôr em espera…</option>
+              <?php foreach ($esperas as $code => $label): ?>
+                <option value="<?= e($code) ?>"><?= e($label) ?></option>
+              <?php endforeach; ?>
+            </select>
+            <button type="submit" class="ops-btn ops-btn-sm" style="background:#2563eb" title="Pára o relógio do SLA enquanto se aguarda">➜</button>
+          </form>
+        <?php endif; ?>
+
+        <?php if ($podeMudarEstado && $emEspera): ?>
+          <form method="POST" action="/processes/<?= (int) $process['id'] ?>/status">
+            <?= csrf_field() ?>
+            <input type="hidden" name="status" value="IN_PROGRESS">
+            <button type="submit" class="ops-btn ops-btn-sm" style="background:#16a34a" title="Retoma o relógio do SLA">▶️ Retomar tratamento</button>
+          </form>
+        <?php endif; ?>
+
         <a href="/processes/<?= (int) $process['id'] ?>/replay" class="ops-btn ops-btn-sm" style="background:#7c3aed;text-decoration:none;display:inline-flex;align-items:center">🎬 Reproduzir Processo</a>
 
         <?php if (in_array('process.delete', \App\Core\Session::get('permissions', []), true)): ?>
@@ -94,17 +127,18 @@
           <div class="value"><?= $dna['sla_met'] === null ? '—' : ($dna['sla_met'] ? '🟢' : '🔴') ?></div>
           <div class="label">SLA <?= $dna['sla_minutes'] !== null ? "({$dna['sla_minutes']} min)" : '' ?></div>
         </div>
-        <?php
-          // Tempo que falta para o prazo do SLA (só faz sentido em aberto).
-          $slaLeft = sla_minutes_left($process['created_at'], $process['closed_at'], $process['default_sla_minutes'] ?? null);
-        ?>
-        <?php if ($slaLeft !== null): ?>
-          <?php $abs = abs($slaLeft); $slaTxt = $abs >= 60 ? intdiv($abs, 60) . 'h' . str_pad((string) ($abs % 60), 2, '0', STR_PAD_LEFT) . 'm' : $abs . 'm'; ?>
+        <?php $slaState = sla_state($process); ?>
+        <?php if ($slaState['status'] !== 'none'): ?>
+          <?php
+            $left = (int) $slaState['minutes_left'];
+            $paused = $slaState['status'] === 'paused';
+            $cor = $paused ? '#2563eb' : ($left < 0 ? '#dc2626' : ($left <= 30 ? '#b45309' : '#16a34a'));
+          ?>
           <div class="ops-kpi">
-            <div class="value" style="color:<?= $slaLeft < 0 ? '#dc2626' : ($slaLeft <= 30 ? '#b45309' : '#16a34a') ?>">
-              <?= $slaLeft < 0 ? '−' . $slaTxt : $slaTxt ?>
+            <div class="value" style="color:<?= $cor ?>">
+              <?= $paused ? '⏸ ' . sla_human($left) : ($left < 0 ? '−' . sla_human($left) : sla_human($left)) ?>
             </div>
-            <div class="label"><?= $slaLeft < 0 ? 'SLA em atraso' : 'Falta p/ SLA' ?></div>
+            <div class="label"><?= $paused ? 'SLA em pausa' : ($left < 0 ? 'SLA em atraso' : 'Falta p/ SLA') ?></div>
           </div>
         <?php endif; ?>
       </div>

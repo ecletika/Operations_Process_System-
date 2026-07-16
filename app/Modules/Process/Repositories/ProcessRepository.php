@@ -164,13 +164,36 @@ final class ProcessRepository
         $stmt->execute(['id' => $id, 'status_id' => $statusId, 'user_id' => $userId]);
     }
 
-    public function changeStatus(int $id, int $statusId, int $userId): void
+    /**
+     * Muda o estado e faz a contabilidade da pausa do SLA:
+     *  - a entrar num estado de espera (Aguarda ...) → marca wait_started_at
+     *    (o relógio do SLA pára);
+     *  - a sair de uma espera → acumula o tempo parado em sla_paused_minutes
+     *    e volta a contar.
+     */
+    public function changeStatus(int $id, int $statusId, int $userId, bool $isWaiting): void
     {
-        $stmt = $this->pdo->prepare('
-            UPDATE tb_process
-            SET status_id = :status_id, updated_by = :user_id, updated_at = NOW()
-            WHERE id = :id
-        ');
+        if ($isWaiting) {
+            // Só marca o início da espera se ainda não estiver em pausa,
+            // para não perder o tempo já acumulado ao saltar entre esperas.
+            $stmt = $this->pdo->prepare('
+                UPDATE tb_process
+                SET status_id = :status_id,
+                    wait_started_at = COALESCE(wait_started_at, NOW()),
+                    updated_by = :user_id, updated_at = NOW()
+                WHERE id = :id
+            ');
+        } else {
+            $stmt = $this->pdo->prepare('
+                UPDATE tb_process
+                SET status_id = :status_id,
+                    sla_paused_minutes = sla_paused_minutes + IFNULL(TIMESTAMPDIFF(MINUTE, wait_started_at, NOW()), 0),
+                    wait_started_at = NULL,
+                    updated_by = :user_id, updated_at = NOW()
+                WHERE id = :id
+            ');
+        }
+
         $stmt->execute(['id' => $id, 'status_id' => $statusId, 'user_id' => $userId]);
     }
 
@@ -270,9 +293,17 @@ final class ProcessRepository
      */
     public function registerContact(int $id): void
     {
+        // O prazo do SLA reinicia a cada interação (decisão do cliente): como
+        // passa a contar a partir de agora, a pausa acumulada até aqui deixa
+        // de ser relevante e é zerada. Se o processo estiver em espera, o
+        // relógio continua parado, mas a contar a partir deste momento.
         $stmt = $this->pdo->prepare('
             UPDATE tb_process
-            SET contact_count = contact_count + 1, last_contact_at = NOW(), updated_at = NOW()
+            SET contact_count = contact_count + 1,
+                last_contact_at = NOW(),
+                sla_paused_minutes = 0,
+                wait_started_at = IF(wait_started_at IS NULL, NULL, NOW()),
+                updated_at = NOW()
             WHERE id = :id
         ');
         $stmt->execute(['id' => $id]);
@@ -399,6 +430,16 @@ final class ProcessRepository
         }
 
         return (int) $id;
+    }
+
+    /** Nome legível de um estado (ex.: WAIT_CLIENT → "Aguarda Cliente"). */
+    public function statusNameByCode(string $code): string
+    {
+        $stmt = $this->pdo->prepare('SELECT name FROM tb_status WHERE code = :code');
+        $stmt->execute(['code' => $code]);
+        $name = $stmt->fetchColumn();
+
+        return $name !== false ? (string) $name : $code;
     }
 
     public function statusCodeById(int $statusId): string
@@ -562,6 +603,7 @@ final class ProcessRepository
 
         $sql = '
             SELECT p.id, p.process_number, p.contact_count, p.reopen_count, p.created_at, p.closed_at,
+                   p.last_contact_at, p.sla_paused_minutes, p.wait_started_at,
                    c.name AS customer_name, v.plate AS vehicle_plate,
                    sub.name AS subject_name,
                    st.code AS status_code, st.name AS status_name,

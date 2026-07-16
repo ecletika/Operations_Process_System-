@@ -131,7 +131,7 @@
               <td><?= e($process['subject_name']) ?></td>
               <td><?= e($process['status_name']) ?></td>
               <td><span class="ops-badge" style="background:<?= e($process['priority_color']) ?>"><?= e($process['priority_name']) ?></span></td>
-              <td><?= sla_badge($process['created_at'] ?? null, $process['closed_at'] ?? null, $process['default_sla_minutes'] ?? null) ?></td>
+              <td><?= sla_badge($process) ?></td>
               <td>
                 <?php if ($process['assigned_first_name']): ?>
                   <span style="display:flex;align-items:center"><?= online_dot($process['assigned_last_activity'] ?? null) ?><?= e($process['assigned_first_name'] . ' ' . $process['assigned_last_name']) ?></span>
