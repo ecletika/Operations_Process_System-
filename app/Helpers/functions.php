@@ -106,14 +106,19 @@ if (!function_exists('online_dot')) {
 
 if (!function_exists('sla_state')) {
     /**
-     * Estado do SLA de um processo, segundo as regras acordadas com o cliente:
+     * Estado do SLA de um processo. Duas regras, ambas ligáveis/desligáveis
+     * em Configurações → Parâmetros Globais (sem mexer em código):
      *
-     *  1. O prazo conta a partir do ÚLTIMO CONTACTO (last_contact_at) — cada
-     *     interação dá ao operador o tempo do SLA outra vez;
-     *  2. O relógio fica EM PAUSA enquanto se aguarda Cliente/Peças/Oficina/
-     *     Terceiros (wait_started_at preenchido) — demoras que não dependem
-     *     do operador não contam;
-     *  3. O tempo já acumulado em pausa (sla_paused_minutes) empurra o prazo.
+     *  1. sla_renew_on_interaction → o prazo conta a partir do ÚLTIMO
+     *     CONTACTO; cada interação dá ao operador o tempo do SLA outra vez.
+     *     Desligada, conta sempre desde a criação do processo.
+     *  2. sla_pause_on_waiting → o relógio fica EM PAUSA enquanto se aguarda
+     *     Cliente/Peças/Oficina/Terceiros; o tempo já acumulado em pausa
+     *     (sla_paused_minutes) empurra o prazo. Desligada, o relógio nunca
+     *     pára.
+     *
+     * Com as duas desligadas volta ao comportamento original (prazo fixo
+     * desde a criação).
      *
      * Nota: isto mede a resposta do operador, não a espera do cliente — para
      * essa, ver o "Tempo Total" (sempre desde a criação, nunca reiniciado).
@@ -123,18 +128,25 @@ if (!function_exists('sla_state')) {
      */
     function sla_state(array $p): array
     {
+        $renew = (string) \App\Core\Settings::get('sla_renew_on_interaction', '1') === '1';
+        $pause = (string) \App\Core\Settings::get('sla_pause_on_waiting', '1') === '1';
+
         $sla = $p['default_sla_minutes'] ?? null;
-        $base = $p['last_contact_at'] ?? $p['created_at'] ?? null;
+        $base = $renew
+            ? ($p['last_contact_at'] ?? $p['created_at'] ?? null)
+            : ($p['created_at'] ?? null);
 
         if ($sla === null || $sla === '' || $base === null || $base === '' || ($p['closed_at'] ?? null) !== null) {
             return ['status' => 'none', 'minutes_left' => null];
         }
 
-        $paused = (int) ($p['sla_paused_minutes'] ?? 0);
+        $paused = $pause ? (int) ($p['sla_paused_minutes'] ?? 0) : 0;
 
         // Em espera → o relógio está parado; o tempo não corre contra ninguém.
-        if (!empty($p['wait_started_at'])) {
-            return ['status' => 'paused', 'minutes_left' => (int) $sla - max(0, (int) floor((strtotime((string) $p['wait_started_at']) - strtotime((string) $base)) / 60)) + $paused];
+        if ($pause && !empty($p['wait_started_at'])) {
+            $ateAEspera = max(0, (int) floor((strtotime((string) $p['wait_started_at']) - strtotime((string) $base)) / 60));
+
+            return ['status' => 'paused', 'minutes_left' => (int) $sla - $ateAEspera + $paused];
         }
 
         $elapsed = (int) floor((time() - strtotime((string) $base)) / 60);
