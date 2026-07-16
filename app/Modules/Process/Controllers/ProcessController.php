@@ -53,10 +53,14 @@ final class ProcessController extends Controller
      */
     private function allowedBatchIds(): ?array
     {
-        $canSeeAll = (bool) Session::get('view_all_batches', false)
-            || in_array('process.view_all', (array) Session::get('permissions', []), true);
-
-        if ($canSeeAll) {
+        // Regra fixa (RN-0011): só as chefias (process.view_all → Admin/
+        // Supervisor) veem e assumem processos fora do seu departamento.
+        // O "view_all_batches" da ficha do utilizador NÃO abre exceção aqui:
+        // serve apenas para o operador poder CRIAR um processo noutro
+        // departamento (ex.: a Receção abre um pedido para a Oficina).
+        // Para dar a um operador visão de outro departamento, atribua-lhe o
+        // lote desse departamento.
+        if (in_array('process.view_all', (array) Session::get('permissions', []), true)) {
             return null;
         }
 
