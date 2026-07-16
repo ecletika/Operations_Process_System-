@@ -22,7 +22,7 @@
         · Assunto: <?= e($process['subject_name']) ?>
         <br>
         Criado por: <strong><?= $process['creator_first_name'] ? e($process['creator_first_name'] . ' ' . $process['creator_last_name']) : '—' ?></strong>
-        em <?= e($process['created_at']) ?>
+        em <?= dt($process['created_at']) ?>
         <?php if ($process['assigned_first_name']): ?>
           · Responsável: <?= online_dot($process['assigned_last_activity'] ?? null) ?><strong><?= e($process['assigned_first_name'] . ' ' . $process['assigned_last_name']) ?></strong>
         <?php endif; ?>
@@ -113,7 +113,7 @@
       <ul class="ops-timeline">
         <?php foreach ($timeline as $item): ?>
           <li style="border-left-color: <?= e($item['color']) ?>">
-            <div class="time"><?= e($item['created_at']) ?></div>
+            <div class="time"><?= dt($item['created_at']) ?></div>
             <div class="title"><?= e($item['title']) ?></div>
             <?php if ($item['description']): ?><div><?= e($item['description']) ?></div><?php endif; ?>
           </li>
@@ -126,7 +126,7 @@
         <tbody>
           <?php foreach ($interactions as $interaction): ?>
             <tr>
-              <td><?= e($interaction['received_at']) ?></td>
+              <td><?= dt($interaction['received_at']) ?></td>
               <td><?= e($interaction['first_name'] . ' ' . $interaction['last_name']) ?></td>
               <td><?= e($interaction['channel']) ?></td>
               <td><?= e($interaction['description']) ?></td>
@@ -150,7 +150,7 @@
         ?>
         <div class="ops-panel" style="max-width:none;margin-top:10px">
           <div style="color:#6b7280;font-size:12px">
-            <?= e($note['first_name'] . ' ' . $note['last_name']) ?> · <?= e($note['created_at']) ?>
+            <?= e($note['first_name'] . ' ' . $note['last_name']) ?> · <?= dt($note['created_at']) ?>
             · versão <?= (int) $note['version'] ?>
             <?= $canEdit ? '· editável durante mais ' . max(0, 10 - (int) $ageMinutes) . ' min' : '' ?>
           </div>
@@ -187,7 +187,7 @@
             <tr>
               <td><?= e($attachment['original_name']) ?></td>
               <td><?= e($attachment['first_name'] . ' ' . $attachment['last_name']) ?></td>
-              <td><?= e($attachment['created_at']) ?></td>
+              <td><?= dt($attachment['created_at']) ?></td>
               <td><?= number_format((int) $attachment['file_size'] / 1024, 1) ?> KB</td>
               <td><a href="/attachments/<?= (int) $attachment['id'] ?>" target="_blank">Abrir</a></td>
             </tr>

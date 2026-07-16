@@ -82,7 +82,7 @@
               <td><?= e($process['status_name']) ?></td>
               <td><span class="ops-badge" style="background:<?= e($process['priority_color']) ?>"><?= e($process['priority_name']) ?></span></td>
               <td><?= (int) $process['contact_count'] ?></td>
-              <td style="color:#6b7280"><?= e($process['created_at']) ?></td>
+              <td style="color:#6b7280"><?= dt($process['created_at']) ?></td>
             </tr>
           <?php endforeach; ?>
         </tbody>
@@ -97,7 +97,7 @@
           <?php endif; ?>
           <?php foreach ($interactions as $interaction): ?>
             <tr>
-              <td style="color:#6b7280;white-space:nowrap"><?= e($interaction['received_at']) ?></td>
+              <td style="color:#6b7280;white-space:nowrap"><?= dt($interaction['received_at']) ?></td>
               <td><?= e($interaction['channel']) ?></td>
               <td><?= e($interaction['interaction_type']) ?></td>
               <td><?= e(mb_substr((string) ($interaction['description'] ?? ''), 0, 80)) ?></td>

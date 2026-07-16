@@ -30,7 +30,7 @@
           <?php endif; ?>
           <?php foreach ($logs as $log): ?>
             <tr>
-              <td><?= e($log['created_at']) ?></td>
+              <td><?= dt($log['created_at']) ?></td>
               <td><span class="ops-badge" style="background:#374151"><?= e($log['action']) ?></span></td>
               <td><code><?= e($log['table_name']) ?></code></td>
               <td>#<?= (int) $log['record_id'] ?></td>

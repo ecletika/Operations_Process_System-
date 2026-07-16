@@ -76,7 +76,7 @@
           <?php endif; ?>
           <?php foreach ($interactions as $interaction): ?>
             <tr>
-              <td style="color:#6b7280;white-space:nowrap"><?= e($interaction['received_at']) ?></td>
+              <td style="color:#6b7280;white-space:nowrap"><?= dt($interaction['received_at']) ?></td>
               <td><?= e($interaction['channel']) ?></td>
               <td><?= e($interaction['interaction_type']) ?></td>
               <td><?= e($interaction['customer_name']) ?></td>

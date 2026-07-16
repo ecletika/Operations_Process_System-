@@ -81,7 +81,7 @@ $onlineCount = count(array_intersect($onlineIds, array_map(static fn ($u) => (in
                 <div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><?= e($member['first_name'] . ' ' . $member['last_name']) ?></div>
                 <div style="font-size:12px;color:#6b7280"><?= e($member['role_name']) ?> · <code style="font-size:11px"><?= e($member['username']) ?></code></div>
                 <div style="font-size:11px;color:<?= $isOnline ? '#16a34a' : '#9ca3af' ?>">
-                  <?= $isOnline ? 'Online agora' : ('Último login: ' . e($member['last_login_at'] ?? 'nunca')) ?>
+                  <?= $isOnline ? 'Online agora' : ('Último login: ' . ($member['last_login_at'] ? dt($member['last_login_at']) : 'nunca')) ?>
                 </div>
               </div>
             </div>

@@ -63,8 +63,8 @@
               <td><span class="ops-badge" style="background:<?= e($process['priority_color']) ?>"><?= e($process['priority_name']) ?></span></td>
               <td><?= $process['assigned_first_name'] ? e($process['assigned_first_name'] . ' ' . $process['assigned_last_name']) : '—' ?></td>
               <td><?= (int) $process['reopen_count'] ?></td>
-              <td style="color:#6b7280"><?= e($process['created_at']) ?></td>
-              <td style="color:#6b7280"><?= e($process['closed_at'] ?? '—') ?></td>
+              <td style="color:#6b7280"><?= dt($process['created_at']) ?></td>
+              <td style="color:#6b7280"><?= dt($process['closed_at'] ?? null) ?></td>
             </tr>
           <?php endforeach; ?>
         </tbody>

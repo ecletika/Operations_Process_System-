@@ -58,7 +58,7 @@
               <td><a href="/customers/<?= (int) $vehicle['customer_id'] ?>"><?= e($vehicle['customer_name']) ?></a></td>
               <td><?= (int) $vehicle['process_count'] ?></td>
               <td><?= (int) $vehicle['recent_processes'] ?></td>
-              <td style="color:#6b7280"><?= e($vehicle['last_process_at'] ?? '—') ?></td>
+              <td style="color:#6b7280"><?= dt($vehicle['last_process_at'] ?? null) ?></td>
               <td style="display:flex;gap:6px">
                 <a href="/vehicles/<?= (int) $vehicle['id'] ?>#editar" class="ops-btn ops-btn-sm">✏️ Editar</a>
                 <a href="/vehicles/<?= (int) $vehicle['id'] ?>" class="ops-btn ops-btn-sm" style="background:#6b7280">Histórico</a>

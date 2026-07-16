@@ -141,7 +141,7 @@
               </td>
               <td><?= $process['creator_first_name'] ? e($process['creator_first_name'] . ' ' . $process['creator_last_name']) : '—' ?></td>
               <td><?= (int) $process['contact_count'] ?></td>
-              <td><?= e($process['created_at']) ?></td>
+              <td><?= dt($process['created_at']) ?></td>
               <td>
                 <?php if (!in_array($process['status_code'], ['SOLVED', 'CLOSED'], true)): ?>
                   <form method="POST" action="/processes/<?= (int) $process['id'] ?>/reassign" style="display:flex;gap:4px">

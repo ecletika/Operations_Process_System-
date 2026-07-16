@@ -26,7 +26,7 @@
             <div style="flex:1">
               <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap">
                 <strong><?= e($entry['title']) ?></strong>
-                <span style="color:#9ca3af;font-size:13px;white-space:nowrap"><?= e($entry['created_at']) ?></span>
+                <span style="color:#9ca3af;font-size:13px;white-space:nowrap"><?= dt($entry['created_at']) ?></span>
               </div>
               <?php if (!empty($entry['description'])): ?>
                 <div style="color:#4b5563;font-size:14px;margin-top:2px"><?= e($entry['description']) ?></div>

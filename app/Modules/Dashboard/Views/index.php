@@ -41,7 +41,7 @@
         <ul class="ops-timeline">
           <?php foreach ($widgets['inbox'] as $item): ?>
             <li style="border-left-color: <?= e($item['color']) ?>">
-              <div class="time"><?= e($item['created_at']) ?> · <?= e($item['process_number']) ?></div>
+              <div class="time"><?= dt($item['created_at']) ?> · <?= e($item['process_number']) ?></div>
               <div class="title"><a href="/processes/<?= (int) $item['process_id'] ?>"><?= e($item['title']) ?></a></div>
             </li>
           <?php endforeach; ?>

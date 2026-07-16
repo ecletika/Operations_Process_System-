@@ -34,7 +34,7 @@
                 <td><?= e($process['subject_name']) ?></td>
                 <td><?= e($process['status_name']) ?></td>
                 <td><?= e(trim(($process['assigned_first_name'] ?? '') . ' ' . ($process['assigned_last_name'] ?? '')) ?: '—') ?></td>
-                <td><?= e($process['created_at']) ?></td>
+                <td><?= dt($process['created_at']) ?></td>
               </tr>
             <?php endforeach; ?>
           </tbody>

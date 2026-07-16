@@ -42,7 +42,7 @@
               <td><span class="ops-badge" style="background:<?= e($process['priority_color']) ?>"><?= e($process['priority_name']) ?></span></td>
               <td><?= sla_badge($process['created_at'], $process['closed_at'] ?? null, $process['default_sla_minutes'] ?? null) ?></td>
               <td style="color:#6b7280"><?= e(trim(($process['creator_first_name'] ?? '') . ' ' . ($process['creator_last_name'] ?? '')) ?: '—') ?></td>
-              <td><?= e($process['created_at']) ?></td>
+              <td><?= dt($process['created_at']) ?></td>
               <td>
                 <form method="POST" action="/processes/<?= (int) $process['id'] ?>/assume">
                   <?= csrf_field() ?>

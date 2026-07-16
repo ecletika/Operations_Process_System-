@@ -30,6 +30,52 @@ if (!function_exists('csrf_field')) {
     }
 }
 
+if (!function_exists('app_timezone')) {
+    /**
+     * Fuso horário de apresentação (OPS-PRD-001 §10.2: guardamos sempre em
+     * UTC; só a apresentação é convertida). Configurável em .env com
+     * APP_TIMEZONE; por omissão Europe/Lisbon, que trata sozinho do horário
+     * de verão/inverno.
+     */
+    function app_timezone(): DateTimeZone
+    {
+        static $tz = null;
+
+        if ($tz === null) {
+            $name = (string) \App\Core\Env::get('APP_TIMEZONE', 'Europe/Lisbon');
+            try {
+                $tz = new DateTimeZone($name);
+            } catch (Exception) {
+                $tz = new DateTimeZone('Europe/Lisbon');
+            }
+        }
+
+        return $tz;
+    }
+}
+
+if (!function_exists('dt')) {
+    /**
+     * Mostra uma data/hora da base de dados (gravada em UTC) na hora local
+     * portuguesa. Usar SEMPRE que se mostra um timestamp ao utilizador —
+     * sem isto, aparecia 1h atrás no horário de verão.
+     */
+    function dt(?string $utcDateTime, string $format = 'Y-m-d H:i'): string
+    {
+        if ($utcDateTime === null || trim($utcDateTime) === '') {
+            return '—';
+        }
+
+        try {
+            return (new DateTimeImmutable($utcDateTime, new DateTimeZone('UTC')))
+                ->setTimezone(app_timezone())
+                ->format($format);
+        } catch (Exception) {
+            return e($utcDateTime);
+        }
+    }
+}
+
 if (!function_exists('is_user_online')) {
     /**
      * Mesma janela de presença da Tela Operacional (🖥️): o middleware toca

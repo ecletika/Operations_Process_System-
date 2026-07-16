@@ -76,7 +76,7 @@
               <td><?= e($process['status_name']) ?></td>
               <td><span class="ops-badge" style="background:<?= e($process['priority_color']) ?>"><?= e($process['priority_name']) ?></span></td>
               <td><?= sla_badge($process['created_at'] ?? null, $process['closed_at'] ?? null, $process['default_sla_minutes'] ?? null) ?></td>
-              <td><?= e($process['last_contact_at']) ?></td>
+              <td><?= dt($process['last_contact_at']) ?></td>
             </tr>
           <?php endforeach; ?>
         </tbody>
@@ -122,7 +122,7 @@
                   <span style="color:#9ca3af">— na fila</span>
                 <?php endif; ?>
               </td>
-              <td><?= e($process['last_contact_at']) ?></td>
+              <td><?= dt($process['last_contact_at']) ?></td>
             </tr>
           <?php endforeach; ?>
         </tbody>

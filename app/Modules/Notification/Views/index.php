@@ -25,7 +25,7 @@
         <?php endif; ?>
         <?php foreach ($notifications as $notification): ?>
           <li style="border-left-color: <?= $notification['severity'] === 'CRITICAL' ? '#dc2626' : ($notification['severity'] === 'WARNING' ? '#f59e0b' : '#2563eb') ?>; opacity: <?= $notification['read_at'] ? '0.55' : '1' ?>">
-            <div class="time"><?= e($notification['created_at']) ?></div>
+            <div class="time"><?= dt($notification['created_at']) ?></div>
             <div class="title"><?= e($notification['title']) ?></div>
             <div><?= e($notification['message']) ?></div>
             <?php if (!$notification['read_at']): ?>
