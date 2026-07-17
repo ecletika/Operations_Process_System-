@@ -78,6 +78,26 @@ final class ProcessController extends Controller
         return array_map('intval', (array) Session::get('viewable_department_ids', []));
     }
 
+    /**
+     * Lotes do PRÓPRIO utilizador (o seu departamento), sem exceções — nem
+     * para Admin/Supervisor. Usado pelo "Próximo Processo", que deve dar
+     * sempre o próximo trabalho do departamento de quem carrega no botão.
+     *
+     * @return array<int>
+     */
+    private function ownBatchIds(): array
+    {
+        $allowed = Session::get('allowed_batch_ids');
+
+        if ($allowed === null) {
+            $single = Session::get('batch_id');
+
+            return $single !== null ? [(int) $single] : [];
+        }
+
+        return array_map('intval', (array) $allowed);
+    }
+
     private function allowedBatchIds(): ?array
     {
         // Regra fixa (RN-0011): só as chefias (process.view_all → Admin/
@@ -341,8 +361,15 @@ final class ProcessController extends Controller
 
         $intelligence = new IntelligenceService();
 
+        // Só se mexe em processos do próprio departamento. Quem tem visão
+        // alargada (Supervisor de Departamento) consulta os outros, mas os
+        // botões de ação não aparecem.
+        $allowed = $this->allowedBatchIds();
+        $canAct = $allowed === null || in_array((int) $process['batch_id'], $allowed, true);
+
         $this->view('Process/Views/show', [
             'process' => $process,
+            'canAct' => $canAct,
             // Motivos de Pausa do SLA configurados (só os ativos são oferecidos).
             'pauseReasons' => (new StatusRepository())->listWaiting(onlyActive: true),
             'timeline' => $timeline,
@@ -397,11 +424,17 @@ final class ProcessController extends Controller
             Response::redirect('/processes/queue');
         }
 
-        $allowed = $this->allowedBatchIds();
-        $queue = (new ProcessRepository())->listQueue($allowed);
+        // "Próximo Processo" = "dá-me o MEU próximo trabalho": sai sempre da
+        // fila do próprio departamento, mesmo para Admin/Supervisor. Sem isto,
+        // uma chefia carregava no botão e apanhava o processo mais prioritário
+        // de qualquer filial/departamento — que não é o trabalho dela.
+        // Para assumir um processo de outro departamento, a chefia abre-o e
+        // usa o "Assumir" desse processo.
+        $own = $this->ownBatchIds();
+        $queue = (new ProcessRepository())->listQueue($own);
 
         if ($queue === []) {
-            Session::flash('success', 'Fila vazia — não há nenhum processo à espera. Bom trabalho!');
+            Session::flash('success', 'Fila vazia — não há nenhum processo à espera no seu departamento. Bom trabalho!');
             Response::redirect('/processes/queue');
         }
 
@@ -409,7 +442,7 @@ final class ProcessController extends Controller
         $userId = (int) Session::get('user_id');
 
         try {
-            (new ProcessService())->assume($processId, $userId, $allowed);
+            (new ProcessService())->assume($processId, $userId, $own);
         } catch (RuntimeException $e) {
             Session::flash('errors', [$e->getMessage()]);
             Response::redirect('/processes/queue');
@@ -426,31 +459,35 @@ final class ProcessController extends Controller
     public function changeStatus(Request $request, array $params): never
     {
         $status = (string) $request->input('status', '');
-        $allowed = array_merge((new ProcessService())->waitingCodes(), ['IN_PROGRESS']);
+        $estadosValidos = array_merge((new ProcessService())->waitingCodes(), ['IN_PROGRESS']);
 
-        if (!in_array($status, $allowed, true)) {
+        if (!in_array($status, $estadosValidos, true)) {
             Session::flash('errors', ['Estado inválido.']);
             Response::redirect('/processes/' . (int) $params['id']);
         }
 
-        $this->runAction($request, $params, fn (ProcessService $service, int $id, int $userId) => $service->changeStatus($id, $status, $userId));
+        $allowed = $this->allowedBatchIds();
+        $this->runAction($request, $params, fn (ProcessService $service, int $id, int $userId) => $service->changeStatus($id, $status, $userId, $allowed));
     }
 
     /** Agenda a Nova Data de Contacto (Imobilizados/Baixa, por omissão). */
     public function nextContact(Request $request, array $params): never
     {
         $date = (string) $request->input('next_contact_at', '');
-        $this->runAction($request, $params, fn (ProcessService $service, int $id, int $userId) => $service->setNextContact($id, $date, $userId));
+        $allowed = $this->allowedBatchIds();
+        $this->runAction($request, $params, fn (ProcessService $service, int $id, int $userId) => $service->setNextContact($id, $date, $userId, $allowed));
     }
 
     public function close(Request $request, array $params): never
     {
-        $this->runAction($request, $params, fn (ProcessService $service, int $id, int $userId) => $service->close($id, $userId));
+        $allowed = $this->allowedBatchIds();
+        $this->runAction($request, $params, fn (ProcessService $service, int $id, int $userId) => $service->close($id, $userId, $allowed));
     }
 
     public function reopen(Request $request, array $params): never
     {
-        $this->runAction($request, $params, fn (ProcessService $service, int $id, int $userId) => $service->reopen($id, $userId));
+        $allowed = $this->allowedBatchIds();
+        $this->runAction($request, $params, fn (ProcessService $service, int $id, int $userId) => $service->reopen($id, $userId, $allowed));
     }
 
     /**
@@ -481,7 +518,8 @@ final class ProcessController extends Controller
     /** Devolve o processo à fila (o operador não está disponível). */
     public function release(Request $request, array $params): never
     {
-        $this->runAction($request, $params, fn (ProcessService $service, int $id, int $userId) => $service->returnToQueue($id, $userId));
+        $allowed = $this->allowedBatchIds();
+        $this->runAction($request, $params, fn (ProcessService $service, int $id, int $userId) => $service->returnToQueue($id, $userId, $allowed));
     }
 
     /** Reatribui o processo a outro operador (Admin/Supervisor). */

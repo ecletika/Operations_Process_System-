@@ -236,13 +236,14 @@ final class ProcessService
      * SLA fica parado — o operador não é penalizado por demoras que não
      * dependem dele. O "Tempo Total" (espera real do cliente) não é afetado.
      */
-    public function changeStatus(int $processId, string $targetStatusCode, int $userId): void
+    public function changeStatus(int $processId, string $targetStatusCode, int $userId, ?array $allowedBatchIds = null): void
     {
         $process = $this->processes->findById($processId);
         if ($process === null) {
             throw new RuntimeException('Processo não encontrado.');
         }
 
+        $this->guardDepartment($process, $allowedBatchIds);
         $this->guardTransition($process['status_code'], $targetStatusCode);
 
         $isWaiting = in_array($targetStatusCode, $this->waitingCodes(), true);
@@ -283,12 +284,14 @@ final class ProcessService
      * contactar daqui a X dias). Fica visível na Caixa de Entrada do
      * responsável, para saber quando a data vence.
      */
-    public function setNextContact(int $processId, ?string $date, int $userId): void
+    public function setNextContact(int $processId, ?string $date, int $userId, ?array $allowedBatchIds = null): void
     {
         $process = $this->processes->findById($processId);
         if ($process === null) {
             throw new RuntimeException('Processo não encontrado.');
         }
+
+        $this->guardDepartment($process, $allowedBatchIds);
 
         if (!self::allowsNextContact($process)) {
             throw new RuntimeException('A Nova Data de Contacto só está disponível para a combinação de prioridade e assunto definida em Configurações.');
@@ -325,13 +328,14 @@ final class ProcessService
      * Devolve o processo à Fila Inteligente™ — o operador não está
      * disponível para o tratar e outro pode assumi-lo.
      */
-    public function returnToQueue(int $processId, int $userId): void
+    public function returnToQueue(int $processId, int $userId, ?array $allowedBatchIds = null): void
     {
         $process = $this->processes->findById($processId);
         if ($process === null) {
             throw new RuntimeException('Processo não encontrado.');
         }
 
+        $this->guardDepartment($process, $allowedBatchIds);
         $this->guardTransition($process['status_code'], 'QUEUE');
 
         $queueStatusId = $this->processes->statusIdByCode('QUEUE');
@@ -387,13 +391,14 @@ final class ProcessService
      * V1 conclui diretamente para "Resolvido" (SOLVED); o arquivamento para
      * "Encerrado" (CLOSED) fica para o módulo de Administração/Relatórios.
      */
-    public function close(int $processId, int $userId): void
+    public function close(int $processId, int $userId, ?array $allowedBatchIds = null): void
     {
         $process = $this->processes->findById($processId);
         if ($process === null) {
             throw new RuntimeException('Processo não encontrado.');
         }
 
+        $this->guardDepartment($process, $allowedBatchIds);
         $this->guardTransition($process['status_code'], 'SOLVED');
 
         $solvedStatusId = $this->processes->statusIdByCode('SOLVED');
@@ -421,19 +426,43 @@ final class ProcessService
     /**
      * RF-0015 / RN-0021 a RN-0023 - reabre um processo encerrado.
      */
-    public function reopen(int $processId, int $userId): void
+    public function reopen(int $processId, int $userId, ?array $allowedBatchIds = null): void
     {
         $process = $this->processes->findById($processId);
         if ($process === null) {
             throw new RuntimeException('Processo não encontrado.');
         }
 
+        $this->guardDepartment($process, $allowedBatchIds);
         $this->guardTransition($process['status_code'], 'QUEUE');
 
         $queueStatusId = $this->processes->statusIdByCode('QUEUE');
         $this->processes->reopen($processId, $queueStatusId, $userId);
 
         $this->timeline->record($processId, 'PROCESS_REOPENED', 'Processo reaberto', null, $userId);
+    }
+
+    /**
+     * Isolamento por departamento nas ações que MEXEM no processo (assumir,
+     * concluir, reabrir, pôr em espera, devolver à fila, agendar contacto,
+     * reatribuir). Quem só tem visibilidade alargada — como o Supervisor de
+     * Departamento, que vê a Filial toda — pode consultar tudo, mas só age
+     * no seu departamento.
+     *
+     * $allowedBatchIds null = sem restrição (Admin/Supervisor).
+     *
+     * @param array<string, mixed> $process
+     * @param array<int>|null $allowedBatchIds
+     */
+    private function guardDepartment(array $process, ?array $allowedBatchIds): void
+    {
+        if ($allowedBatchIds === null) {
+            return;
+        }
+
+        if (!in_array((int) $process['batch_id'], $allowedBatchIds, true)) {
+            throw new RuntimeException('Este processo é de outro departamento; só o pode consultar.');
+        }
     }
 
     private function guardTransition(string $currentStatusCode, string $targetStatusCode): void

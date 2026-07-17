@@ -31,29 +31,37 @@
       <?php if ($success): ?><div class="ops-alert ops-alert-success"><?= e($success) ?></div><?php endif; ?>
       <?php foreach ($errors as $error): ?><div class="ops-alert" style="background:#fef2f2;border:1px solid #fecaca;color:#dc2626"><?= e($error) ?></div><?php endforeach; ?>
 
+      <?php $canAct = $canAct ?? true; ?>
+      <?php if (!$canAct): ?>
+        <div class="ops-alert" style="background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af;margin-bottom:20px">
+          🔒 Este processo é de outro departamento — pode consultá-lo e acompanhar o andamento,
+          mas as ações (assumir, concluir, reabrir, pôr em espera) são do departamento responsável.
+        </div>
+      <?php endif; ?>
+
       <div style="display:flex;gap:10px;margin-bottom:20px">
-        <?php if ($process['status_code'] === 'QUEUE'): ?>
+        <?php if ($canAct && $process['status_code'] === 'QUEUE'): ?>
           <form method="POST" action="/processes/<?= (int) $process['id'] ?>/assume">
             <?= csrf_field() ?>
             <button type="submit" class="ops-btn ops-btn-sm">Assumir Processo</button>
           </form>
         <?php endif; ?>
 
-        <?php if (!in_array($process['status_code'], ['SOLVED', 'CLOSED'], true)): ?>
+        <?php if ($canAct && !in_array($process['status_code'], ['SOLVED', 'CLOSED'], true)): ?>
           <form method="POST" action="/processes/<?= (int) $process['id'] ?>/close">
             <?= csrf_field() ?>
             <button type="submit" class="ops-btn ops-btn-sm" style="background:#16a34a">Concluir Processo</button>
           </form>
         <?php endif; ?>
 
-        <?php if (in_array($process['status_code'], ['SOLVED', 'CLOSED'], true)): ?>
+        <?php if ($canAct && in_array($process['status_code'], ['SOLVED', 'CLOSED'], true)): ?>
           <form method="POST" action="/processes/<?= (int) $process['id'] ?>/reopen">
             <?= csrf_field() ?>
             <button type="submit" class="ops-btn ops-btn-sm" style="background:#dc2626">Reabrir Processo</button>
           </form>
         <?php endif; ?>
 
-        <?php if (!in_array($process['status_code'], ['QUEUE', 'SOLVED', 'CLOSED'], true) && in_array('process.assume', \App\Core\Session::get('permissions', []), true)): ?>
+        <?php if ($canAct && !in_array($process['status_code'], ['QUEUE', 'SOLVED', 'CLOSED'], true) && in_array('process.assume', \App\Core\Session::get('permissions', []), true)): ?>
           <form method="POST" action="/processes/<?= (int) $process['id'] ?>/release"
                 onsubmit="return confirm('Devolver este processo à Fila Inteligente™ para outro operador o assumir?');">
             <?= csrf_field() ?>
@@ -76,7 +84,7 @@
 
         <?php
           // Pôr em espera (pára o relógio do SLA) ou retomar o tratamento.
-          $podeMudarEstado = in_array('process.change_status', \App\Core\Session::get('permissions', []), true);
+          $podeMudarEstado = $canAct && in_array('process.change_status', \App\Core\Session::get('permissions', []), true);
           // Os motivos vêm das Configurações (Motivos de Pausa do SLA).
           $codigosEspera = array_column($pauseReasons ?? [], 'code');
           $emEspera = (int) ($process['is_waiting'] ?? 0) === 1 || in_array($process['status_code'], $codigosEspera, true);
@@ -106,7 +114,7 @@
         <?php
           // Nova Data de Contacto: só na combinação configurada (por omissão
           // prioridade Baixa + assunto Imobilizados, ao mesmo tempo).
-          $podeAgendar = in_array('process.next_contact', \App\Core\Session::get('permissions', []), true)
+          $podeAgendar = $canAct && in_array('process.next_contact', \App\Core\Session::get('permissions', []), true)
             && \App\Modules\Process\Services\ProcessService::allowsNextContact($process)
             && !in_array($process['status_code'], ['SOLVED', 'CLOSED'], true);
         ?>
