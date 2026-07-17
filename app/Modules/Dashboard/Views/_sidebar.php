@@ -101,7 +101,7 @@ $navItem = static function (string $href, string $icon, string $label, string $c
     <?= $navItem('/intelligence', '🧠', 'Inteligência Operacional™', $currentPath) ?>
   <?php endif; ?>
 
-  <?php if (array_intersect(['users.manage', 'companies.manage', 'settings.manage', 'subjects.manage', 'sla_reasons.manage', 'audit.view', 'logs.view'], $permissions) !== []): ?>
+  <?php if (array_intersect(['users.manage', 'companies.manage', 'settings.manage', 'subjects.manage', 'sla_reasons.manage', 'sla_calendar.manage', 'audit.view', 'logs.view'], $permissions) !== []): ?>
     <div class="ops-nav-section">Administração</div>
   <?php endif; ?>
   <?php if (in_array('users.manage', $permissions, true)): ?>
@@ -119,6 +119,9 @@ $navItem = static function (string $href, string $icon, string $label, string $c
   <?php endif; ?>
   <?php if (in_array('sla_reasons.manage', $permissions, true)): ?>
     <?= $navItem('/admin/sla-reasons', '⏸', 'Motivos de Pausa SLA', $currentPath) ?>
+  <?php endif; ?>
+  <?php if (in_array('sla_calendar.manage', $permissions, true)): ?>
+    <?= $navItem('/admin/sla-calendar', '🕘', 'Horário & Feriados SLA', $currentPath) ?>
   <?php endif; ?>
   <?php if (in_array('audit.view', $permissions, true)): ?>
     <?= $navItem('/admin/audit', '📋', 'Auditoria', $currentPath) ?>

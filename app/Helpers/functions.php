@@ -180,14 +180,22 @@ if (!function_exists('sla_state')) {
 
         $paused = $pause ? (int) ($p['sla_paused_minutes'] ?? 0) : 0;
 
+        // Com o horário de atendimento ligado, "decorrido" conta só os minutos
+        // úteis (dentro do horário, sem feriados); caso contrário, 24h/dia.
+        $businessHours = \App\Modules\Process\Support\BusinessClock::enabled();
+        $baseTs = strtotime((string) $base);
+        $elapsedFn = static fn (int $fromTs, int $toTs): int => $businessHours
+            ? \App\Modules\Process\Support\BusinessClock::minutesBetween($fromTs, $toTs)
+            : max(0, (int) floor(($toTs - $fromTs) / 60));
+
         // Em espera → o relógio está parado; o tempo não corre contra ninguém.
         if ($pause && !empty($p['wait_started_at'])) {
-            $ateAEspera = max(0, (int) floor((strtotime((string) $p['wait_started_at']) - strtotime((string) $base)) / 60));
+            $ateAEspera = $elapsedFn($baseTs, strtotime((string) $p['wait_started_at']));
 
             return ['status' => 'paused', 'minutes_left' => (int) $sla - $ateAEspera + $paused];
         }
 
-        $elapsed = (int) floor((time() - strtotime((string) $base)) / 60);
+        $elapsed = $elapsedFn($baseTs, time());
 
         return ['status' => 'running', 'minutes_left' => (int) $sla - $elapsed + $paused];
     }

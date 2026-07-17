@@ -176,6 +176,94 @@ final class AdministrationController extends Controller
     }
 
     /**
+     * Horário de Atendimento + Feriados (contagem do SLA em horário útil).
+     */
+    public function slaCalendar(Request $request): never
+    {
+        $repository = new \App\Modules\Administration\Repositories\SlaCalendarRepository();
+
+        $this->view('Administration/Views/sla_calendar', [
+            'enabled' => (string) \App\Core\Settings::get('sla_business_hours_enabled', '0') === '1',
+            'hours' => $repository->hours(),
+            'holidays' => $repository->holidays(),
+            'success' => Session::pullFlash('success'),
+            'errors' => Session::pullFlash('errors', []),
+        ]);
+    }
+
+    public function saveBusinessHours(Request $request): never
+    {
+        if (!$this->checkCsrf($request)) {
+            Response::redirect('/admin/sla-calendar');
+        }
+
+        $userId = (int) Session::get('user_id');
+        $settings = new SettingRepository();
+        $settings->updateValue('sla_business_hours_enabled', $request->input('enabled') !== null ? '1' : '0', $userId);
+
+        $repository = new \App\Modules\Administration\Repositories\SlaCalendarRepository();
+        $days = (array) $request->input('days', []);      // [weekday => 1] os que estão abertos
+        $opens = (array) $request->input('open', []);     // [weekday => 'HH:MM']
+        $closes = (array) $request->input('close', []);   // [weekday => 'HH:MM']
+
+        for ($wd = 0; $wd <= 6; $wd++) {
+            $aberto = isset($days[$wd]);
+            $open = $aberto ? trim((string) ($opens[$wd] ?? '')) : null;
+            $close = $aberto ? trim((string) ($closes[$wd] ?? '')) : null;
+
+            // Dia aberto tem de ter horas válidas com fecho depois da abertura.
+            if ($aberto && ($open === '' || $close === '' || $close <= $open)) {
+                Session::flash('errors', ['Verifique as horas: o fecho tem de ser depois da abertura nos dias abertos.']);
+                Response::redirect('/admin/sla-calendar');
+            }
+
+            $repository->setDay($wd, $open, $close, $userId);
+        }
+
+        $this->logAudit('UPDATE', 'tb_business_hours', 0, null, ['saved' => true]);
+        Session::flash('success', 'Horário de atendimento atualizado.');
+        Response::redirect('/admin/sla-calendar');
+    }
+
+    public function storeHoliday(Request $request): never
+    {
+        if (!$this->checkCsrf($request)) {
+            Response::redirect('/admin/sla-calendar');
+        }
+
+        $name = trim((string) $request->input('name', ''));
+        $date = trim((string) $request->input('holiday_date', ''));
+        $recurring = $request->input('recurring') !== null;
+
+        $parsed = \DateTimeImmutable::createFromFormat('!Y-m-d', $date);
+        if ($name === '' || $parsed === false) {
+            Session::flash('errors', ['Indique um nome e uma data válida para o feriado.']);
+            Response::redirect('/admin/sla-calendar');
+        }
+
+        (new \App\Modules\Administration\Repositories\SlaCalendarRepository())
+            ->addHoliday($parsed->format('Y-m-d'), $name, 'REGIONAL', $recurring, (int) Session::get('user_id'));
+        $this->logAudit('CREATE', 'tb_holiday', 0, null, ['name' => $name, 'date' => $date]);
+
+        Session::flash('success', "Feriado \"{$name}\" adicionado.");
+        Response::redirect('/admin/sla-calendar');
+    }
+
+    public function deleteHoliday(Request $request, array $params): never
+    {
+        if (!$this->checkCsrf($request)) {
+            Response::redirect('/admin/sla-calendar');
+        }
+
+        (new \App\Modules\Administration\Repositories\SlaCalendarRepository())
+            ->deleteHoliday((int) $params['id'], (int) Session::get('user_id'));
+        $this->logAudit('DELETE', 'tb_holiday', (int) $params['id']);
+
+        Session::flash('success', 'Feriado removido.');
+        Response::redirect('/admin/sla-calendar');
+    }
+
+    /**
      * Motivos de Pausa do SLA — os estados que param o relógio do SLA
      * (Aguarda Cliente, Aguarda Peças, ...). Configuráveis como os Assuntos.
      */
