@@ -75,6 +75,7 @@ final class UserManagementService
         ]);
 
         $this->assignDepartmentBatch($userId, $departmentId, $actingUserId);
+        $this->saveViewScope($userId, $input, $actingUserId);
 
         $this->logAudit('CREATE', 'tb_user', $userId, null, ['username' => $username]);
 
@@ -107,10 +108,32 @@ final class UserManagementService
         ]);
 
         $this->assignDepartmentBatch($id, $departmentId, $actingUserId);
+        $this->saveViewScope($id, $input, $actingUserId);
 
         $this->logAudit('UPDATE', 'tb_user', $id);
 
         return [];
+    }
+
+    /**
+     * Âmbito de visibilidade em "Todos os Processos" (Supervisor de
+     * Departamento): só o seu departamento, toda a Filial, ou uma lista de
+     * departamentos escolhidos. Não mexe no que ele pode assumir/reatribuir,
+     * que continua limitado ao lote do seu departamento.
+     */
+    private function saveViewScope(int $userId, array $input, int $actingUserId): void
+    {
+        $scope = (string) ($input['view_scope'] ?? 'OWN');
+        if (!in_array($scope, ['OWN', 'BRANCH', 'CUSTOM'], true)) {
+            $scope = 'OWN';
+        }
+
+        $this->users->setViewScope($userId, $scope, $actingUserId);
+        $this->users->syncViewDepartments(
+            $userId,
+            $scope === 'CUSTOM' ? (array) ($input['view_departments'] ?? []) : [],
+            $actingUserId
+        );
     }
 
     /**

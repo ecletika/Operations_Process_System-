@@ -585,6 +585,24 @@ final class ProcessRepository
             $conditions[] = $column . ' IN (' . implode(', ', $placeholders) . ')';
         };
 
+        // Âmbito de visibilidade (Supervisor de Departamento): limita a lista
+        // aos departamentos que o utilizador pode ver. null = sem limite
+        // (Admin/Supervisor). Aplica-se ANTES dos filtros que ele escolhe,
+        // por isso nunca consegue ver fora do seu âmbito.
+        if (($filters['scope_department_ids'] ?? null) !== null) {
+            $scope = array_values(array_filter(array_map('intval', (array) $filters['scope_department_ids'])));
+            if ($scope === []) {
+                return []; // sem departamentos visíveis → não vê nada
+            }
+            $placeholders = [];
+            foreach ($scope as $i => $departmentId) {
+                $key = 'scopedept_' . $i;
+                $placeholders[] = ':' . $key;
+                $params[$key] = $departmentId;
+            }
+            $conditions[] = 'bt.department_id IN (' . implode(', ', $placeholders) . ')';
+        }
+
         $inClause('p.status_id', $filters['status_id'] ?? [], 'status_');
         $inClause('p.batch_id', $filters['batch_id'] ?? [], 'batch_');
         $inClause('p.priority_id', $filters['priority_id'] ?? [], 'prio_');
@@ -603,7 +621,7 @@ final class ProcessRepository
 
         $sql = '
             SELECT p.id, p.process_number, p.contact_count, p.reopen_count, p.created_at, p.closed_at,
-                   p.last_contact_at, p.sla_paused_minutes, p.wait_started_at,
+                   p.last_contact_at, p.sla_paused_minutes, p.wait_started_at, p.batch_id,
                    c.name AS customer_name, v.plate AS vehicle_plate,
                    sub.name AS subject_name,
                    st.code AS status_code, st.name AS status_name, st.is_waiting,

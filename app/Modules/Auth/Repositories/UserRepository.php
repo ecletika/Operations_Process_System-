@@ -323,6 +323,79 @@ final class UserRepository
     }
 
     /**
+     * Departamentos que o utilizador pode VER em "Todos os Processos"
+     * (Supervisor de Departamento). Devolve:
+     *   - null  → sem restrição por departamento (view_scope = OWN é tratado
+     *             pelo chamador, que usa os lotes do próprio);
+     *   - int[] → lista de department_id a que a vista fica limitada.
+     *
+     * @return int[]
+     */
+    public function viewableDepartmentIds(int $userId, string $viewScope, ?int $branchId): array
+    {
+        if ($viewScope === 'BRANCH') {
+            if ($branchId === null) {
+                return [];
+            }
+            $stmt = $this->pdo->prepare('
+                SELECT id FROM tb_department WHERE branch_id = :branch_id AND deleted_at IS NULL
+            ');
+            $stmt->execute(['branch_id' => $branchId]);
+
+            return array_map('intval', array_column($stmt->fetchAll(), 'id'));
+        }
+
+        if ($viewScope === 'CUSTOM') {
+            $stmt = $this->pdo->prepare('
+                SELECT uvd.department_id
+                FROM tb_user_view_department uvd
+                JOIN tb_department d ON d.id = uvd.department_id AND d.deleted_at IS NULL
+                WHERE uvd.user_id = :user_id
+            ');
+            $stmt->execute(['user_id' => $userId]);
+
+            return array_map('intval', array_column($stmt->fetchAll(), 'department_id'));
+        }
+
+        return [];
+    }
+
+    public function setViewScope(int $userId, string $scope, int $actingUserId): void
+    {
+        $stmt = $this->pdo->prepare('
+            UPDATE tb_user SET view_scope = :scope, updated_at = NOW(), updated_by = :acting WHERE id = :id
+        ');
+        $stmt->execute(['id' => $userId, 'scope' => $scope, 'acting' => $actingUserId]);
+    }
+
+    /** Substitui os departamentos visíveis de um utilizador (view_scope = CUSTOM). */
+    public function syncViewDepartments(int $userId, array $departmentIds, int $actingUserId): void
+    {
+        $this->pdo->prepare('DELETE FROM tb_user_view_department WHERE user_id = :user_id')
+            ->execute(['user_id' => $userId]);
+
+        $stmt = $this->pdo->prepare('
+            INSERT INTO tb_user_view_department (user_id, department_id, created_at, created_by)
+            VALUES (:user_id, :department_id, NOW(), :acting)
+        ');
+
+        foreach (array_unique(array_map('intval', $departmentIds)) as $departmentId) {
+            if ($departmentId > 0) {
+                $stmt->execute(['user_id' => $userId, 'department_id' => $departmentId, 'acting' => $actingUserId]);
+            }
+        }
+    }
+
+    /** @return int[] departamentos escolhidos na ficha (para a mostrar) */
+    public function viewDepartmentIdsFor(int $userId): array
+    {
+        $stmt = $this->pdo->prepare('SELECT department_id FROM tb_user_view_department WHERE user_id = :user_id');
+        $stmt->execute(['user_id' => $userId]);
+
+        return array_map('intval', array_column($stmt->fetchAll(), 'department_id'));
+    }
+
+    /**
      * IDs dos utilizadores ativos atribuídos a um lote (#6): usado para
      * notificar os elementos do departamento quando entra uma nova lead.
      *

@@ -58,8 +58,8 @@ $router->post('/profile/mfa/disable', [ProfileController::class, 'disableMfa'], 
 $router->get('/processes/queue', [ProcessController::class, 'queue'], [Authenticate::class]);
 $router->post('/processes/next', [ProcessController::class, 'next'], [Authenticate::class, [PermissionMiddleware::class, 'process.assume']]);
 $router->get('/processes/mine', [ProcessController::class, 'mine'], [Authenticate::class]);
-$router->get('/processes/all', [ProcessController::class, 'all'], [Authenticate::class, [PermissionMiddleware::class, 'process.view_all']]);
-$router->get('/processes/all.xls', [ProcessController::class, 'allExcel'], [Authenticate::class, [PermissionMiddleware::class, 'process.view_all']]);
+$router->get('/processes/all', [ProcessController::class, 'all'], [Authenticate::class, [PermissionMiddleware::class, 'process.view_all|process.view_branch']]);
+$router->get('/processes/all.xls', [ProcessController::class, 'allExcel'], [Authenticate::class, [PermissionMiddleware::class, 'process.view_all|process.view_branch']]);
 $router->get('/processes/create', [ProcessController::class, 'create'], [Authenticate::class, [PermissionMiddleware::class, 'process.create']]);
 $router->get('/processes/vehicle-lookup', [ProcessController::class, 'vehicleLookup'], [Authenticate::class, [PermissionMiddleware::class, 'process.create']]);
 $router->post('/processes', [ProcessController::class, 'store'], [Authenticate::class, [PermissionMiddleware::class, 'process.create']]);
@@ -72,7 +72,7 @@ $router->post('/processes/{id}/reopen', [ProcessController::class, 'reopen'], [A
 $router->post('/processes/{id}/delete', [ProcessController::class, 'destroy'], [Authenticate::class, [PermissionMiddleware::class, 'process.delete']]);
 $router->post('/processes/{id}/archive', [ProcessController::class, 'archive'], [Authenticate::class, [PermissionMiddleware::class, 'process.close']]);
 $router->post('/processes/{id}/release', [ProcessController::class, 'release'], [Authenticate::class, [PermissionMiddleware::class, 'process.assume']]);
-$router->post('/processes/{id}/reassign', [ProcessController::class, 'reassign'], [Authenticate::class, [PermissionMiddleware::class, 'process.view_all']]);
+$router->post('/processes/{id}/reassign', [ProcessController::class, 'reassign'], [Authenticate::class, [PermissionMiddleware::class, 'process.view_all|process.view_branch']]);
 
 $router->post('/processes/{id}/notes', [NoteController::class, 'store'], [Authenticate::class]);
 $router->post('/notes/{id}', [NoteController::class, 'update'], [Authenticate::class]);

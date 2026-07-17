@@ -52,6 +52,10 @@ final class UserController extends Controller
             'old' => Session::pullFlash('old', []),
             'success' => Session::pullFlash('success'),
             'editingUser' => $editingUser,
+            // Departamentos já marcados na visibilidade (view_scope = CUSTOM).
+            'viewDepartmentIds' => $editingUser !== null
+                ? (new UserRepository())->viewDepartmentIdsFor((int) $editingUser['id'])
+                : [],
         ]);
     }
 

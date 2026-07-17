@@ -16,6 +16,11 @@ use App\Core\Session;
  */
 final class PermissionMiddleware
 {
+    /**
+     * $permission aceita várias alternativas separadas por "|": basta ter uma
+     * delas (ex.: 'process.view_all|process.view_branch' — ver tudo OU ver a
+     * sua filial). Uma única permissão continua a funcionar como antes.
+     */
     public function handle(Request $request, string $permission): void
     {
         if (!Session::has('user_id')) {
@@ -24,7 +29,7 @@ final class PermissionMiddleware
 
         $permissions = Session::get('permissions', []);
 
-        if (!in_array($permission, $permissions, true)) {
+        if (array_intersect(explode('|', $permission), $permissions) === []) {
             Logger::security(sprintf(
                 "Acesso negado - utilizador #%s sem permissão '%s' - %s %s",
                 Session::get('user_id'),

@@ -154,6 +154,16 @@ final class AuthService
         Session::put('company_id', (int) $user['company_id']);
         Session::put('branch_id', (int) $user['branch_id']);
         Session::put('department_id', (int) $user['department_id']);
+        // Supervisor de Departamento: vê a Filial inteira (BRANCH) ou apenas
+        // os departamentos escolhidos (CUSTOM) em "Todos os Processos".
+        // Só afeta o que VÊ — assumir/reatribuir continua limitado ao seu lote.
+        $viewScope = (string) ($user['view_scope'] ?? 'OWN');
+        Session::put('view_scope', $viewScope);
+        Session::put('viewable_department_ids', $this->users->viewableDepartmentIds(
+            (int) $user['id'],
+            $viewScope,
+            isset($user['branch_id']) ? (int) $user['branch_id'] : null
+        ));
         Session::put('batch_id', $batchId);
         // Lotes que o operador pode ver/assumir (o seu departamento). O
         // isolamento por departamento (RN-0011) usa esta lista: só os

@@ -143,7 +143,16 @@
               <td><?= (int) $process['contact_count'] ?></td>
               <td><?= dt($process['created_at']) ?></td>
               <td>
-                <?php if (!in_array($process['status_code'], ['SOLVED', 'CLOSED'], true)): ?>
+                <?php
+                  // Só se reatribui o que é do próprio departamento. O
+                  // Supervisor de Departamento vê a Filial toda, mas nos
+                  // processos de outros departamentos só consulta.
+                  $podeAgir = $actionableBatchIds === null
+                    || in_array((int) ($process['batch_id'] ?? 0), $actionableBatchIds, true);
+                ?>
+                <?php if (!$podeAgir): ?>
+                  <span style="color:#9ca3af;font-size:12px" title="Processo de outro departamento — só consulta">🔒 Outro depto.</span>
+                <?php elseif (!in_array($process['status_code'], ['SOLVED', 'CLOSED'], true)): ?>
                   <form method="POST" action="/processes/<?= (int) $process['id'] ?>/reassign" style="display:flex;gap:4px">
                     <?= csrf_field() ?>
                     <input type="hidden" name="back" value="<?= e($backUrl) ?>">

@@ -282,11 +282,20 @@ final class ProcessService
      * Reatribui o processo a outro operador (Admin/Supervisor) — o novo
      * responsável fica com o processo como se o tivesse assumido.
      */
-    public function reassign(int $processId, int $newUserId, int $actingUserId): void
+    /**
+     * @param array<int>|null $allowedBatchIds Quando não é null, só se pode
+     *   reatribuir processos destes lotes. É o caso do Supervisor de
+     *   Departamento: vê a Filial toda, mas só mexe no seu departamento.
+     */
+    public function reassign(int $processId, int $newUserId, int $actingUserId, ?array $allowedBatchIds = null): void
     {
         $process = $this->processes->findById($processId);
         if ($process === null) {
             throw new RuntimeException('Processo não encontrado.');
+        }
+
+        if ($allowedBatchIds !== null && !in_array((int) $process['batch_id'], $allowedBatchIds, true)) {
+            throw new RuntimeException('Este processo é de outro departamento; só o pode consultar, não reatribuir.');
         }
 
         if (in_array($process['status_code'], ['SOLVED', 'CLOSED'], true)) {

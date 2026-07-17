@@ -85,7 +85,7 @@ $navItem = static function (string $href, string $icon, string $label, string $c
   <?php endif; ?>
   <?= $navItem('/processes/queue', '🚦', 'Fila Inteligente™', $currentPath) ?>
   <?= $navItem('/processes/mine', '📥', 'Minha Caixa de Entrada™', $currentPath) ?>
-  <?php if (in_array('process.view_all', $permissions, true)): ?>
+  <?php if (array_intersect(['process.view_all', 'process.view_branch'], $permissions) !== []): ?>
     <?= $navItem('/processes/all', '📂', 'Todos os Processos', $currentPath) ?>
   <?php endif; ?>
   <?php $alertBadge = $unreadCount > 0 ? '<span class="ops-nav-badge ops-badge" style="background:#dc2626">' . $unreadCount . '</span>' : ''; ?>

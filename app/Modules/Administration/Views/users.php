@@ -168,6 +168,33 @@
           <p style="color:#6b7280;font-size:12px;margin:4px 0 0">O Lote deste utilizador é automático: segue sempre o Departamento escolhido acima. Aqui só decidem se, na Fila, ele vê apenas os processos do seu lote ou de todos.</p>
         </div>
 
+        <?php $scope = (string) ($formValues['view_scope'] ?? 'OWN'); ?>
+        <div class="ops-form-row">
+          <label for="view_scope">Visibilidade em "Todos os Processos" <span style="font-weight:400;color:#9ca3af">(Supervisor de Departamento)</span></label>
+          <select id="view_scope" name="view_scope">
+            <option value="OWN" <?= $scope === 'OWN' ? 'selected' : '' ?>>Apenas o seu departamento</option>
+            <option value="BRANCH" <?= $scope === 'BRANCH' ? 'selected' : '' ?>>Toda a Filial (todos os departamentos da filial dele)</option>
+            <option value="CUSTOM" <?= $scope === 'CUSTOM' ? 'selected' : '' ?>>Departamentos escolhidos ↓</option>
+          </select>
+          <p style="color:#6b7280;font-size:12px;margin:4px 0 0">
+            Isto define apenas o que ele <strong>vê</strong>. Assumir e reatribuir continua sempre
+            limitado aos processos do <strong>próprio departamento</strong>.
+          </p>
+        </div>
+
+        <div class="ops-form-row" id="view_departments_box" style="<?= $scope === 'CUSTOM' ? '' : 'display:none' ?>">
+          <label>Departamentos que pode ver</label>
+          <div style="display:flex;flex-wrap:wrap;gap:8px 18px;border:1px solid #e5e7eb;border-radius:8px;padding:10px">
+            <?php foreach ($allDepartments as $department): ?>
+              <label style="display:flex;align-items:center;gap:6px;min-width:220px;cursor:pointer;font-weight:400">
+                <input type="checkbox" name="view_departments[]" value="<?= (int) $department['id'] ?>"
+                       <?= in_array((int) $department['id'], $viewDepartmentIds ?? [], true) ? 'checked' : '' ?>>
+                <?= e($department['branch_name'] . ' · ' . $department['name']) ?>
+              </label>
+            <?php endforeach; ?>
+          </div>
+        </div>
+
         <button type="submit" class="ops-btn"><?= $editingUser ? 'Guardar Alterações' : 'Criar Utilizador' ?></button>
         <?php if ($editingUser): ?>
           <a href="/admin/users" class="ops-btn ops-btn-sm" style="background:#6b7280;text-decoration:none">Cancelar</a>
@@ -203,6 +230,16 @@
 
       branchSelect.addEventListener('change', function () { refresh(false); });
       refresh(true);
+    })();
+
+    // Só mostra a lista de departamentos quando a visibilidade é "escolhidos".
+    (function () {
+      var scope = document.getElementById('view_scope');
+      var box = document.getElementById('view_departments_box');
+      if (!scope || !box) { return; }
+      scope.addEventListener('change', function () {
+        box.style.display = scope.value === 'CUSTOM' ? '' : 'none';
+      });
     })();
   </script>
   <script>

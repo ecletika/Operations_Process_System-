@@ -51,6 +51,33 @@ final class ProcessController extends Controller
      *
      * @return array<int>|null
      */
+    /**
+     * Departamentos que o utilizador pode VER em "Todos os Processos".
+     * null = sem limite (Admin/Supervisor, com process.view_all).
+     *
+     * O Supervisor de Departamento vê conforme o âmbito escolhido na sua
+     * ficha: toda a Filial ou só os departamentos marcados. Isto é só sobre
+     * VER — assumir/reatribuir continua limitado ao seu lote (allowedBatchIds).
+     *
+     * @return array<int>|null
+     */
+    private function viewScopeDepartmentIds(): ?array
+    {
+        $permissions = (array) Session::get('permissions', []);
+
+        if (in_array('process.view_all', $permissions, true)) {
+            return null;
+        }
+
+        if ((string) Session::get('view_scope', 'OWN') === 'OWN') {
+            $department = Session::get('department_id');
+
+            return $department !== null ? [(int) $department] : [];
+        }
+
+        return array_map('intval', (array) Session::get('viewable_department_ids', []));
+    }
+
     private function allowedBatchIds(): ?array
     {
         // Regra fixa (RN-0011): só as chefias (process.view_all → Admin/
@@ -104,6 +131,9 @@ final class ProcessController extends Controller
 
         $this->view('Process/Views/all', [
             'processes' => (new ProcessRepository())->filterAll($filters),
+            // Lotes em que pode agir (reatribuir). null = todos (Admin/Supervisor);
+            // o Supervisor de Departamento só age no seu.
+            'actionableBatchIds' => $this->allowedBatchIds(),
             'tab' => $filters['tab'],
             'filters' => $filters,
             'statuses' => (new StatusRepository())->listAll(),
@@ -136,6 +166,9 @@ final class ProcessController extends Controller
 
         return [
             'tab' => $tab,
+            // Âmbito de visibilidade — não é um filtro que o utilizador
+            // escolhe: é o limite do que ele pode ver (Supervisor de Depto.).
+            'scope_department_ids' => $this->viewScopeDepartmentIds(),
             'status_id' => $multi($request->input('status_id', [])),
             'batch_id' => $multi($request->input('batch_id', [])),
             'priority_id' => $multi($request->input('priority_id', [])),
@@ -454,7 +487,12 @@ final class ProcessController extends Controller
         }
 
         try {
-            (new ProcessService())->reassign($processId, (int) $request->input('user_id', 0), (int) Session::get('user_id'));
+            (new ProcessService())->reassign(
+                $processId,
+                (int) $request->input('user_id', 0),
+                (int) Session::get('user_id'),
+                $this->allowedBatchIds()
+            );
             Session::flash('success', 'Processo reatribuído.');
         } catch (RuntimeException $e) {
             Session::flash('errors', [$e->getMessage()]);
