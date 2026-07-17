@@ -193,6 +193,8 @@
         </tbody>
       </table>
       <h2 style="margin-top:32px">Observações</h2>
+      <?php $canContribute = $canContribute ?? true; ?>
+      <?php if ($canContribute): ?>
       <form method="POST" action="/processes/<?= (int) $process['id'] ?>/notes" class="ops-panel" style="max-width:none">
         <?= csrf_field() ?>
         <div class="ops-form-row">
@@ -200,6 +202,7 @@
         </div>
         <button type="submit" class="ops-btn ops-btn-sm">Adicionar Observação</button>
       </form>
+      <?php endif; ?>
 
       <?php foreach ($notes as $note): ?>
         <?php
@@ -228,12 +231,14 @@
       <?php endforeach; ?>
 
       <h2 style="margin-top:32px">Anexos</h2>
+      <?php if ($canContribute): ?>
       <form method="POST" action="/processes/<?= (int) $process['id'] ?>/attachments" enctype="multipart/form-data" style="margin-bottom:12px">
         <?= csrf_field() ?>
         <input type="file" name="file" required>
         <button type="submit" class="ops-btn ops-btn-sm">Enviar Anexo</button>
         <span style="color:#6b7280;font-size:12px">PDF, JPG, PNG, DOCX, XLSX, ZIP · máx. 20MB</span>
       </form>
+      <?php endif; ?>
 
       <table class="ops-table">
         <thead><tr><th>Ficheiro</th><th>Enviado por</th><th>Data</th><th>Tamanho</th><th></th></tr></thead>

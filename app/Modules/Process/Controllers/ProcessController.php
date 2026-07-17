@@ -78,48 +78,15 @@ final class ProcessController extends Controller
         return array_map('intval', (array) Session::get('viewable_department_ids', []));
     }
 
-    /**
-     * Lotes do PRÓPRIO utilizador (o seu departamento), sem exceções — nem
-     * para Admin/Supervisor. Usado pelo "Próximo Processo", que deve dar
-     * sempre o próximo trabalho do departamento de quem carrega no botão.
-     *
-     * @return array<int>
-     */
+    /** @see \App\Modules\Process\Support\BatchScope regra única de âmbito */
     private function ownBatchIds(): array
     {
-        $allowed = Session::get('allowed_batch_ids');
-
-        if ($allowed === null) {
-            $single = Session::get('batch_id');
-
-            return $single !== null ? [(int) $single] : [];
-        }
-
-        return array_map('intval', (array) $allowed);
+        return \App\Modules\Process\Support\BatchScope::own();
     }
 
     private function allowedBatchIds(): ?array
     {
-        // Regra fixa (RN-0011): só as chefias (process.view_all → Admin/
-        // Supervisor) veem e assumem processos fora do seu departamento.
-        // O "view_all_batches" da ficha do utilizador NÃO abre exceção aqui:
-        // serve apenas para o operador poder CRIAR um processo noutro
-        // departamento (ex.: a Receção abre um pedido para a Oficina).
-        // Para dar a um operador visão de outro departamento, atribua-lhe o
-        // lote desse departamento.
-        if (in_array('process.view_all', (array) Session::get('permissions', []), true)) {
-            return null;
-        }
-
-        $allowed = Session::get('allowed_batch_ids');
-        if ($allowed === null) {
-            // Sessão iniciada antes desta versão: usa o lote principal.
-            $single = Session::get('batch_id');
-
-            return $single !== null ? [(int) $single] : [];
-        }
-
-        return array_map('intval', (array) $allowed);
+        return \App\Modules\Process\Support\BatchScope::allowed();
     }
 
     /**
@@ -370,6 +337,8 @@ final class ProcessController extends Controller
         $this->view('Process/Views/show', [
             'process' => $process,
             'canAct' => $canAct,
+            // Observações/anexos: o criador contribui mesmo noutro departamento.
+            'canContribute' => \App\Modules\Process\Support\BatchScope::canContribute($process),
             // Motivos de Pausa do SLA configurados (só os ativos são oferecidos).
             'pauseReasons' => (new StatusRepository())->listWaiting(onlyActive: true),
             'timeline' => $timeline,
@@ -554,6 +523,15 @@ final class ProcessController extends Controller
 
         if (!Session::verifyCsrfToken($request->input('_csrf'))) {
             Session::flash('errors', ['Sessão expirada, tente novamente.']);
+            Response::redirect('/processes/' . $processId);
+        }
+
+        // Arquivar também é uma ação sobre o processo: mesma guarda de
+        // departamento das restantes (concluir, reabrir, etc.).
+        $allowed = $this->allowedBatchIds();
+        $process = (new ProcessRepository())->findById($processId);
+        if ($process === null || ($allowed !== null && !in_array((int) $process['batch_id'], $allowed, true))) {
+            Session::flash('errors', ['Este processo é de outro departamento; só o pode consultar.']);
             Response::redirect('/processes/' . $processId);
         }
 

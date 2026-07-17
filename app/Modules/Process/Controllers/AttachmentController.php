@@ -8,7 +8,9 @@ use App\Core\Controller;
 use App\Core\Request;
 use App\Core\Response;
 use App\Core\Session;
+use App\Modules\Process\Repositories\ProcessRepository;
 use App\Modules\Process\Services\AttachmentService;
+use App\Modules\Process\Support\BatchScope;
 use RuntimeException;
 
 /**
@@ -24,6 +26,14 @@ final class AttachmentController extends Controller
 
         if (!Session::verifyCsrfToken($request->input('_csrf'))) {
             Session::flash('errors', ['Sessão expirada, tente novamente.']);
+            Response::redirect('/processes/' . $processId);
+        }
+
+        // Mesma regra das observações: departamento do processo, chefias ou
+        // o criador; quem só consulta não anexa ficheiros.
+        $process = (new ProcessRepository())->findById($processId);
+        if ($process === null || !BatchScope::canContribute($process)) {
+            Session::flash('errors', ['Este processo é de outro departamento; só o pode consultar.']);
             Response::redirect('/processes/' . $processId);
         }
 

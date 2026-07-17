@@ -8,7 +8,9 @@ use App\Core\Controller;
 use App\Core\Request;
 use App\Core\Response;
 use App\Core\Session;
+use App\Modules\Process\Repositories\ProcessRepository;
 use App\Modules\Process\Services\NoteService;
+use App\Modules\Process\Support\BatchScope;
 use RuntimeException;
 
 /**
@@ -21,6 +23,15 @@ final class NoteController extends Controller
         $processId = (int) $params['id'];
 
         if (!Session::verifyCsrfToken($request->input('_csrf'))) {
+            Response::redirect('/processes/' . $processId);
+        }
+
+        // Observações contam como contacto (atualizam o Último Contacto e
+        // renovam o SLA), por isso só o departamento do processo, chefias ou
+        // o criador as podem adicionar — quem só consulta, não.
+        $process = (new ProcessRepository())->findById($processId);
+        if ($process === null || !BatchScope::canContribute($process)) {
+            Session::flash('errors', ['Este processo é de outro departamento; só o pode consultar.']);
             Response::redirect('/processes/' . $processId);
         }
 

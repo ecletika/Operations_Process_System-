@@ -25,10 +25,25 @@ final class ApiProcessController extends ApiController
 {
     public function queue(Request $request): never
     {
-        $isOperator = ApiContext::roleCode() === 'ROLE_OPERATOR';
-        $batchId = $isOperator ? ApiContext::batchId() : null;
+        $this->ok((new ProcessRepository())->listQueue($this->apiBatchScope()));
+    }
 
-        $this->ok((new ProcessRepository())->listQueue($batchId));
+    /**
+     * Mesmo isolamento por departamento da web (RN-0011): só Admin/Supervisor
+     * veem/assumem fora do seu lote. listQueue espera uma LISTA de lotes —
+     * passar o int diretamente rebentava com TypeError desde essa mudança.
+     *
+     * @return array<int>|null
+     */
+    private function apiBatchScope(): ?array
+    {
+        if (in_array(ApiContext::roleCode(), ['ROLE_ADMIN', 'ROLE_SUPERVISOR'], true)) {
+            return null;
+        }
+
+        $batchId = ApiContext::batchId();
+
+        return $batchId !== null ? [(int) $batchId] : [];
     }
 
     public function mine(Request $request): never
@@ -86,17 +101,20 @@ final class ApiProcessController extends ApiController
 
     public function assume(Request $request, array $params): never
     {
-        $this->runAction($params, fn (ProcessService $s, int $id) => $s->assume($id, ApiContext::userId()));
+        $scope = $this->apiBatchScope();
+        $this->runAction($params, fn (ProcessService $s, int $id) => $s->assume($id, ApiContext::userId(), $scope));
     }
 
     public function close(Request $request, array $params): never
     {
-        $this->runAction($params, fn (ProcessService $s, int $id) => $s->close($id, ApiContext::userId()));
+        $scope = $this->apiBatchScope();
+        $this->runAction($params, fn (ProcessService $s, int $id) => $s->close($id, ApiContext::userId(), $scope));
     }
 
     public function reopen(Request $request, array $params): never
     {
-        $this->runAction($params, fn (ProcessService $s, int $id) => $s->reopen($id, ApiContext::userId()));
+        $scope = $this->apiBatchScope();
+        $this->runAction($params, fn (ProcessService $s, int $id) => $s->reopen($id, ApiContext::userId(), $scope));
     }
 
     public function addNote(Request $request, array $params): never
