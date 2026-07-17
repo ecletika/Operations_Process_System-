@@ -60,12 +60,13 @@
             <th>Estado</th>
             <th>Prioridade</th>
             <th>Falta p/ SLA</th>
+            <th>📅 Novo Contacto</th>
             <th>Último Contacto</th>
           </tr>
         </thead>
         <tbody>
           <?php if (empty($processes)): ?>
-            <tr><td colspan="8" style="text-align:center;color:#6b7280"><?= $archived ? 'Ainda não tem processos finalizados.' : 'Ainda não tem processos atribuídos.' ?></td></tr>
+            <tr><td colspan="9" style="text-align:center;color:#6b7280"><?= $archived ? 'Ainda não tem processos finalizados.' : 'Ainda não tem processos atribuídos.' ?></td></tr>
           <?php endif; ?>
           <?php foreach ($processes as $process): ?>
             <tr class="proc-row" data-subject="<?= e(mb_strtolower($process['subject_name'] ?? '')) ?>" data-plate="<?= e(strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $process['vehicle_plate'] ?? ''))) ?>">
@@ -76,6 +77,7 @@
               <td><?= e($process['status_name']) ?></td>
               <td><span class="ops-badge" style="background:<?= e($process['priority_color']) ?>"><?= e($process['priority_name']) ?></span></td>
               <td><?= sla_badge($process) ?></td>
+              <td><?= next_contact_badge($process['next_contact_at'] ?? null) ?></td>
               <td><?= dt($process['last_contact_at']) ?></td>
             </tr>
           <?php endforeach; ?>
@@ -93,13 +95,14 @@
             <th>Estado</th>
             <th>Prioridade</th>
             <th>Falta p/ SLA</th>
+            <th>📅 Novo Contacto</th>
             <th>Responsável</th>
             <th>Último Contacto</th>
           </tr>
         </thead>
         <tbody>
           <?php if (empty($createdProcesses)): ?>
-            <tr><td colspan="9" style="text-align:center;color:#6b7280"><?= $archived ? 'Ainda não tem processos criados finalizados.' : 'Ainda não criou processos.' ?></td></tr>
+            <tr><td colspan="10" style="text-align:center;color:#6b7280"><?= $archived ? 'Ainda não tem processos criados finalizados.' : 'Ainda não criou processos.' ?></td></tr>
           <?php endif; ?>
           <?php foreach ($createdProcesses as $process): ?>
             <tr class="proc-row" data-subject="<?= e(mb_strtolower($process['subject_name'] ?? '')) ?>" data-plate="<?= e(strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $process['vehicle_plate'] ?? ''))) ?>">
@@ -110,6 +113,7 @@
               <td><?= e($process['status_name']) ?></td>
               <td><span class="ops-badge" style="background:<?= e($process['priority_color']) ?>"><?= e($process['priority_name']) ?></span></td>
               <td><?= sla_badge($process) ?></td>
+              <td><?= next_contact_badge($process['next_contact_at'] ?? null) ?></td>
               <td>
                 <?php if ($process['assigned_first_name']): ?>
                   <span style="display:flex;align-items:center">

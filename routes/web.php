@@ -67,6 +67,7 @@ $router->get('/processes/{id}', [ProcessController::class, 'show'], [Authenticat
 $router->get('/processes/{id}/replay', [ProcessController::class, 'replay'], [Authenticate::class]);
 $router->post('/processes/{id}/assume', [ProcessController::class, 'assume'], [Authenticate::class, [PermissionMiddleware::class, 'process.assume']]);
 $router->post('/processes/{id}/status', [ProcessController::class, 'changeStatus'], [Authenticate::class, [PermissionMiddleware::class, 'process.change_status']]);
+$router->post('/processes/{id}/next-contact', [ProcessController::class, 'nextContact'], [Authenticate::class, [PermissionMiddleware::class, 'process.next_contact']]);
 $router->post('/processes/{id}/close', [ProcessController::class, 'close'], [Authenticate::class, [PermissionMiddleware::class, 'process.close']]);
 $router->post('/processes/{id}/reopen', [ProcessController::class, 'reopen'], [Authenticate::class, [PermissionMiddleware::class, 'process.reopen']]);
 $router->post('/processes/{id}/delete', [ProcessController::class, 'destroy'], [Authenticate::class, [PermissionMiddleware::class, 'process.delete']]);

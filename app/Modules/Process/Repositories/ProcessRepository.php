@@ -92,7 +92,7 @@ final class ProcessRepository
             SELECT p.*,
                    c.name AS customer_name, c.phone AS customer_phone,
                    v.plate AS vehicle_plate, v.brand AS vehicle_brand, v.model AS vehicle_model,
-                   sub.name AS subject_name,
+                   sub.name AS subject_name, sub.code AS subject_code,
                    st.code AS status_code, st.name AS status_name, st.is_waiting,
                    pr.code AS priority_code, pr.name AS priority_name, pr.color AS priority_color,
                    pr.default_sla_minutes,
@@ -291,6 +291,17 @@ final class ProcessRepository
     /**
      * RN-0014/0015 - toda interação incrementa contact_count e atualiza last_contact_at.
      */
+    /** Agenda (ou limpa, com null) a Nova Data de Contacto do processo. */
+    public function setNextContactAt(int $id, ?string $date, int $userId): void
+    {
+        $stmt = $this->pdo->prepare('
+            UPDATE tb_process
+            SET next_contact_at = :date, updated_by = :user_id, updated_at = NOW()
+            WHERE id = :id
+        ');
+        $stmt->execute(['id' => $id, 'date' => $date, 'user_id' => $userId]);
+    }
+
     public function registerContact(int $id): void
     {
         // O prazo do SLA reinicia a cada interação (decisão do cliente): como
@@ -486,7 +497,7 @@ final class ProcessRepository
             SELECT p.id, p.process_number, p.created_at,
                    c.name AS customer_name, c.phone AS customer_phone,
                    v.plate AS vehicle_plate,
-                   sub.name AS subject_name,
+                   sub.name AS subject_name, sub.code AS subject_code,
                    st.code AS status_code, st.name AS status_name, st.is_waiting,
                    pr.name AS priority_name, pr.color AS priority_color,
                    u.first_name AS assigned_first_name, u.last_name AS assigned_last_name
@@ -603,6 +614,23 @@ final class ProcessRepository
             $conditions[] = 'bt.department_id IN (' . implode(', ', $placeholders) . ')';
         }
 
+        // Pesquisa livre por matrícula, cliente ou nº de processo. A matrícula
+        // é comparada sem traços/espaços, por isso "AA-12-BB" encontra "AA12BB".
+        $q = trim((string) ($filters['q'] ?? ''));
+        if ($q !== '') {
+            $alnum = \App\Helpers\PlateHelper::normalize($q);
+            $termos = ['c.name LIKE :q_name', 'p.process_number LIKE :q_num'];
+            $params['q_name'] = "%{$q}%";
+            $params['q_num'] = "%{$q}%";
+
+            if ($alnum !== '') {
+                $termos[] = "REGEXP_REPLACE(v.plate, '[^0-9A-Za-z]', '') LIKE :q_plate";
+                $params['q_plate'] = "%{$alnum}%";
+            }
+
+            $conditions[] = '(' . implode(' OR ', $termos) . ')';
+        }
+
         $inClause('p.status_id', $filters['status_id'] ?? [], 'status_');
         $inClause('p.batch_id', $filters['batch_id'] ?? [], 'batch_');
         $inClause('p.priority_id', $filters['priority_id'] ?? [], 'prio_');
@@ -623,7 +651,7 @@ final class ProcessRepository
             SELECT p.id, p.process_number, p.contact_count, p.reopen_count, p.created_at, p.closed_at,
                    p.last_contact_at, p.sla_paused_minutes, p.wait_started_at, p.batch_id,
                    c.name AS customer_name, v.plate AS vehicle_plate,
-                   sub.name AS subject_name,
+                   sub.name AS subject_name, sub.code AS subject_code,
                    st.code AS status_code, st.name AS status_name, st.is_waiting,
                    pr.name AS priority_name, pr.color AS priority_color, pr.default_sla_minutes,
                    u.first_name AS assigned_first_name, u.last_name AS assigned_last_name,

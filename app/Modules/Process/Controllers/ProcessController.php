@@ -169,6 +169,7 @@ final class ProcessController extends Controller
             // Âmbito de visibilidade — não é um filtro que o utilizador
             // escolhe: é o limite do que ele pode ver (Supervisor de Depto.).
             'scope_department_ids' => $this->viewScopeDepartmentIds(),
+            'q' => trim((string) $request->input('q', '')),
             'status_id' => $multi($request->input('status_id', [])),
             'batch_id' => $multi($request->input('batch_id', [])),
             'priority_id' => $multi($request->input('priority_id', [])),
@@ -433,6 +434,13 @@ final class ProcessController extends Controller
         }
 
         $this->runAction($request, $params, fn (ProcessService $service, int $id, int $userId) => $service->changeStatus($id, $status, $userId));
+    }
+
+    /** Agenda a Nova Data de Contacto (Imobilizados/Baixa, por omissão). */
+    public function nextContact(Request $request, array $params): never
+    {
+        $date = (string) $request->input('next_contact_at', '');
+        $this->runAction($request, $params, fn (ProcessService $service, int $id, int $userId) => $service->setNextContact($id, $date, $userId));
     }
 
     public function close(Request $request, array $params): never

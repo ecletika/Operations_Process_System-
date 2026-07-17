@@ -103,6 +103,23 @@
           </form>
         <?php endif; ?>
 
+        <?php
+          // Nova Data de Contacto: só na combinação configurada (por omissão
+          // prioridade Baixa + assunto Imobilizados, ao mesmo tempo).
+          $podeAgendar = in_array('process.next_contact', \App\Core\Session::get('permissions', []), true)
+            && \App\Modules\Process\Services\ProcessService::allowsNextContact($process)
+            && !in_array($process['status_code'], ['SOLVED', 'CLOSED'], true);
+        ?>
+        <?php if ($podeAgendar): ?>
+          <form method="POST" action="/processes/<?= (int) $process['id'] ?>/next-contact" style="display:flex;gap:4px;align-items:center">
+            <?= csrf_field() ?>
+            <input type="date" name="next_contact_at" value="<?= e($process['next_contact_at'] ?? '') ?>"
+                   min="<?= gmdate('Y-m-d') ?>" title="Nova data de contacto com o cliente"
+                   style="padding:5px 8px;border:1px solid #e5e7eb;border-radius:6px;font-size:13px">
+            <button type="submit" class="ops-btn ops-btn-sm" style="background:#0891b2" title="Agendar novo contacto">📅 Agendar</button>
+          </form>
+        <?php endif; ?>
+
         <a href="/processes/<?= (int) $process['id'] ?>/replay" class="ops-btn ops-btn-sm" style="background:#7c3aed;text-decoration:none;display:inline-flex;align-items:center">🎬 Reproduzir Processo</a>
 
         <?php if (in_array('process.delete', \App\Core\Session::get('permissions', []), true)): ?>

@@ -76,6 +76,44 @@ if (!function_exists('dt')) {
     }
 }
 
+if (!function_exists('next_contact_badge')) {
+    /**
+     * Etiqueta da Nova Data de Contacto para a Caixa de Entrada: mostra a
+     * data agendada e avisa quando vence (hoje) ou já venceu (atrasada).
+     * A data é guardada como dia (sem hora), por isso compara-se por dia.
+     */
+    function next_contact_badge(?string $date): string
+    {
+        if ($date === null || trim($date) === '') {
+            return '<span style="color:#9ca3af">—</span>';
+        }
+
+        try {
+            // A data é um DIA (sem hora): tem de ser lida no mesmo fuso do
+            // "hoje" com que é comparada, senão ontem passava por hoje.
+            $dia = (new DateTimeImmutable($date, app_timezone()))->setTime(0, 0);
+        } catch (Exception) {
+            return '<span style="color:#9ca3af">—</span>';
+        }
+
+        $hoje = new DateTimeImmutable('today', app_timezone());
+        $dias = (int) $hoje->diff($dia)->format('%r%a');
+        $texto = $dia->format('d/m/Y');
+
+        if ($dias < 0) {
+            return '<span title="Data de contacto ultrapassada" style="color:#dc2626;font-weight:600;white-space:nowrap">🔴 ' . $texto . '</span>';
+        }
+
+        if ($dias === 0) {
+            return '<span title="Contactar hoje" style="color:#b45309;font-weight:600;white-space:nowrap">🟠 Hoje</span>';
+        }
+
+        $cor = $dias <= 2 ? '#b45309' : '#16a34a';
+
+        return '<span title="Contactar dentro de ' . $dias . ' dia(s)" style="color:' . $cor . ';white-space:nowrap">📅 ' . $texto . '</span>';
+    }
+}
+
 if (!function_exists('is_user_online')) {
     /**
      * Mesma janela de presença da Tela Operacional (🖥️): o middleware toca

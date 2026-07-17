@@ -260,6 +260,68 @@ final class ProcessService
     }
 
     /**
+     * A Nova Data de Contacto só se aplica à combinação configurada em
+     * Configurações (por omissão prioridade "Baixa" + assunto "Imobilizados"),
+     * e as duas têm de acontecer em simultâneo. Deixar um dos parâmetros
+     * vazio significa "qualquer".
+     *
+     * @param array<string, mixed> $process linha do processo (com priority_code/subject_code)
+     */
+    public static function allowsNextContact(array $process): bool
+    {
+        $priority = trim((string) Settings::get('next_contact_priority_code', 'P4'));
+        $subject = trim((string) Settings::get('next_contact_subject_code', 'IMO'));
+
+        $priorityOk = $priority === '' || (string) ($process['priority_code'] ?? '') === $priority;
+        $subjectOk = $subject === '' || (string) ($process['subject_code'] ?? '') === $subject;
+
+        return $priorityOk && $subjectOk;
+    }
+
+    /**
+     * Agenda a Nova Data de Contacto (ex.: imobilizado que só se volta a
+     * contactar daqui a X dias). Fica visível na Caixa de Entrada do
+     * responsável, para saber quando a data vence.
+     */
+    public function setNextContact(int $processId, ?string $date, int $userId): void
+    {
+        $process = $this->processes->findById($processId);
+        if ($process === null) {
+            throw new RuntimeException('Processo não encontrado.');
+        }
+
+        if (!self::allowsNextContact($process)) {
+            throw new RuntimeException('A Nova Data de Contacto só está disponível para a combinação de prioridade e assunto definida em Configurações.');
+        }
+
+        // Limpar a data é sempre permitido.
+        if ($date === null || trim($date) === '') {
+            $this->processes->setNextContactAt($processId, null, $userId);
+            $this->timeline->record($processId, 'NEXT_CONTACT_CLEARED', 'Nova Data de Contacto removida', null, $userId);
+
+            return;
+        }
+
+        $parsed = \DateTimeImmutable::createFromFormat('!Y-m-d', trim($date));
+        if ($parsed === false) {
+            throw new RuntimeException('Data inválida.');
+        }
+
+        if ($parsed < new \DateTimeImmutable('today')) {
+            throw new RuntimeException('A Nova Data de Contacto não pode ser no passado.');
+        }
+
+        $this->processes->setNextContactAt($processId, $parsed->format('Y-m-d'), $userId);
+        $this->timeline->record(
+            $processId,
+            'NEXT_CONTACT_SET',
+            'Novo contacto agendado para ' . $parsed->format('d/m/Y'),
+            null,
+            $userId
+        );
+    }
+
+    /**
      * Devolve o processo à Fila Inteligente™ — o operador não está
      * disponível para o tratar e outro pode assumi-lo.
      */

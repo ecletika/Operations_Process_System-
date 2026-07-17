@@ -14,6 +14,11 @@
       <p style="color:#6b7280">Visão completa para Administração/Supervisão, com filtros combináveis.</p>
 
       <?php
+        // O âmbito de visibilidade é interno (vem da ficha do utilizador),
+        // não é um filtro do ecrã — fora dos links/URLs.
+        $urlFilters = $filters;
+        unset($urlFilters['scope_department_ids']);
+
         $tabs = [
           'in_progress' => 'Abertos',
           'em_tratamento' => 'Em Tratamento',
@@ -25,7 +30,7 @@
           'no_interaction' => 'Sem Interação',
           'all' => 'Todos',
         ];
-        $queryWithoutTab = $filters;
+        $queryWithoutTab = $urlFilters;
         unset($queryWithoutTab['tab']);
       ?>
       <div style="display:flex;gap:6px;margin-bottom:16px;border-bottom:1px solid #e5e7eb;flex-wrap:wrap">
@@ -46,6 +51,17 @@
       ?>
       <form method="GET" action="/processes/all" class="ops-panel" style="max-width:none">
         <input type="hidden" name="tab" value="<?= e($tab) ?>">
+
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:14px">
+          <input type="text" name="q" value="<?= e($filters['q'] ?? '') ?>"
+                 placeholder="🔎 Procurar por matrícula, cliente ou nº de processo..."
+                 style="flex:1;max-width:460px;padding:10px 12px;border:1px solid #e5e7eb;border-radius:8px;font-size:14px">
+          <button type="submit" class="ops-btn ops-btn-sm">Pesquisar</button>
+          <?php if (($filters['q'] ?? '') !== ''): ?>
+            <a href="/processes/all?tab=<?= e($tab) ?>" class="ops-btn ops-btn-sm" style="background:#6b7280;text-decoration:none">Limpar pesquisa</a>
+          <?php endif; ?>
+        </div>
+
         <p style="color:#9ca3af;font-size:12px;margin:0 0 8px">Pode escolher vários valores em cada filtro (Ctrl+clique / Cmd+clique).</p>
         <div style="display:flex;gap:12px;flex-wrap:wrap">
           <div class="ops-form-row" style="flex:1;min-width:160px">
@@ -100,7 +116,7 @@
         <div style="display:flex;gap:8px;margin-top:8px">
           <button type="submit" class="ops-btn ops-btn-sm">Filtrar</button>
           <a href="/processes/all?tab=<?= e($tab) ?>" class="ops-btn ops-btn-sm" style="background:#6b7280;text-decoration:none">Limpar filtros</a>
-          <a href="/processes/all.xls?<?= http_build_query($filters) ?>" class="ops-btn ops-btn-sm" style="background:#16a34a;text-decoration:none">⬇️ Baixar Excel</a>
+          <a href="/processes/all.xls?<?= http_build_query($urlFilters) ?>" class="ops-btn ops-btn-sm" style="background:#16a34a;text-decoration:none">⬇️ Baixar Excel</a>
         </div>
       </form>
 
@@ -121,7 +137,7 @@
             <tr><td colspan="14" style="text-align:center;color:#6b7280">Nenhum processo encontrado com estes filtros.</td></tr>
           <?php endif; ?>
           <?php $activeUsers = array_values(array_filter($users, fn ($u) => (int) $u['active'] === 1)); ?>
-          <?php $backUrl = '/processes/all?' . http_build_query($filters); ?>
+          <?php $backUrl = '/processes/all?' . http_build_query($urlFilters); ?>
           <?php foreach ($processes as $process): ?>
             <tr>
               <td><a href="/processes/<?= (int) $process['id'] ?>"><?= e($process['process_number']) ?></a></td>
