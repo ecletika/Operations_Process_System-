@@ -27,6 +27,8 @@
             <?= csrf_field() ?>
             <input type="hidden" name="plate" value="<?= e($old['plate'] ?? '') ?>">
             <input type="hidden" name="customer_name" value="<?= e($old['customer_name'] ?? '') ?>">
+            <input type="hidden" name="vehicle_brand" value="<?= e($old['vehicle_brand'] ?? '') ?>">
+            <input type="hidden" name="vehicle_model" value="<?= e($old['vehicle_model'] ?? '') ?>">
             <input type="hidden" name="contact_channel" value="<?= e($old['contact_channel'] ?? 'PHONE') ?>">
             <input type="hidden" name="contact_value" value="<?= e($old['contact_value'] ?? '') ?>">
             <input type="hidden" name="subject_id" value="<?= e($old['subject_id'] ?? '') ?>">
@@ -49,13 +51,25 @@
               <input type="text" id="customer_name" name="customer_name" value="<?= e($old['customer_name'] ?? '') ?>" required>
               <small id="plate_hint" style="display:none;color:#16a34a;font-size:12px"></small>
             </div>
+            <div class="ops-form-row" style="display:flex;gap:12px">
+              <div style="flex:1">
+                <label for="vehicle_brand">Marca</label>
+                <input type="text" id="vehicle_brand" name="vehicle_brand" value="<?= e($old['vehicle_brand'] ?? '') ?>" placeholder="Ex.: Renault">
+              </div>
+              <div style="flex:1">
+                <label for="vehicle_model">Modelo</label>
+                <input type="text" id="vehicle_model" name="vehicle_model" value="<?= e($old['vehicle_model'] ?? '') ?>" placeholder="Ex.: Clio">
+              </div>
+            </div>
             <script>
               // RF-0037: ao sair do campo Matrícula, procura a viatura e, se já
-              // existir, preenche automaticamente o nome do cliente.
+              // existir, preenche automaticamente o nome do cliente e a viatura.
               (function () {
                 var plate = document.getElementById('plate');
                 var name = document.getElementById('customer_name');
                 var hint = document.getElementById('plate_hint');
+                var brand = document.getElementById('vehicle_brand');
+                var model = document.getElementById('vehicle_model');
                 if (!plate || !name) { return; }
 
                 plate.addEventListener('blur', function () {
@@ -68,8 +82,10 @@
                         hint.style.display = 'none';
                         return;
                       }
-                      // Só preenche se o utilizador ainda não escreveu um nome.
+                      // Só preenche se o utilizador ainda não escreveu nada.
                       if (name.value.trim() === '') { name.value = data.customer_name; }
+                      if (brand && brand.value.trim() === '' && data.brand) { brand.value = data.brand; }
+                      if (model && model.value.trim() === '' && data.model) { model.value = data.model; }
                       var veic = [data.brand, data.model].filter(Boolean).join(' ');
                       hint.textContent = '✓ Viatura reconhecida: ' + data.customer_name + (veic ? ' — ' + veic : '');
                       hint.style.display = 'block';

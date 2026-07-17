@@ -104,6 +104,32 @@ final class VehicleRepository
         }
     }
 
+    /**
+     * Preenche marca/modelo de uma viatura já existente apenas quando esses
+     * campos estão vazios — nunca sobrepõe dados já registados. Usado no Novo
+     * Processo para enriquecer viaturas antigas sem apagar o que lá está.
+     */
+    public function fillMissingBrandModel(int $id, ?string $brand, ?string $model, int $userId): void
+    {
+        if (($brand === null || $brand === '') && ($model === null || $model === '')) {
+            return;
+        }
+
+        $stmt = $this->pdo->prepare('
+            UPDATE tb_vehicle
+            SET brand = COALESCE(NULLIF(brand, \'\'), :brand),
+                model = COALESCE(NULLIF(model, \'\'), :model),
+                updated_at = NOW(), updated_by = :updated_by
+            WHERE id = :id AND deleted_at IS NULL
+        ');
+        $stmt->execute([
+            'brand' => ($brand === null || $brand === '') ? null : $brand,
+            'model' => ($model === null || $model === '') ? null : $model,
+            'updated_by' => $userId,
+            'id' => $id,
+        ]);
+    }
+
     private function findByPlateIncludingDeleted(string $normalizedPlate): ?array
     {
         $stmt = $this->pdo->prepare('SELECT * FROM tb_vehicle WHERE plate = :plate LIMIT 1');

@@ -79,10 +79,13 @@ final class ProcessRepository
                  status_id, priority_id, created_by, first_contact_at, last_contact_at,
                  contact_count, reopen_count, archived, created_at)
             VALUES
-                (UUID(), :process_number, :company_id, :batch_id, :batch_id, :customer_id, :vehicle_id, :subject_id,
+                (UUID(), :process_number, :company_id, :batch_id, :origin_batch_id, :customer_id, :vehicle_id, :subject_id,
                  :status_id, :priority_id, :created_by, NOW(), NOW(),
                  1, 0, 0, NOW())
         ');
+        // origin_batch_id nasce igual ao batch_id; parâmetro próprio porque o
+        // PDO (EMULATE_PREPARES=false) não permite reutilizar um :nome.
+        $data['origin_batch_id'] = $data['batch_id'];
         $stmt->execute($data);
 
         return (int) $this->pdo->lastInsertId();

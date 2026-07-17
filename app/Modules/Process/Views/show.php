@@ -19,6 +19,8 @@
         Estado: <strong><?= e($process['status_name']) ?></strong>
         · Cliente: <?= e($process['customer_name']) ?> (<?= e($process['customer_phone']) ?>)
         · Matrícula: <?= e($process['vehicle_plate']) ?>
+        <?php $viatura = trim(($process['vehicle_brand'] ?? '') . ' ' . ($process['vehicle_model'] ?? '')); ?>
+        <?php if ($viatura !== ''): ?>· Viatura: <strong><?= e($viatura) ?></strong><?php endif; ?>
         · Assunto: <?= e($process['subject_name']) ?>
         <br>
         Criado por: <strong><?= $process['creator_first_name'] ? e($process['creator_first_name'] . ' ' . $process['creator_last_name']) : '—' ?></strong>

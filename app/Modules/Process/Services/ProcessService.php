@@ -80,9 +80,14 @@ final class ProcessService
                 : $this->customers->create($dto->customerName, $dto->customerPhone, $dto->customerEmail, $userId);
         }
 
-        $vehicleId = $vehicle !== null
-            ? (int) $vehicle['id']
-            : $this->vehicles->create($dto->plate, $customerId, $userId);
+        if ($vehicle !== null) {
+            $vehicleId = (int) $vehicle['id'];
+            // Se a viatura já existia mas não tinha marca/modelo (ex.: criada
+            // antes deste campo), aproveita o que o operador escreveu agora.
+            $this->vehicles->fillMissingBrandModel($vehicleId, $dto->vehicleBrand, $dto->vehicleModel, $userId);
+        } else {
+            $vehicleId = $this->vehicles->create($dto->plate, $customerId, $userId, $dto->vehicleBrand, $dto->vehicleModel);
+        }
 
         // RN-0017/0018 - já existe processo aberto com a mesma matrícula + assunto?
         $openDuplicate = $this->processes->findOpenByVehicleAndSubject($vehicleId, $dto->subjectId);

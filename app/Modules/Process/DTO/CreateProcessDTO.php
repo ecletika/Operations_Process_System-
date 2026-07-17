@@ -25,6 +25,8 @@ final class CreateProcessDTO
         public readonly int $priorityId,
         public readonly string $description,
         public readonly bool $reopenIfEligible,
+        public readonly ?string $vehicleBrand = null,
+        public readonly ?string $vehicleModel = null,
     ) {
     }
 
@@ -62,6 +64,8 @@ final class CreateProcessDTO
             priorityId: (int) ($input['priority_id'] ?? 0),
             description: trim((string) ($input['description'] ?? '')),
             reopenIfEligible: (bool) ($input['reopen_if_eligible'] ?? false),
+            vehicleBrand: ($b = trim((string) ($input['vehicle_brand'] ?? ''))) !== '' ? $b : null,
+            vehicleModel: ($m = trim((string) ($input['vehicle_model'] ?? ''))) !== '' ? $m : null,
         );
     }
 }
