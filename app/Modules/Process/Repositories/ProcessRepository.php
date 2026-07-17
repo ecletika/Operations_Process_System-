@@ -93,7 +93,7 @@ final class ProcessRepository
                    c.name AS customer_name, c.phone AS customer_phone,
                    v.plate AS vehicle_plate, v.brand AS vehicle_brand, v.model AS vehicle_model,
                    sub.name AS subject_name,
-                   st.code AS status_code, st.name AS status_name,
+                   st.code AS status_code, st.name AS status_name, st.is_waiting,
                    pr.code AS priority_code, pr.name AS priority_name, pr.color AS priority_color,
                    pr.default_sla_minutes,
                    u.first_name AS assigned_first_name, u.last_name AS assigned_last_name,
@@ -374,7 +374,7 @@ final class ProcessRepository
 
         $stmt = $this->pdo->prepare("
             SELECT p.*, v.plate AS vehicle_plate, c.name AS customer_name,
-                   sub.name AS subject_name, st.code AS status_code, st.name AS status_name,
+                   sub.name AS subject_name, st.code AS status_code, st.name AS status_name, st.is_waiting,
                    pr.code AS priority_code, pr.name AS priority_name, pr.color AS priority_color, pr.default_sla_minutes
             FROM tb_process p
             JOIN tb_vehicle v ON v.id = p.vehicle_id
@@ -400,7 +400,7 @@ final class ProcessRepository
 
         $stmt = $this->pdo->prepare("
             SELECT p.*, v.plate AS vehicle_plate, c.name AS customer_name,
-                   sub.name AS subject_name, st.code AS status_code, st.name AS status_name,
+                   sub.name AS subject_name, st.code AS status_code, st.name AS status_name, st.is_waiting,
                    pr.code AS priority_code, pr.name AS priority_name, pr.color AS priority_color, pr.default_sla_minutes,
                    u.first_name AS assigned_first_name, u.last_name AS assigned_last_name,
                    u.last_activity_at AS assigned_last_activity
@@ -487,7 +487,7 @@ final class ProcessRepository
                    c.name AS customer_name, c.phone AS customer_phone,
                    v.plate AS vehicle_plate,
                    sub.name AS subject_name,
-                   st.code AS status_code, st.name AS status_name,
+                   st.code AS status_code, st.name AS status_name, st.is_waiting,
                    pr.name AS priority_name, pr.color AS priority_color,
                    u.first_name AS assigned_first_name, u.last_name AS assigned_last_name
             FROM tb_process p
@@ -541,7 +541,7 @@ final class ProcessRepository
                 $conditions[] = "st.code = 'IN_PROGRESS'";
                 break;
             case 'em_espera':
-                $conditions[] = "st.code IN ('WAIT_CLIENT', 'WAIT_PARTS', 'WAIT_WORKSHOP', 'WAIT_EXTERNAL')";
+                $conditions[] = 'st.is_waiting = 1';
                 break;
             case 'resolvidos':
                 $conditions[] = "st.code = 'SOLVED'";
@@ -606,7 +606,7 @@ final class ProcessRepository
                    p.last_contact_at, p.sla_paused_minutes, p.wait_started_at,
                    c.name AS customer_name, v.plate AS vehicle_plate,
                    sub.name AS subject_name,
-                   st.code AS status_code, st.name AS status_name,
+                   st.code AS status_code, st.name AS status_name, st.is_waiting,
                    pr.name AS priority_name, pr.color AS priority_color, pr.default_sla_minutes,
                    u.first_name AS assigned_first_name, u.last_name AS assigned_last_name,
                    u.last_activity_at AS assigned_last_activity,

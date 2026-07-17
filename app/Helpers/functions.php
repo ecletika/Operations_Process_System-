@@ -186,8 +186,16 @@ if (!function_exists('sla_badge')) {
         $txt = sla_human($left);
 
         if ($state['status'] === 'paused') {
-            return '<span title="SLA em pausa — a aguardar resposta. O tempo de espera não conta para o SLA."'
-                . ' style="color:#2563eb;white-space:nowrap">⏸ ' . $txt . '</span>';
+            // Um processo pode ficar em pausa já depois de o prazo ter sido
+            // ultrapassado — nesse caso mostra-se o atraso (com sinal), senão
+            // parecia que tinha imenso tempo de folga.
+            $atrasado = $left < 0;
+
+            return '<span title="' . ($atrasado
+                    ? 'SLA em pausa, mas o prazo já tinha sido ultrapassado antes da espera'
+                    : 'SLA em pausa — a aguardar resposta. O tempo de espera não conta para o SLA.')
+                . '" style="color:' . ($atrasado ? '#dc2626' : '#2563eb') . ';white-space:nowrap">⏸ '
+                . ($atrasado ? '-' : '') . $txt . '</span>';
         }
 
         if ($left < 0) {

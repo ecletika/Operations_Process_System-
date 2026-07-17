@@ -176,6 +176,126 @@ final class AdministrationController extends Controller
     }
 
     /**
+     * Motivos de Pausa do SLA — os estados que param o relógio do SLA
+     * (Aguarda Cliente, Aguarda Peças, ...). Configuráveis como os Assuntos.
+     */
+    public function slaReasons(Request $request): never
+    {
+        $repository = new StatusRepository();
+        $reasons = $repository->listWaiting();
+
+        // Motivo em uso = há processos parados nele; nesse caso só se desativa.
+        foreach ($reasons as $i => $reason) {
+            $reasons[$i]['in_use'] = $repository->isInUse((int) $reason['id']);
+        }
+
+        $this->view('Administration/Views/sla_reasons', [
+            'reasons' => $reasons,
+            'success' => Session::pullFlash('success'),
+            'errors' => Session::pullFlash('errors', []),
+        ]);
+    }
+
+    public function storeSlaReason(Request $request): never
+    {
+        if (!$this->checkCsrf($request)) {
+            Response::redirect('/admin/sla-reasons');
+        }
+
+        $name = trim((string) $request->input('name', ''));
+
+        if ($name === '') {
+            Session::flash('errors', ['O nome do motivo é obrigatório.']);
+            Response::redirect('/admin/sla-reasons');
+        }
+
+        $repository = new StatusRepository();
+        $code = $this->slaReasonCode($name);
+
+        if ($repository->findByCode($code) !== null) {
+            Session::flash('errors', ["Já existe um estado com o código {$code}. Use outro nome."]);
+            Response::redirect('/admin/sla-reasons');
+        }
+
+        $repository->createWaiting($code, $name, (int) Session::get('user_id'));
+        $this->logAudit('CREATE', 'tb_status', 0, null, ['code' => $code, 'name' => $name, 'is_waiting' => true]);
+
+        Session::flash('success', "Motivo \"{$name}\" criado. Já aparece no processo em \"Pôr em espera\".");
+        Response::redirect('/admin/sla-reasons');
+    }
+
+    public function updateSlaReason(Request $request, array $params): never
+    {
+        if (!$this->checkCsrf($request)) {
+            Response::redirect('/admin/sla-reasons');
+        }
+
+        $id = (int) $params['id'];
+        $name = trim((string) $request->input('name', ''));
+        $userId = (int) Session::get('user_id');
+        $repository = new StatusRepository();
+
+        if ($request->input('active') !== null) {
+            $repository->toggleActive($id, $request->input('active') === '1', $userId);
+            $this->logAudit('UPDATE', 'tb_status', $id, null, ['active' => $request->input('active')]);
+            Session::flash('success', 'Motivo atualizado.');
+            Response::redirect('/admin/sla-reasons');
+        }
+
+        if ($name === '') {
+            Session::flash('errors', ['O nome do motivo é obrigatório.']);
+            Response::redirect('/admin/sla-reasons');
+        }
+
+        $repository->update($id, $name, (int) $request->input('sort_order', 0), $userId);
+        $this->logAudit('UPDATE', 'tb_status', $id, null, ['name' => $name]);
+
+        Session::flash('success', 'Motivo atualizado.');
+        Response::redirect('/admin/sla-reasons');
+    }
+
+    /** Excluir um motivo — só se não houver processos parados nele (preserva o histórico). */
+    public function deleteSlaReason(Request $request, array $params): never
+    {
+        if (!$this->checkCsrf($request)) {
+            Response::redirect('/admin/sla-reasons');
+        }
+
+        $id = (int) $params['id'];
+        $repository = new StatusRepository();
+
+        if ($repository->isInUse($id)) {
+            Session::flash('errors', ['Há processos neste motivo. Desative-o em vez de o excluir, para não perder o histórico.']);
+            Response::redirect('/admin/sla-reasons');
+        }
+
+        $repository->deleteWaiting($id, (int) Session::get('user_id'));
+        $this->logAudit('DELETE', 'tb_status', $id);
+
+        Session::flash('success', 'Motivo excluído.');
+        Response::redirect('/admin/sla-reasons');
+    }
+
+    /**
+     * Gera o código a partir do nome (ex.: "Aguarda Seguradora" →
+     * WAIT_AGUARDA_SEGURADORA). É automático de propósito: assim ninguém
+     * cria à mão um código que choque com os estados do fluxo principal
+     * (QUEUE, ASSIGNED, SOLVED...), de que a máquina de estados depende.
+     */
+    private function slaReasonCode(string $name): string
+    {
+        $ascii = strtr($name, [
+            'á' => 'a', 'à' => 'a', 'ã' => 'a', 'â' => 'a', 'é' => 'e', 'ê' => 'e', 'í' => 'i',
+            'ó' => 'o', 'õ' => 'o', 'ô' => 'o', 'ú' => 'u', 'ç' => 'c',
+            'Á' => 'A', 'À' => 'A', 'Ã' => 'A', 'Â' => 'A', 'É' => 'E', 'Ê' => 'E', 'Í' => 'I',
+            'Ó' => 'O', 'Õ' => 'O', 'Ô' => 'O', 'Ú' => 'U', 'Ç' => 'C',
+        ]);
+        $slug = strtoupper(trim(preg_replace('/[^A-Za-z0-9]+/', '_', $ascii) ?? '', '_'));
+
+        return 'WAIT_' . substr($slug !== '' ? $slug : 'MOTIVO', 0, 25);
+    }
+
+    /**
      * #5 - Assuntos por Departamento: matriz para escolher que assuntos
      * aparecem no Novo Processo consoante o departamento escolhido.
      */

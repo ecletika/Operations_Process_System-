@@ -117,7 +117,7 @@ final class DashboardService
             JOIN tb_status st ON st.id = p.status_id
             WHERE p.deleted_at IS NULL
               AND p.assigned_to = :user_id
-              AND st.code IN ('WAIT_CLIENT', 'WAIT_PARTS', 'WAIT_WORKSHOP', 'WAIT_EXTERNAL')
+              AND st.is_waiting = 1
         ");
         $stmt->execute(['user_id' => $userId]);
 

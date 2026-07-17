@@ -309,6 +309,8 @@ final class ProcessController extends Controller
 
         $this->view('Process/Views/show', [
             'process' => $process,
+            // Motivos de Pausa do SLA configurados (só os ativos são oferecidos).
+            'pauseReasons' => (new StatusRepository())->listWaiting(onlyActive: true),
             'timeline' => $timeline,
             'interactions' => $interactions,
             'notes' => $notes,
@@ -390,7 +392,7 @@ final class ProcessController extends Controller
     public function changeStatus(Request $request, array $params): never
     {
         $status = (string) $request->input('status', '');
-        $allowed = array_merge(ProcessService::WAITING_STATUSES, ['IN_PROGRESS']);
+        $allowed = array_merge((new ProcessService())->waitingCodes(), ['IN_PROGRESS']);
 
         if (!in_array($status, $allowed, true)) {
             Session::flash('errors', ['Estado inválido.']);

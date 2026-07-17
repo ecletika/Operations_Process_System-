@@ -10,6 +10,7 @@ use App\Modules\Notification\Services\NotificationService;
 use App\Modules\Process\DTO\CreateProcessDTO;
 use App\Modules\Process\Repositories\CustomerRepository;
 use App\Modules\Process\Repositories\ProcessRepository;
+use App\Modules\Process\Repositories\StatusRepository;
 use App\Modules\Process\Repositories\VehicleRepository;
 use App\Traits\AuditTrait;
 use RuntimeException;
@@ -208,8 +209,26 @@ final class ProcessService
         $this->timeline->record($processId, 'PROCESS_ASSIGNED', 'Processo assumido', null, $userId);
     }
 
-    /** Estados em que o relógio do SLA fica em pausa (espera de terceiros). */
-    public const WAITING_STATUSES = ['WAIT_CLIENT', 'WAIT_PARTS', 'WAIT_WORKSHOP', 'WAIT_EXTERNAL'];
+    /**
+     * Motivos de Pausa do SLA — estados marcados com is_waiting na tabela de
+     * estados. São configuráveis pelo Administrador (Configurações → Motivos
+     * de Pausa do SLA), por isso vêm da base e não de uma lista fixa.
+     *
+     * Inclui os inativos de propósito: um motivo pode ser desativado enquanto
+     * ainda há processos nesse estado, e esses têm de poder sair de lá.
+     *
+     * @return string[]
+     */
+    public function waitingCodes(): array
+    {
+        static $codes = null;
+
+        if ($codes === null) {
+            $codes = (new StatusRepository())->waitingCodes(onlyActive: false);
+        }
+
+        return $codes;
+    }
 
     /**
      * Muda o estado do processo (ex.: "Aguarda Cliente" quando o cliente não
@@ -226,7 +245,7 @@ final class ProcessService
 
         $this->guardTransition($process['status_code'], $targetStatusCode);
 
-        $isWaiting = in_array($targetStatusCode, self::WAITING_STATUSES, true);
+        $isWaiting = in_array($targetStatusCode, $this->waitingCodes(), true);
         $statusId = $this->processes->statusIdByCode($targetStatusCode);
         $this->processes->changeStatus($processId, $statusId, $userId, $isWaiting);
 
@@ -348,6 +367,19 @@ final class ProcessService
 
     private function guardTransition(string $currentStatusCode, string $targetStatusCode): void
     {
+        $waiting = $this->waitingCodes();
+
+        // Os Motivos de Pausa do SLA são configuráveis, por isso não estão no
+        // mapa fixo TRANSITIONS: entram e saem sempre da mesma forma, seja
+        // qual for o código que o Administrador lhes tenha dado.
+        if (in_array($targetStatusCode, $waiting, true) && in_array($currentStatusCode, ['ASSIGNED', 'IN_PROGRESS'], true)) {
+            return;
+        }
+
+        if (in_array($currentStatusCode, $waiting, true) && in_array($targetStatusCode, ['IN_PROGRESS', 'SOLVED', 'QUEUE'], true)) {
+            return;
+        }
+
         $allowed = self::TRANSITIONS[$currentStatusCode] ?? [];
 
         if (!in_array($targetStatusCode, $allowed, true)) {

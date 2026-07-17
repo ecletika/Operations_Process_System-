@@ -77,22 +77,18 @@
         <?php
           // Pôr em espera (pára o relógio do SLA) ou retomar o tratamento.
           $podeMudarEstado = in_array('process.change_status', \App\Core\Session::get('permissions', []), true);
-          $emEspera = in_array($process['status_code'], ['WAIT_CLIENT', 'WAIT_PARTS', 'WAIT_WORKSHOP', 'WAIT_EXTERNAL'], true);
+          // Os motivos vêm das Configurações (Motivos de Pausa do SLA).
+          $codigosEspera = array_column($pauseReasons ?? [], 'code');
+          $emEspera = (int) ($process['is_waiting'] ?? 0) === 1 || in_array($process['status_code'], $codigosEspera, true);
           $podeEsperar = in_array($process['status_code'], ['ASSIGNED', 'IN_PROGRESS'], true);
-          $esperas = [
-            'WAIT_CLIENT' => '⏸ Aguarda Cliente',
-            'WAIT_PARTS' => '⏸ Aguarda Peças',
-            'WAIT_WORKSHOP' => '⏸ Aguarda Oficina',
-            'WAIT_EXTERNAL' => '⏸ Aguarda Terceiros',
-          ];
         ?>
-        <?php if ($podeMudarEstado && $podeEsperar): ?>
+        <?php if ($podeMudarEstado && $podeEsperar && !empty($pauseReasons)): ?>
           <form method="POST" action="/processes/<?= (int) $process['id'] ?>/status" style="display:flex;gap:4px;align-items:center">
             <?= csrf_field() ?>
             <select name="status" required style="padding:5px 8px;border:1px solid #e5e7eb;border-radius:6px;font-size:13px">
               <option value="">Pôr em espera…</option>
-              <?php foreach ($esperas as $code => $label): ?>
-                <option value="<?= e($code) ?>"><?= e($label) ?></option>
+              <?php foreach ($pauseReasons as $motivo): ?>
+                <option value="<?= e($motivo['code']) ?>">⏸ <?= e($motivo['name']) ?></option>
               <?php endforeach; ?>
             </select>
             <button type="submit" class="ops-btn ops-btn-sm" style="background:#2563eb" title="Pára o relógio do SLA enquanto se aguarda">➜</button>
@@ -132,13 +128,16 @@
           <?php
             $left = (int) $slaState['minutes_left'];
             $paused = $slaState['status'] === 'paused';
-            $cor = $paused ? '#2563eb' : ($left < 0 ? '#dc2626' : ($left <= 30 ? '#b45309' : '#16a34a'));
+            $atrasado = $left < 0;
+            $cor = $atrasado ? '#dc2626' : ($paused ? '#2563eb' : ($left <= 30 ? '#b45309' : '#16a34a'));
+            $valor = ($paused ? '⏸ ' : '') . ($atrasado ? '−' : '') . sla_human($left);
+            $etiqueta = $paused
+              ? ($atrasado ? 'Em pausa (já em atraso)' : 'SLA em pausa')
+              : ($atrasado ? 'SLA em atraso' : 'Falta p/ SLA');
           ?>
           <div class="ops-kpi">
-            <div class="value" style="color:<?= $cor ?>">
-              <?= $paused ? '⏸ ' . sla_human($left) : ($left < 0 ? '−' . sla_human($left) : sla_human($left)) ?>
-            </div>
-            <div class="label"><?= $paused ? 'SLA em pausa' : ($left < 0 ? 'SLA em atraso' : 'Falta p/ SLA') ?></div>
+            <div class="value" style="color:<?= $cor ?>"><?= $valor ?></div>
+            <div class="label"><?= $etiqueta ?></div>
           </div>
         <?php endif; ?>
       </div>
