@@ -31,7 +31,10 @@ final class InteractionService
         int $operatorId
     ): void {
         $this->interactions->create($processId, $type, $channel, $description, $operatorId);
-        $this->processes->registerContact($processId);
+        $this->processes->registerContact(
+            $processId,
+            (string) \App\Core\Settings::get('sla_renew_on_interaction', '1') === '1'
+        );
 
         $this->timeline->record(
             $processId,

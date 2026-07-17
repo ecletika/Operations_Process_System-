@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Modules\Process\Services;
 
+use App\Core\Settings;
 use App\Modules\Process\Repositories\NoteRepository;
+use App\Modules\Process\Repositories\ProcessRepository;
 use RuntimeException;
 
 /**
@@ -19,6 +21,7 @@ final class NoteService
     public function __construct(
         private readonly NoteRepository $notes = new NoteRepository(),
         private readonly TimelineService $timeline = new TimelineService(),
+        private readonly ProcessRepository $processes = new ProcessRepository(),
     ) {
     }
 
@@ -26,6 +29,15 @@ final class NoteService
     {
         $this->notes->create($processId, $text, $authorId);
         $this->timeline->record($processId, 'NOTE_ADDED', 'Observação adicionada', $text, $authorId);
+
+        // Uma Observação é a forma como a equipa regista os contactos (ex.:
+        // "liguei, o cliente não atendeu") — o ecrã do processo nem tem outro
+        // formulário para isso. Por isso conta como contacto: atualiza o
+        // "Último Contacto" e, conforme a definição, renova o prazo do SLA.
+        $this->processes->registerContact(
+            $processId,
+            (string) Settings::get('sla_renew_on_interaction', '1') === '1'
+        );
     }
 
     /**

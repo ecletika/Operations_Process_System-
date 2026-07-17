@@ -302,21 +302,31 @@ final class ProcessRepository
         $stmt->execute(['id' => $id, 'date' => $date, 'user_id' => $userId]);
     }
 
-    public function registerContact(int $id): void
+    /**
+     * RN-0014/0015 - regista um contacto: incrementa contact_count e atualiza
+     * last_contact_at. Conta como contacto tanto uma interação como uma
+     * Observação (é assim que a equipa regista as tentativas de contacto).
+     *
+     * $renewSla acompanha a definição sla_renew_on_interaction: quando o
+     * prazo reinicia a partir de agora, a pausa acumulada deixa de ser
+     * relevante e é zerada; com a renovação desligada, a pausa acumulada
+     * tem de ser preservada (senão o contacto até piorava o SLA).
+     */
+    public function registerContact(int $id, bool $renewSla = true): void
     {
-        // O prazo do SLA reinicia a cada interação (decisão do cliente): como
-        // passa a contar a partir de agora, a pausa acumulada até aqui deixa
-        // de ser relevante e é zerada. Se o processo estiver em espera, o
-        // relógio continua parado, mas a contar a partir deste momento.
-        $stmt = $this->pdo->prepare('
+        $slaSql = $renewSla
+            ? 'sla_paused_minutes = 0,
+               wait_started_at = IF(wait_started_at IS NULL, NULL, NOW()),'
+            : '';
+
+        $stmt = $this->pdo->prepare("
             UPDATE tb_process
             SET contact_count = contact_count + 1,
                 last_contact_at = NOW(),
-                sla_paused_minutes = 0,
-                wait_started_at = IF(wait_started_at IS NULL, NULL, NOW()),
+                {$slaSql}
                 updated_at = NOW()
             WHERE id = :id
-        ');
+        ");
         $stmt->execute(['id' => $id]);
     }
 
