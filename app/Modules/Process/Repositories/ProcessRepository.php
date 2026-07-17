@@ -98,7 +98,8 @@ final class ProcessRepository
                    pr.default_sla_minutes,
                    u.first_name AS assigned_first_name, u.last_name AS assigned_last_name,
                    u.last_activity_at AS assigned_last_activity,
-                   creator.first_name AS creator_first_name, creator.last_name AS creator_last_name
+                   creator.first_name AS creator_first_name, creator.last_name AS creator_last_name,
+                   br.name AS branch_name, d.name AS department_name
             FROM tb_process p
             JOIN tb_customer c ON c.id = p.customer_id
             JOIN tb_vehicle v ON v.id = p.vehicle_id
@@ -107,6 +108,9 @@ final class ProcessRepository
             JOIN tb_priority pr ON pr.id = p.priority_id
             LEFT JOIN tb_user u ON u.id = p.assigned_to
             LEFT JOIN tb_user creator ON creator.id = p.created_by
+            LEFT JOIN tb_batch bt ON bt.id = p.batch_id
+            LEFT JOIN tb_department d ON d.id = bt.department_id
+            LEFT JOIN tb_branch br ON br.id = d.branch_id
             WHERE p.id = :id AND p.deleted_at IS NULL
         ');
         $stmt->execute(['id' => $id]);
@@ -150,6 +154,25 @@ final class ProcessRepository
             WHERE id = :id
         ');
         $stmt->execute(['id' => $id, 'assigned_to' => $newUserId, 'status_id' => $statusId, 'updated_by' => $actingUserId]);
+    }
+
+    /**
+     * Transfere o processo para outro lote (Filial/Departamento) e devolve-o
+     * à fila desse departamento sem responsável — a equipa de destino é que
+     * o vai assumir. Zera também a pausa do SLA em curso (a espera pertencia
+     * ao contexto antigo).
+     */
+    public function transferToBatch(int $id, int $batchId, int $statusId, int $userId): void
+    {
+        $stmt = $this->pdo->prepare('
+            UPDATE tb_process
+            SET batch_id = :batch_id, status_id = :status_id,
+                assigned_to = NULL, assumed_at = NULL,
+                wait_started_at = NULL,
+                updated_by = :user_id, updated_at = NOW()
+            WHERE id = :id
+        ');
+        $stmt->execute(['id' => $id, 'batch_id' => $batchId, 'status_id' => $statusId, 'user_id' => $userId]);
     }
 
     /** Devolve o processo à Fila Inteligente™ (larga o responsável atual). */

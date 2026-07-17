@@ -334,9 +334,18 @@ final class ProcessController extends Controller
         $allowed = $this->allowedBatchIds();
         $canAct = $allowed === null || in_array((int) $process['batch_id'], $allowed, true);
 
+        // Transferir de Filial/Departamento: só quem tem process.transfer, e o
+        // Supervisor de Departamento só nos processos do seu (canAct).
+        $canTransfer = $canAct
+            && in_array('process.transfer', (array) Session::get('permissions', []), true)
+            && !in_array($process['status_code'], ['SOLVED', 'CLOSED'], true);
+        $transferTargets = $canTransfer ? (new BatchRepository())->listAll() : [];
+
         $this->view('Process/Views/show', [
             'process' => $process,
             'canAct' => $canAct,
+            'canTransfer' => $canTransfer,
+            'transferTargets' => $transferTargets,
             // Observações/anexos: o criador contribui mesmo noutro departamento.
             'canContribute' => \App\Modules\Process\Support\BatchScope::canContribute($process),
             // Motivos de Pausa do SLA configurados (só os ativos são oferecidos).
@@ -482,6 +491,14 @@ final class ProcessController extends Controller
 
         Session::flash('success', 'Processo excluído.');
         Response::redirect('/processes/all');
+    }
+
+    /** Transfere o processo para outra Filial/Departamento (criado no sítio errado). */
+    public function transfer(Request $request, array $params): never
+    {
+        $targetBatchId = (int) $request->input('batch_id', 0);
+        $allowed = $this->allowedBatchIds();
+        $this->runAction($request, $params, fn (ProcessService $service, int $id, int $userId) => $service->transfer($id, $targetBatchId, $userId, $allowed));
     }
 
     /** Devolve o processo à fila (o operador não está disponível). */

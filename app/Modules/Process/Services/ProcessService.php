@@ -325,6 +325,58 @@ final class ProcessService
     }
 
     /**
+     * Transfere o processo para outra Filial/Departamento (ex.: foi criado
+     * na filial errada). Volta à fila do departamento de destino, sem
+     * responsável, e os elementos de lá são notificados como numa nova lead.
+     *
+     * O Supervisor de Departamento só transfere processos do SEU departamento
+     * ($allowedBatchIds); Admin/Supervisor transferem qualquer um.
+     */
+    public function transfer(int $processId, int $targetBatchId, int $userId, ?array $allowedBatchIds = null): void
+    {
+        $process = $this->processes->findById($processId);
+        if ($process === null) {
+            throw new RuntimeException('Processo não encontrado.');
+        }
+
+        $this->guardDepartment($process, $allowedBatchIds);
+
+        if (in_array($process['status_code'], ['SOLVED', 'CLOSED'], true)) {
+            throw new RuntimeException('Não é possível transferir um processo concluído. Reabra-o primeiro.');
+        }
+
+        if ($targetBatchId === (int) $process['batch_id']) {
+            throw new RuntimeException('O processo já pertence a essa Filial/Departamento.');
+        }
+
+        $target = (new \App\Modules\Administration\Repositories\BatchRepository())->findActiveById($targetBatchId);
+        if ($target === null) {
+            throw new RuntimeException('A Filial/Departamento de destino não existe ou está inativa.');
+        }
+
+        $queueStatusId = $this->processes->statusIdByCode('QUEUE');
+        $this->processes->transferToBatch($processId, $targetBatchId, $queueStatusId, $userId);
+
+        $destino = trim(($target['description'] ?? '') !== '' ? (string) $target['description'] : ('Lote #' . $targetBatchId));
+        $this->timeline->record(
+            $processId,
+            'PROCESS_TRANSFERRED',
+            "Processo transferido para outra Filial/Departamento ({$destino})",
+            null,
+            $userId
+        );
+
+        // A equipa de destino é avisada como numa nova lead (#6).
+        $this->notifications->notifyBatchUsers(
+            $targetBatchId,
+            "📥 Processo transferido para o seu departamento: {$process['process_number']}",
+            'Um processo foi transferido para a vossa fila. Abram a Fila Inteligente™ para o assumir.',
+            'INFO',
+            $userId
+        );
+    }
+
+    /**
      * Devolve o processo à Fila Inteligente™ — o operador não está
      * disponível para o tratar e outro pode assumi-lo.
      */

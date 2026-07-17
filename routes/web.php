@@ -73,6 +73,7 @@ $router->post('/processes/{id}/reopen', [ProcessController::class, 'reopen'], [A
 $router->post('/processes/{id}/delete', [ProcessController::class, 'destroy'], [Authenticate::class, [PermissionMiddleware::class, 'process.delete']]);
 $router->post('/processes/{id}/archive', [ProcessController::class, 'archive'], [Authenticate::class, [PermissionMiddleware::class, 'process.close']]);
 $router->post('/processes/{id}/release', [ProcessController::class, 'release'], [Authenticate::class, [PermissionMiddleware::class, 'process.assume']]);
+$router->post('/processes/{id}/transfer', [ProcessController::class, 'transfer'], [Authenticate::class, [PermissionMiddleware::class, 'process.transfer']]);
 $router->post('/processes/{id}/reassign', [ProcessController::class, 'reassign'], [Authenticate::class, [PermissionMiddleware::class, 'process.view_all|process.view_branch']]);
 
 $router->post('/processes/{id}/notes', [NoteController::class, 'store'], [Authenticate::class]);

@@ -128,6 +128,21 @@
           </form>
         <?php endif; ?>
 
+        <?php if (!empty($canTransfer) && !empty($transferTargets)): ?>
+          <form method="POST" action="/processes/<?= (int) $process['id'] ?>/transfer" style="display:flex;gap:4px;align-items:center"
+                onsubmit="return confirm('Transferir este processo para outra Filial/Departamento? Volta à fila do destino, sem responsável.');">
+            <?= csrf_field() ?>
+            <select name="batch_id" required style="padding:5px 8px;border:1px solid #e5e7eb;border-radius:6px;font-size:13px;max-width:230px">
+              <option value="">Transferir para…</option>
+              <?php foreach ($transferTargets as $bt): ?>
+                <?php if ((int) $bt['id'] === (int) $process['batch_id']) { continue; } ?>
+                <option value="<?= (int) $bt['id'] ?>"><?= e($bt['branch_name'] . ' · ' . $bt['department_name']) ?></option>
+              <?php endforeach; ?>
+            </select>
+            <button type="submit" class="ops-btn ops-btn-sm" style="background:#7c3aed" title="Transferir de Filial/Departamento">🔀 Transferir</button>
+          </form>
+        <?php endif; ?>
+
         <a href="/processes/<?= (int) $process['id'] ?>/replay" class="ops-btn ops-btn-sm" style="background:#7c3aed;text-decoration:none;display:inline-flex;align-items:center">🎬 Reproduzir Processo</a>
 
         <?php if (in_array('process.delete', \App\Core\Session::get('permissions', []), true)): ?>
