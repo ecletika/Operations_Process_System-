@@ -170,7 +170,7 @@
 
         <?php $scope = (string) ($formValues['view_scope'] ?? 'OWN'); ?>
         <div class="ops-form-row">
-          <label for="view_scope">Visibilidade em "Todos os Processos" <span style="font-weight:400;color:#9ca3af">(Supervisor de Departamento)</span></label>
+          <label for="view_scope">Visibilidade em "Todos os Processos"</label>
           <select id="view_scope" name="view_scope">
             <option value="OWN" <?= $scope === 'OWN' ? 'selected' : '' ?>>Apenas o seu departamento</option>
             <option value="BRANCH" <?= $scope === 'BRANCH' ? 'selected' : '' ?>>Toda a Filial (todos os departamentos da filial dele)</option>
@@ -180,6 +180,7 @@
             Isto define apenas o que ele <strong>vê</strong>. Assumir e reatribuir continua sempre
             limitado aos processos do <strong>próprio departamento</strong>.
           </p>
+          <p id="view_scope_hint" style="font-size:12px;margin:6px 0 0;padding:8px 10px;border-radius:6px;display:none"></p>
         </div>
 
         <div class="ops-form-row" id="view_departments_box" style="<?= $scope === 'CUSTOM' ? '' : 'display:none' ?>">
@@ -232,14 +233,39 @@
       refresh(true);
     })();
 
-    // Só mostra a lista de departamentos quando a visibilidade é "escolhidos".
+    // Visibilidade: mostra a lista de departamentos quando é "escolhidos" e
+    // avisa se o Perfil selecionado não usa esta definição — é o Perfil (e
+    // não este campo) que faz de alguém Supervisor de Departamento.
     (function () {
       var scope = document.getElementById('view_scope');
       var box = document.getElementById('view_departments_box');
+      var role = document.getElementById('role_id');
+      var hint = document.getElementById('view_scope_hint');
       if (!scope || !box) { return; }
-      scope.addEventListener('change', function () {
+
+      var roleScopes = <?= json_encode($roleViewScopes ?? [], JSON_UNESCAPED_UNICODE) ?>;
+
+      function refresh() {
         box.style.display = scope.value === 'CUSTOM' ? '' : 'none';
-      });
+
+        if (!role || !hint) { return; }
+        var tipo = roleScopes[role.value] || 'none';
+
+        if (tipo === 'all') {
+          hint.style.cssText += ';display:block;background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af';
+          hint.textContent = 'ℹ️ Este perfil já vê TODOS os processos de todas as filiais — esta definição não se aplica.';
+        } else if (tipo === 'none') {
+          hint.style.cssText += ';display:block;background:#fffbeb;border:1px solid #fde68a;color:#92400e';
+          hint.textContent = '⚠️ Este perfil não tem acesso ao menu "Todos os Processos", por isso esta definição não terá efeito. Para o tornar supervisor, escolha o Perfil "Supervisor de Departamento" acima.';
+        } else {
+          hint.style.cssText += ';display:block;background:#f0fdf4;border:1px solid #bbf7d0;color:#166534';
+          hint.textContent = '✓ Este perfil vê "Todos os Processos" conforme o âmbito escolhido aqui, mas só assume/reatribui no seu departamento.';
+        }
+      }
+
+      scope.addEventListener('change', refresh);
+      if (role) { role.addEventListener('change', refresh); }
+      refresh();
     })();
   </script>
   <script>

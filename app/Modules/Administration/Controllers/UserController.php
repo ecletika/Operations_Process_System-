@@ -45,6 +45,9 @@ final class UserController extends Controller
         $this->view('Administration/Views/users', [
             'users' => (new UserRepository())->listAll(),
             'roles' => (new RoleRepository())->listActive(),
+            // Para avisar, na ficha, se a Visibilidade escolhida tem efeito
+            // com o Perfil selecionado (só o Supervisor de Departamento a usa).
+            'roleViewScopes' => (new RoleRepository())->processViewScopeByRole(),
             'companies' => (new CompanyRepository())->listAll(),
             'allBranches' => (new BranchRepository())->listAll(),
             'allDepartments' => (new DepartmentRepository())->listAll(),
