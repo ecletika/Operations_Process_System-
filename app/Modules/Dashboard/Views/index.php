@@ -79,6 +79,48 @@
           </tbody>
         </table>
       <?php endif; ?>
+
+      <?php if (!empty($departmentBoard) || (isset($departmentBoard) && $departmentBoard !== null)): ?>
+        <h2 style="margin-top:32px">🗂️ Filas por Departamento</h2>
+
+        <form method="GET" action="/processes/all" style="display:flex;gap:8px;align-items:center;margin-bottom:14px">
+          <input type="hidden" name="tab" value="all">
+          <input type="text" name="q" placeholder="🔎 Localizar um processo (matrícula, cliente ou nº) e ver em que fila está..."
+                 style="flex:1;max-width:520px;padding:10px 12px;border:1px solid #e5e7eb;border-radius:8px">
+          <button type="submit" class="ops-btn ops-btn-sm">Pesquisar</button>
+        </form>
+
+        <?php if (empty($departmentBoard)): ?>
+          <div class="ops-panel" style="color:#6b7280">Sem processos em fila nem assumidos hoje. 🎉</div>
+        <?php else: ?>
+          <?php foreach ($departmentBoard as $dept): ?>
+            <details class="ops-panel" style="max-width:none;margin-bottom:8px" <?= $dept['queue_count'] > 0 ? '' : '' ?>>
+              <summary style="cursor:pointer;display:flex;align-items:center;gap:14px;flex-wrap:wrap;list-style:none">
+                <strong style="min-width:220px"><?= e($dept['branch_name'] . ' · ' . $dept['department_name']) ?></strong>
+                <span class="ops-badge" style="background:<?= $dept['queue_count'] > 0 ? '#dc2626' : '#9ca3af' ?>">🚦 <?= (int) $dept['queue_count'] ?> na fila</span>
+                <span class="ops-badge" style="background:#0891b2">✋ <?= (int) $dept['assumed_today'] ?> assumidos hoje</span>
+                <span style="color:#9ca3af;font-size:12px">▼ ver processos na fila</span>
+              </summary>
+              <div style="margin-top:10px">
+                <?php if (empty($dept['queue_processes'])): ?>
+                  <p style="color:#6b7280;margin:0">Nenhum processo em fila neste departamento.</p>
+                <?php else: ?>
+                  <div style="display:flex;flex-wrap:wrap;gap:8px">
+                    <?php foreach ($dept['queue_processes'] as $qp): ?>
+                      <a href="/processes/<?= (int) $qp['id'] ?>"
+                         style="text-decoration:none;border:1px solid #e5e7eb;border-radius:8px;padding:6px 10px;display:inline-flex;align-items:center;gap:6px">
+                        <span class="ops-badge" style="background:<?= e($qp['priority_color']) ?>"><?= e($qp['priority_name']) ?></span>
+                        <strong style="color:#2563eb"><?= e($qp['process_number']) ?></strong>
+                        <span style="color:#9ca3af;font-size:12px"><?= dt($qp['created_at']) ?></span>
+                      </a>
+                    <?php endforeach; ?>
+                  </div>
+                <?php endif; ?>
+              </div>
+            </details>
+          <?php endforeach; ?>
+        <?php endif; ?>
+      <?php endif; ?>
     </main>
   </div>
 </body>

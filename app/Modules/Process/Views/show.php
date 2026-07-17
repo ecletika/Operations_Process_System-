@@ -26,6 +26,16 @@
         <?php if ($process['assigned_first_name']): ?>
           · Responsável: <?= online_dot($process['assigned_last_activity'] ?? null) ?><strong><?= e($process['assigned_first_name'] . ' ' . $process['assigned_last_name']) ?></strong>
         <?php endif; ?>
+        <br>
+        <?php
+          $origem = trim(($process['origin_branch_name'] ?? '') . ' · ' . ($process['origin_department_name'] ?? ''), ' ·');
+          $atual = trim(($process['branch_name'] ?? '') . ' · ' . ($process['department_name'] ?? ''), ' ·');
+          $transferido = $origem !== '' && $atual !== '' && $origem !== $atual;
+        ?>
+        🏢 Criado para: <strong><?= e($origem !== '' ? $origem : '—') ?></strong>
+        <?php if ($transferido): ?>
+          · <span style="color:#7c3aed">🔀 Atualmente em: <strong><?= e($atual) ?></strong> (transferido)</span>
+        <?php endif; ?>
       </p>
 
       <?php if ($success): ?><div class="ops-alert ops-alert-success"><?= e($success) ?></div><?php endif; ?>

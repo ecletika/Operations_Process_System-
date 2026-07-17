@@ -227,6 +227,86 @@ final class DashboardService
     }
 
     /**
+     * Painel de Filas por Departamento (supervisores). Para cada departamento
+     * mostra quantos processos tem na fila e quantos foram assumidos hoje, e
+     * lista os nºs dos processos em fila (para o "expandir"). Assim um
+     * supervisor vê de relance onde está o trabalho e localiza um processo que
+     * tenha ido para a fila errada.
+     *
+     * @param array<int>|null $departmentIds null = todos; caso contrário
+     *        limita ao âmbito do utilizador (Supervisor de Departamento).
+     * @return array<int, array<string, mixed>>
+     */
+    public function departmentBoard(?array $departmentIds = null): array
+    {
+        $where = 'd.deleted_at IS NULL';
+        $params = [];
+        if ($departmentIds !== null) {
+            if ($departmentIds === []) {
+                return [];
+            }
+            $ph = [];
+            foreach (array_values($departmentIds) as $i => $id) {
+                $ph[] = ':d' . $i;
+                $params['d' . $i] = (int) $id;
+            }
+            $where .= ' AND d.id IN (' . implode(', ', $ph) . ')';
+        }
+
+        // Contagens por departamento (fila + assumidos hoje).
+        $stmt = $this->pdo->prepare("
+            SELECT d.id AS department_id, br.name AS branch_name, d.name AS department_name,
+                   SUM(CASE WHEN st.code = 'QUEUE' THEN 1 ELSE 0 END) AS queue_count,
+                   SUM(CASE WHEN p.assumed_at IS NOT NULL AND DATE(p.assumed_at) = CURDATE()
+                            AND st.code NOT IN ('SOLVED', 'CLOSED') THEN 1 ELSE 0 END) AS assumed_today
+            FROM tb_department d
+            JOIN tb_branch br ON br.id = d.branch_id
+            LEFT JOIN tb_batch bt ON bt.department_id = d.id
+            LEFT JOIN tb_process p ON p.batch_id = bt.id AND p.deleted_at IS NULL
+            LEFT JOIN tb_status st ON st.id = p.status_id
+            WHERE {$where}
+            GROUP BY d.id, br.name, d.name
+            HAVING queue_count > 0 OR assumed_today > 0
+            ORDER BY queue_count DESC, br.name ASC, d.name ASC
+        ");
+        $stmt->execute($params);
+        $departments = $stmt->fetchAll();
+
+        if ($departments === []) {
+            return [];
+        }
+
+        // Nºs dos processos em fila, por departamento (para o expandir).
+        $ids = array_map(static fn ($d) => (int) $d['department_id'], $departments);
+        $ph = implode(', ', array_fill(0, count($ids), '?'));
+        $qStmt = $this->pdo->prepare("
+            SELECT d.id AS department_id, p.id, p.process_number,
+                   pr.name AS priority_name, pr.color AS priority_color, p.created_at
+            FROM tb_process p
+            JOIN tb_status st ON st.id = p.status_id
+            JOIN tb_priority pr ON pr.id = p.priority_id
+            JOIN tb_batch bt ON bt.id = p.batch_id
+            JOIN tb_department d ON d.id = bt.department_id
+            WHERE p.deleted_at IS NULL AND st.code = 'QUEUE' AND d.id IN ({$ph})
+            ORDER BY pr.sort_order ASC, p.created_at ASC
+        ");
+        $qStmt->execute($ids);
+
+        $byDept = [];
+        foreach ($qStmt->fetchAll() as $row) {
+            $byDept[(int) $row['department_id']][] = $row;
+        }
+
+        foreach ($departments as &$dept) {
+            $dept['queue_count'] = (int) $dept['queue_count'];
+            $dept['assumed_today'] = (int) $dept['assumed_today'];
+            $dept['queue_processes'] = $byDept[(int) $dept['department_id']] ?? [];
+        }
+
+        return $departments;
+    }
+
+    /**
      * §8.8 - Ranking de operadores (últimos 30 dias).
      */
     private function ranking(): array

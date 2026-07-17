@@ -71,19 +71,37 @@ final class ProcessRepository
 
     public function create(array $data): int
     {
+        // origin_batch_id = lote de criação (imutável); batch_id pode mudar
+        // depois numa transferência, mas a origem fica registada para sempre.
         $stmt = $this->pdo->prepare('
             INSERT INTO tb_process
-                (uuid, process_number, company_id, batch_id, customer_id, vehicle_id, subject_id,
+                (uuid, process_number, company_id, batch_id, origin_batch_id, customer_id, vehicle_id, subject_id,
                  status_id, priority_id, created_by, first_contact_at, last_contact_at,
                  contact_count, reopen_count, archived, created_at)
             VALUES
-                (UUID(), :process_number, :company_id, :batch_id, :customer_id, :vehicle_id, :subject_id,
+                (UUID(), :process_number, :company_id, :batch_id, :batch_id, :customer_id, :vehicle_id, :subject_id,
                  :status_id, :priority_id, :created_by, NOW(), NOW(),
                  1, 0, 0, NOW())
         ');
         $stmt->execute($data);
 
         return (int) $this->pdo->lastInsertId();
+    }
+
+    /** Nome legível de um lote: "Filial · Departamento". */
+    public function batchLabel(int $batchId): string
+    {
+        $stmt = $this->pdo->prepare('
+            SELECT br.name AS branch_name, d.name AS department_name
+            FROM tb_batch bt
+            JOIN tb_department d ON d.id = bt.department_id
+            JOIN tb_branch br ON br.id = d.branch_id
+            WHERE bt.id = :id
+        ');
+        $stmt->execute(['id' => $batchId]);
+        $row = $stmt->fetch();
+
+        return $row ? trim($row['branch_name'] . ' · ' . $row['department_name']) : ('Lote #' . $batchId);
     }
 
     public function findById(int $id): ?array
@@ -99,7 +117,8 @@ final class ProcessRepository
                    u.first_name AS assigned_first_name, u.last_name AS assigned_last_name,
                    u.last_activity_at AS assigned_last_activity,
                    creator.first_name AS creator_first_name, creator.last_name AS creator_last_name,
-                   br.name AS branch_name, d.name AS department_name
+                   br.name AS branch_name, d.name AS department_name,
+                   obr.name AS origin_branch_name, od.name AS origin_department_name
             FROM tb_process p
             JOIN tb_customer c ON c.id = p.customer_id
             JOIN tb_vehicle v ON v.id = p.vehicle_id
@@ -111,6 +130,9 @@ final class ProcessRepository
             LEFT JOIN tb_batch bt ON bt.id = p.batch_id
             LEFT JOIN tb_department d ON d.id = bt.department_id
             LEFT JOIN tb_branch br ON br.id = d.branch_id
+            LEFT JOIN tb_batch obt ON obt.id = p.origin_batch_id
+            LEFT JOIN tb_department od ON od.id = obt.department_id
+            LEFT JOIN tb_branch obr ON obr.id = od.branch_id
             WHERE p.id = :id AND p.deleted_at IS NULL
         ');
         $stmt->execute(['id' => $id]);

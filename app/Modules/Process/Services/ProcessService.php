@@ -137,7 +137,16 @@ final class ProcessService
             'created_by' => $userId,
         ]);
 
-        $this->timeline->record($processId, 'PROCESS_CREATED', "Processo {$processNumber} criado", $dto->description, $userId);
+        // Regista para que departamento o processo nasceu — aparece no Replay
+        // e permite rastrear a origem mesmo depois de transferências.
+        $departamento = $this->processes->batchLabel((int) $batchId);
+        $this->timeline->record(
+            $processId,
+            'PROCESS_CREATED',
+            "Processo {$processNumber} criado para {$departamento}",
+            $dto->description,
+            $userId
+        );
 
         // RF-0038 - notifica supervisores/administradores da empresa.
         $this->notifications->notifySupervisors(

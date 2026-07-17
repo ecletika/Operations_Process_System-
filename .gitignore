@@ -9,3 +9,6 @@
 Thumbs.db
 /.claude/
 /docs/comprovativo_*.pdf
+# Backups de produção (dados de clientes) — nunca versionar
+/docs/*.sql
+/docs/ileiteprocessosi_*.sql
