@@ -123,11 +123,23 @@
       <p style="color:#6b7280;margin-top:12px"><?= count($processes) ?> processo(s) encontrado(s).</p>
 
       <?php $canDelete = in_array('process.delete', \App\Core\Session::get('permissions', []), true); ?>
-      <table class="ops-table">
+      <style>
+        /* Tabela compacta: são muitas colunas, por isso aperta-se o espaçamento
+           e o tipo de letra só neste ecrã (não afeta as outras listagens). */
+        .ops-table-compact { font-size: 13px; }
+        .ops-table-compact th, .ops-table-compact td { padding: 6px 8px; }
+        .ops-table-compact th { font-size: 11px; text-transform: uppercase; letter-spacing: .02em; }
+        /* max-width evita que a tabela estique a página: em ecrãs estreitos o
+           scroll fica dentro da tabela, não no site todo. */
+        .ops-table-wrap { overflow-x: auto; max-width: 100%; }
+      </style>
+      <div class="ops-table-wrap">
+      <table class="ops-table ops-table-compact">
         <thead>
           <tr>
             <th>Nº Processo</th><th>Filial / Departamento</th><th>Cliente</th><th>Matrícula</th><th>Assunto</th>
-            <th>Estado</th><th>Prioridade</th><th>Falta p/ SLA</th><th>Responsável</th><th>Criado por</th><th>Contactos</th><th>Criado em</th>
+            <th>Estado</th><th>Prioridade</th><th>Falta p/ SLA</th><th>Responsável</th>
+            <th>Criado em</th><th>Último Contacto</th><th>Próximo Contacto</th>
             <th>Reatribuir</th>
             <?php if ($canDelete): ?><th>Excluir</th><?php endif; ?>
           </tr>
@@ -155,9 +167,14 @@
                   —
                 <?php endif; ?>
               </td>
-              <td><?= $process['creator_first_name'] ? e($process['creator_first_name'] . ' ' . $process['creator_last_name']) : '—' ?></td>
-              <td><?= (int) $process['contact_count'] ?></td>
-              <td><?= dt($process['created_at']) ?></td>
+              <td style="white-space:nowrap">
+                <?= dt($process['created_at']) ?>
+                <?php if ($process['creator_first_name']): ?>
+                  <div style="color:#9ca3af;font-size:11px" title="Criado por">por <?= e($process['creator_first_name'] . ' ' . $process['creator_last_name']) ?></div>
+                <?php endif; ?>
+              </td>
+              <td style="white-space:nowrap"><?= $process['last_contact_at'] ? dt($process['last_contact_at']) : '<span style="color:#9ca3af">—</span>' ?></td>
+              <td><?= next_contact_badge($process['next_contact_at'] ?? null) ?></td>
               <td>
                 <?php
                   // Só se reatribui o que é do próprio departamento. O
@@ -197,6 +214,7 @@
           <?php endforeach; ?>
         </tbody>
       </table>
+      </div>
     </main>
   </div>
 </body>

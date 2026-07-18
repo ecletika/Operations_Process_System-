@@ -707,7 +707,7 @@ final class ProcessRepository
 
         $sql = '
             SELECT p.id, p.process_number, p.contact_count, p.reopen_count, p.created_at, p.closed_at,
-                   p.last_contact_at, p.sla_paused_minutes, p.wait_started_at, p.batch_id,
+                   p.last_contact_at, p.next_contact_at, p.sla_paused_minutes, p.wait_started_at, p.batch_id,
                    c.name AS customer_name, v.plate AS vehicle_plate,
                    sub.name AS subject_name, sub.code AS subject_code,
                    st.code AS status_code, st.name AS status_name, st.is_waiting,
