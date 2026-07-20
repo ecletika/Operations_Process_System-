@@ -176,6 +176,23 @@ final class ProcessController extends Controller
         $filters = $this->buildAllFilters($request);
         $processes = (new ProcessRepository())->filterAll($filters, 5000);
 
+        // As datas são guardadas em UTC; no ficheiro têm de sair na mesma hora
+        // que aparece no ecrã (Europa/Lisboa), senão a exportação mostra menos
+        // uma hora. Vazio continua vazio (não "—", que sujaria a folha).
+        $hora = static function (?string $utc): string {
+            if ($utc === null || trim($utc) === '') {
+                return '';
+            }
+
+            try {
+                return (new \DateTimeImmutable($utc, new \DateTimeZone('UTC')))
+                    ->setTimezone(app_timezone())
+                    ->format('Y-m-d H:i');
+            } catch (\Exception) {
+                return $utc;
+            }
+        };
+
         $rows = array_map(static fn (array $p): array => [
             'Nº Processo' => $p['process_number'],
             'Filial' => $p['branch_name'] ?? '',
@@ -186,11 +203,16 @@ final class ProcessController extends Controller
             'Estado' => $p['status_name'],
             'Prioridade' => $p['priority_name'],
             'Responsável' => trim(($p['assigned_first_name'] ?? '') . ' ' . ($p['assigned_last_name'] ?? '')),
+            // Mesmas colunas do ecrã "Todos os Processos". No Excel o "Criado
+            // por" fica em coluna própria (numa folha de cálculo não dá para o
+            // pôr como segunda linha, e é útil para filtrar/ordenar).
+            'Criado em' => $hora($p['created_at']),
             'Criado por' => trim(($p['creator_first_name'] ?? '') . ' ' . ($p['creator_last_name'] ?? '')),
-            'Contactos' => (int) $p['contact_count'],
+            'Último Contacto' => $hora($p['last_contact_at'] ?? null),
+            // Data (dia), não instante: converter fuso deslocaria o dia.
+            'Próximo Contacto' => $p['next_contact_at'] ?? '',
             'Reaberturas' => (int) $p['reopen_count'],
-            'Criado em' => $p['created_at'],
-            'Concluído em' => $p['closed_at'] ?? '',
+            'Concluído em' => $hora($p['closed_at'] ?? null),
         ], $processes);
 
         $html = (new \App\Modules\Reports\Services\ExcelExportService())->render($rows, 'Todos os Processos');
