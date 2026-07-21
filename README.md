@@ -30,6 +30,7 @@ Roadmap definido em OPS-PRD-001 §11.26:
   - **RN-0056 — Processo Esquecido**: job agendado (`database/run_intelligence.php`) deteta processos sem qualquer evento na Timeline Viva™ há mais de N horas (configurável) e notifica responsável + supervisores.
   - **RN-0057 — Sobrecarga de Operador**: `Assumir Processo` passa a bloquear quando o operador já tem N processos ativos (configurável).
   - **RF-0039 — SLA Próximo**: o mesmo job avisa o operador responsável antes do SLA vencer.
+  - **Lembrete de Próximo Contacto**: quando a Nova Data de Contacto (Imobilizados + Baixa, por omissão) vence, o mesmo job avisa o responsável com um pop-up que leva direto ao processo. Para essa combinação de Prioridade/Assunto, cada contacto registado reagenda automaticamente a data para N horas à frente (`next_contact_auto_hours`, por omissão 48h).
   - **RN-0059/0060 — Cliente Frequente / Viatura Recorrente**: calculados em tempo real (sem guardar estado) e mostrados como badge no detalhe do processo.
   - Todos os limites são configuráveis via `tb_setting` (sem alterar código).
 - ✅ **Fase 5 — API REST v1**: o roadmap do próprio PRD (Sprint 5 / Versão 1.5) coloca a API como o entregável concreto desta fase; Mobile e IA ficam para a "Versão 2.0" descrita em OPS-ARC-001.

@@ -26,7 +26,13 @@
         <?php foreach ($notifications as $notification): ?>
           <li style="border-left-color: <?= $notification['severity'] === 'CRITICAL' ? '#dc2626' : ($notification['severity'] === 'WARNING' ? '#f59e0b' : '#2563eb') ?>; opacity: <?= $notification['read_at'] ? '0.55' : '1' ?>">
             <div class="time"><?= dt($notification['created_at']) ?></div>
-            <div class="title"><?= e($notification['title']) ?></div>
+            <div class="title">
+              <?php if (!empty($notification['link'])): ?>
+                <a href="<?= e($notification['link']) ?>"><?= e($notification['title']) ?></a>
+              <?php else: ?>
+                <?= e($notification['title']) ?>
+              <?php endif; ?>
+            </div>
             <div><?= e($notification['message']) ?></div>
             <?php if (!$notification['read_at']): ?>
               <form method="POST" action="/notifications/<?= (int) $notification['id'] ?>/read" style="margin-top:6px">

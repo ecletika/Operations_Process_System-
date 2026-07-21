@@ -18,9 +18,9 @@ final class NotificationService
     ) {
     }
 
-    public function notifyUser(int $userId, string $title, string $message, string $severity = 'INFO'): void
+    public function notifyUser(int $userId, string $title, string $message, string $severity = 'INFO', ?string $link = null): void
     {
-        $this->notifications->create($userId, $title, $message, $severity);
+        $this->notifications->create($userId, $title, $message, $severity, $link);
     }
 
     public function notifySupervisors(int $companyId, string $title, string $message, string $severity = 'INFO'): void
@@ -48,13 +48,13 @@ final class NotificationService
      * Evita spam: só notifica de novo se não tiver havido o mesmo alerta
      * nas últimas $withinMinutes.
      */
-    public function notifyOnce(int $userId, string $title, string $message, string $severity, int $withinMinutes): void
+    public function notifyOnce(int $userId, string $title, string $message, string $severity, int $withinMinutes, ?string $link = null): void
     {
         if ($this->notifications->existsRecent($userId, $title, $withinMinutes)) {
             return;
         }
 
-        $this->notifications->create($userId, $title, $message, $severity);
+        $this->notifications->create($userId, $title, $message, $severity, $link);
     }
 
     public function listForUser(int $userId, int $limit = 10): array

@@ -90,6 +90,47 @@ final class IntelligenceService
     }
 
     /**
+     * Lembrete de Próximo Contacto: quando a data/hora agendada (Imobilizados
+     * + Baixa, por omissão) chega, avisa o responsável para ligar ao cliente.
+     * Repete-se a cada next_contact_reminder_repeat_minutes enquanto o
+     * contacto não for feito (registar um contacto limpa/reagenda a data).
+     */
+    public function detectNextContactDue(): int
+    {
+        $repeatMinutes = (int) Settings::get('next_contact_reminder_repeat_minutes', 60);
+
+        $stmt = $this->pdo->prepare("
+            SELECT p.id, p.process_number, p.assigned_to, c.name AS customer_name, c.phone AS customer_phone
+            FROM tb_process p
+            JOIN tb_status s ON s.id = p.status_id
+            JOIN tb_customer c ON c.id = p.customer_id
+            WHERE p.deleted_at IS NULL
+              AND s.code NOT IN ('SOLVED', 'CLOSED')
+              AND p.assigned_to IS NOT NULL
+              AND p.next_contact_at IS NOT NULL
+              AND p.next_contact_at <= NOW()
+        ");
+        $stmt->execute();
+        $rows = $stmt->fetchAll();
+
+        foreach ($rows as $row) {
+            $title = "📞 Ligar ao cliente: {$row['process_number']}";
+            $message = "Próximo Contacto vencido — {$row['customer_name']}" . ($row['customer_phone'] ? " ({$row['customer_phone']})" : '') . '.';
+
+            $this->notifications->notifyOnce(
+                (int) $row['assigned_to'],
+                $title,
+                $message,
+                'WARNING',
+                $repeatMinutes,
+                '/processes/' . (int) $row['id']
+            );
+        }
+
+        return count($rows);
+    }
+
+    /**
      * RN-0059 - Cliente Frequente: muitos processos no período configurado.
      */
     public function isFrequentCustomer(int $customerId): bool

@@ -131,10 +131,23 @@
             && !in_array($process['status_code'], ['SOLVED', 'CLOSED'], true);
         ?>
         <?php if ($podeAgendar): ?>
+          <?php
+            // O input datetime-local trabalha em hora local (sem fuso); o
+            // valor guardado é UTC, por isso converte-se para mostrar/editar.
+            $ncLocal = '';
+            if (!empty($process['next_contact_at'])) {
+                try {
+                    $ncLocal = (new DateTimeImmutable($process['next_contact_at'], new DateTimeZone('UTC')))
+                        ->setTimezone(app_timezone())->format('Y-m-d\TH:i');
+                } catch (Exception) {
+                }
+            }
+            $ncMin = (new DateTimeImmutable('now', app_timezone()))->format('Y-m-d\TH:i');
+          ?>
           <form method="POST" action="/processes/<?= (int) $process['id'] ?>/next-contact" style="display:flex;gap:4px;align-items:center">
             <?= csrf_field() ?>
-            <input type="date" name="next_contact_at" value="<?= e($process['next_contact_at'] ?? '') ?>"
-                   min="<?= gmdate('Y-m-d') ?>" title="Nova data de contacto com o cliente"
+            <input type="datetime-local" name="next_contact_at" value="<?= e($ncLocal) ?>"
+                   min="<?= e($ncMin) ?>" title="Nova data e hora de contacto com o cliente"
                    style="padding:5px 8px;border:1px solid #e5e7eb;border-radius:6px;font-size:13px">
             <button type="submit" class="ops-btn ops-btn-sm" style="background:#0891b2" title="Agendar novo contacto">📅 Agendar</button>
           </form>

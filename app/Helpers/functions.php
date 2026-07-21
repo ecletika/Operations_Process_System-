@@ -79,33 +79,35 @@ if (!function_exists('dt')) {
 if (!function_exists('next_contact_badge')) {
     /**
      * Etiqueta da Nova Data de Contacto para a Caixa de Entrada: mostra a
-     * data agendada e avisa quando vence (hoje) ou já venceu (atrasada).
-     * A data é guardada como dia (sem hora), por isso compara-se por dia.
+     * data/hora agendada e avisa quando vence (hoje) ou já venceu (atrasada).
+     * Guardado em UTC como o resto do sistema; converte-se para a hora local
+     * para comparar com "agora" e para mostrar ao utilizador.
      */
-    function next_contact_badge(?string $date): string
+    function next_contact_badge(?string $utcDateTime): string
     {
-        if ($date === null || trim($date) === '') {
+        if ($utcDateTime === null || trim($utcDateTime) === '') {
             return '<span style="color:#9ca3af">—</span>';
         }
 
         try {
-            // A data é um DIA (sem hora): tem de ser lida no mesmo fuso do
-            // "hoje" com que é comparada, senão ontem passava por hoje.
-            $dia = (new DateTimeImmutable($date, app_timezone()))->setTime(0, 0);
+            $quando = (new DateTimeImmutable($utcDateTime, new DateTimeZone('UTC')))->setTimezone(app_timezone());
         } catch (Exception) {
             return '<span style="color:#9ca3af">—</span>';
         }
 
-        $hoje = new DateTimeImmutable('today', app_timezone());
-        $dias = (int) $hoje->diff($dia)->format('%r%a');
-        $texto = $dia->format('d/m/Y');
+        $agora = new DateTimeImmutable('now', app_timezone());
+        $texto = $quando->format('d/m/Y H:i');
 
-        if ($dias < 0) {
-            return '<span title="Data de contacto ultrapassada" style="color:#dc2626;font-weight:600;white-space:nowrap">🔴 ' . $texto . '</span>';
+        if ($quando < $agora) {
+            return '<span title="Hora de contacto ultrapassada" style="color:#dc2626;font-weight:600;white-space:nowrap">🔴 ' . $texto . '</span>';
         }
 
+        $diaQuando = $quando->setTime(0, 0);
+        $diaHoje = $agora->setTime(0, 0);
+        $dias = (int) $diaHoje->diff($diaQuando)->format('%r%a');
+
         if ($dias === 0) {
-            return '<span title="Contactar hoje" style="color:#b45309;font-weight:600;white-space:nowrap">🟠 Hoje</span>';
+            return '<span title="Contactar hoje" style="color:#b45309;font-weight:600;white-space:nowrap">🟠 Hoje às ' . $quando->format('H:i') . '</span>';
         }
 
         $cor = $dias <= 2 ? '#b45309' : '#16a34a';

@@ -35,6 +35,7 @@ final class InteractionService
             $processId,
             (string) \App\Core\Settings::get('sla_renew_on_interaction', '1') === '1'
         );
+        $this->autoScheduleNextContact($processId, $operatorId);
 
         $this->timeline->record(
             $processId,
@@ -42,6 +43,33 @@ final class InteractionService
             'Nova interação registada',
             $description,
             $operatorId
+        );
+    }
+
+    /**
+     * Imobilizados (IMO) + Baixa (P4), por omissão: cada contacto registado
+     * empurra a Nova Data de Contacto para $hours horas à frente, tal como o
+     * SLA se renova por interação. 0 em next_contact_auto_hours desativa.
+     */
+    private function autoScheduleNextContact(int $processId, int $userId): void
+    {
+        $hours = (int) \App\Core\Settings::get('next_contact_auto_hours', '48');
+        if ($hours <= 0) {
+            return;
+        }
+
+        $process = $this->processes->findById($processId);
+        if ($process === null || !ProcessService::allowsNextContact($process)) {
+            return;
+        }
+
+        $this->processes->autoScheduleNextContact($processId, $hours, $userId);
+        $this->timeline->record(
+            $processId,
+            'NEXT_CONTACT_SET',
+            "Próximo Contacto reagendado automaticamente (+{$hours}h)",
+            null,
+            $userId
         );
     }
 

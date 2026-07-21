@@ -33,6 +33,7 @@ try {
 
     $forgotten = $service->detectForgottenProcesses();
     $slaNear = $service->detectSlaNear();
+    $nextContactDue = $service->detectNextContactDue();
 
     // Ciclo de vida de arquivamento: arquivar concluídos antigos e excluir
     // (soft-delete → Lixeira) os arquivados há mais de X dias.
@@ -46,7 +47,7 @@ try {
     // Limpeza dos dispositivos de confiança do MFA já expirados.
     $devicesPurged = (new TrustedDeviceRepository())->purgeExpired();
 
-    fwrite(STDOUT, "[{$startedAt}] OK - esquecidos: {$forgotten}; SLA próximo: {$slaNear}; arquivados: {$archived}; auto-excluídos: {$autoDeleted}; auditoria apagada: {$auditPurged}; dispositivos MFA expirados: {$devicesPurged}\n");
+    fwrite(STDOUT, "[{$startedAt}] OK - esquecidos: {$forgotten}; SLA próximo: {$slaNear}; próximo contacto vencido: {$nextContactDue}; arquivados: {$archived}; auto-excluídos: {$autoDeleted}; auditoria apagada: {$auditPurged}; dispositivos MFA expirados: {$devicesPurged}\n");
 } catch (\Throwable $e) {
     fwrite(STDERR, "[{$startedAt}] ERRO - {$e->getMessage()}\n");
     exit(1);

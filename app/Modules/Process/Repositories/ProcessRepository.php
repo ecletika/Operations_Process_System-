@@ -379,6 +379,23 @@ final class ProcessRepository
     }
 
     /**
+     * Preenche automaticamente a Nova Data de Contacto para $hours horas a
+     * partir de agora. Usado quando um contacto/registo é feito num processo
+     * com a combinação de Prioridade/Assunto configurada (ver
+     * ProcessService::allowsNextContact) — refresca sempre, tal como a
+     * renovação do SLA por interação.
+     */
+    public function autoScheduleNextContact(int $id, int $hours, int $userId): void
+    {
+        $stmt = $this->pdo->prepare('
+            UPDATE tb_process
+            SET next_contact_at = DATE_ADD(NOW(), INTERVAL :hours HOUR), updated_by = :user_id, updated_at = NOW()
+            WHERE id = :id
+        ');
+        $stmt->execute(['id' => $id, 'hours' => $hours, 'user_id' => $userId]);
+    }
+
+    /**
      * Fila Inteligente™ - processos ainda sem responsável.
      *
      * Isolamento por departamento (RN-0011): $allowedBatchIds define o que o

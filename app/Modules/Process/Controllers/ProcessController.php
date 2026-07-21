@@ -209,8 +209,7 @@ final class ProcessController extends Controller
             'Criado em' => $hora($p['created_at']),
             'Criado por' => trim(($p['creator_first_name'] ?? '') . ' ' . ($p['creator_last_name'] ?? '')),
             'Último Contacto' => $hora($p['last_contact_at'] ?? null),
-            // Data (dia), não instante: converter fuso deslocaria o dia.
-            'Próximo Contacto' => $p['next_contact_at'] ?? '',
+            'Próximo Contacto' => $hora($p['next_contact_at'] ?? null),
             'Reaberturas' => (int) $p['reopen_count'],
             'Concluído em' => $hora($p['closed_at'] ?? null),
         ], $processes);

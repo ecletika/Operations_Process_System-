@@ -19,17 +19,18 @@ final class NotificationRepository
         $this->pdo = Database::connection();
     }
 
-    public function create(int $userId, string $title, string $message, string $severity = 'INFO'): int
+    public function create(int $userId, string $title, string $message, string $severity = 'INFO', ?string $link = null): int
     {
         $stmt = $this->pdo->prepare('
-            INSERT INTO tb_notification (uuid, user_id, title, message, severity, created_at)
-            VALUES (UUID(), :user_id, :title, :message, :severity, NOW())
+            INSERT INTO tb_notification (uuid, user_id, title, message, severity, link, created_at)
+            VALUES (UUID(), :user_id, :title, :message, :severity, :link, NOW())
         ');
         $stmt->execute([
             'user_id' => $userId,
             'title' => $title,
             'message' => $message,
             'severity' => $severity,
+            'link' => $link,
         ]);
 
         return (int) $this->pdo->lastInsertId();

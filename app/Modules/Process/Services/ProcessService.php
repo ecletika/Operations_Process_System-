@@ -319,20 +319,24 @@ final class ProcessService
             return;
         }
 
-        $parsed = \DateTimeImmutable::createFromFormat('!Y-m-d', trim($date));
-        if ($parsed === false) {
+        // O formulário (datetime-local) envia hora local; guarda-se em UTC
+        // como o resto do sistema.
+        try {
+            $local = new \DateTimeImmutable(trim($date), \app_timezone());
+        } catch (\Exception) {
             throw new RuntimeException('Data inválida.');
         }
 
-        if ($parsed < new \DateTimeImmutable('today')) {
+        if ($local < new \DateTimeImmutable('now', $local->getTimezone())) {
             throw new RuntimeException('A Nova Data de Contacto não pode ser no passado.');
         }
 
-        $this->processes->setNextContactAt($processId, $parsed->format('Y-m-d'), $userId);
+        $utc = $local->setTimezone(new \DateTimeZone('UTC'));
+        $this->processes->setNextContactAt($processId, $utc->format('Y-m-d H:i:s'), $userId);
         $this->timeline->record(
             $processId,
             'NEXT_CONTACT_SET',
-            'Novo contacto agendado para ' . $parsed->format('d/m/Y'),
+            'Novo contacto agendado para ' . $local->format('d/m/Y H:i'),
             null,
             $userId
         );

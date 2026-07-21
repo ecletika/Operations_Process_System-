@@ -36,6 +36,7 @@ final class NotificationController extends Controller
             'title' => $n['title'],
             'message' => $n['message'],
             'severity' => $n['severity'],
+            'link' => $n['link'] ?? null,
         ], array_filter($service->listForUser($userId, 10), static fn (array $n): bool => $n['read_at'] === null));
 
         Response::json([

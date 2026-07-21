@@ -38,6 +38,35 @@ final class NoteService
             $processId,
             (string) Settings::get('sla_renew_on_interaction', '1') === '1'
         );
+
+        $this->autoScheduleNextContact($processId, $authorId);
+    }
+
+    /**
+     * Imobilizados (IMO) + Baixa (P4), por omissão: cada contacto registado
+     * empurra a Nova Data de Contacto para $hours horas à frente, tal como o
+     * SLA se renova por interação. 0 em next_contact_auto_hours desativa.
+     */
+    private function autoScheduleNextContact(int $processId, int $userId): void
+    {
+        $hours = (int) Settings::get('next_contact_auto_hours', '48');
+        if ($hours <= 0) {
+            return;
+        }
+
+        $process = $this->processes->findById($processId);
+        if ($process === null || !ProcessService::allowsNextContact($process)) {
+            return;
+        }
+
+        $this->processes->autoScheduleNextContact($processId, $hours, $userId);
+        $this->timeline->record(
+            $processId,
+            'NEXT_CONTACT_SET',
+            "Próximo Contacto reagendado automaticamente (+{$hours}h)",
+            null,
+            $userId
+        );
     }
 
     /**

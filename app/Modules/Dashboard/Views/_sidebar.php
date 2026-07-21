@@ -155,7 +155,7 @@ $navItem = static function (string $href, string $icon, string $label, string $c
       var el = document.createElement('div');
       el.style.cssText = 'background:#0f172a;color:#fff;border-left:4px solid #22c55e;border-radius:8px;padding:12px 14px;box-shadow:0 6px 20px rgba(0,0,0,.25);cursor:pointer;font-size:14px';
       el.innerHTML = '<strong style="display:block;margin-bottom:2px">' + item.title.replace(/</g,'&lt;') + '</strong><span style="opacity:.85">' + item.message.replace(/</g,'&lt;') + '</span>';
-      el.addEventListener('click', function () { window.location.href = '/processes/queue'; });
+      el.addEventListener('click', function () { window.location.href = item.link || '/processes/queue'; });
       container.appendChild(el);
       setTimeout(function () { el.style.transition = 'opacity .4s'; el.style.opacity = '0'; setTimeout(function () { el.remove(); }, 400); }, 8000);
     }
