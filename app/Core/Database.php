@@ -13,6 +13,8 @@ use PDOException;
 final class Database
 {
     private static ?PDO $connection = null;
+    /** @var array<string, bool> cache de colunas já verificadas ('tabela.coluna') */
+    private static array $columns = [];
 
     public static function connection(): PDO
     {
@@ -46,5 +48,29 @@ final class Database
         }
 
         return self::$connection;
+    }
+
+    /**
+     * A coluna existe na base? Serve para o código sobreviver à janela entre
+     * o deploy (automático, pelo git) e a migração (manual, no phpMyAdmin):
+     * durante esse intervalo a coluna nova ainda não existe, e uma consulta
+     * que a peça deitaria abaixo a página inteira.
+     *
+     * Só aceita nomes vindos do próprio código — nunca do pedido HTTP.
+     */
+    public static function hasColumn(string $table, string $column): bool
+    {
+        $key = $table . '.' . $column;
+
+        if (!isset(self::$columns[$key])) {
+            $stmt = self::connection()->prepare('
+                SELECT COUNT(*) FROM information_schema.columns
+                WHERE table_schema = DATABASE() AND table_name = :t AND column_name = :c
+            ');
+            $stmt->execute(['t' => $table, 'c' => $column]);
+            self::$columns[$key] = (int) $stmt->fetchColumn() > 0;
+        }
+
+        return self::$columns[$key];
     }
 }

@@ -107,6 +107,19 @@ final class ProcessRepository
         return $row ? trim($row['branch_name'] . ' · ' . $row['department_name']) : ('Lote #' . $batchId);
     }
 
+    /**
+     * Enquanto a migração 030 não for aplicada, a coluna do contacto
+     * periódico ainda não existe. Em vez de deitar abaixo a ficha do
+     * processo, devolve-se NULL: o contacto automático fica desligado e
+     * liga-se sozinho assim que a migração correr.
+     */
+    private static function nextContactColumn(): string
+    {
+        return Database::hasColumn('tb_priority', 'next_contact_auto_minutes')
+            ? 'pr.next_contact_auto_minutes'
+            : 'NULL AS next_contact_auto_minutes';
+    }
+
     public function findById(int $id): ?array
     {
         $stmt = $this->pdo->prepare('
@@ -116,7 +129,7 @@ final class ProcessRepository
                    sub.name AS subject_name, sub.code AS subject_code,
                    st.code AS status_code, st.name AS status_name, st.is_waiting,
                    pr.code AS priority_code, pr.name AS priority_name, pr.color AS priority_color,
-                   pr.default_sla_minutes, pr.next_contact_auto_minutes,
+                   pr.default_sla_minutes, ' . self::nextContactColumn() . ',
                    u.first_name AS assigned_first_name, u.last_name AS assigned_last_name,
                    u.last_activity_at AS assigned_last_activity,
                    creator.first_name AS creator_first_name, creator.last_name AS creator_last_name,
