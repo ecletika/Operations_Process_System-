@@ -1,7 +1,19 @@
 -- Verificação rápida: confirma se as migrações recentes estão aplicadas.
 -- Correr no phpMyAdmin (aba SQL) sobre a base de dados do OPS.
 -- Só lê — não altera nada.
+--
+-- São TRÊS comandos separados por ";". O phpMyAdmin corre-os em sequência e
+-- mostra um quadro de resultados para cada um.
+--
+-- Porque estão separados: misturar information_schema com as tabelas da
+-- aplicação no mesmo UNION faz o MySQL procurar tb_permission dentro do
+-- information_schema e rebentar com "#1109 - Tabela desconhecida".
 
+
+-- ===========================================================================
+-- 1) ESTRUTURA — que colunas/tabelas é que as migrações criaram.
+--    Corre sempre, em qualquer estado da base.
+-- ===========================================================================
 SELECT '017 · presença (last_activity_at)' AS verificacao,
        IF(COUNT(*) = 1, 'OK', 'FALTA') AS estado
 FROM information_schema.columns
@@ -14,26 +26,11 @@ FROM information_schema.tables
 WHERE table_schema = DATABASE() AND table_name = 'tb_department_subject'
 
 UNION ALL
-SELECT '019 · permissão subjects.manage',
-       IF(COUNT(*) > 0, 'OK', 'FALTA')
-FROM tb_permission WHERE code = 'subjects.manage'
-
-UNION ALL
 SELECT '020 · campos de pausa do SLA no processo',
        IF(COUNT(*) = 2, 'OK', 'FALTA')
 FROM information_schema.columns
 WHERE table_schema = DATABASE() AND table_name = 'tb_process'
   AND column_name IN ('sla_paused_minutes', 'wait_started_at')
-
-UNION ALL
-SELECT '020 · permissão process.change_status',
-       IF(COUNT(*) > 0, 'OK', 'FALTA')
-FROM tb_permission WHERE code = 'process.change_status'
-
-UNION ALL
-SELECT '021 · interruptores do SLA (esperado 2)',
-       IF(COUNT(*) = 2, 'OK', 'FALTA')
-FROM tb_setting WHERE `key` IN ('sla_renew_on_interaction', 'sla_pause_on_waiting')
 
 UNION ALL
 SELECT '022 · coluna is_waiting nos estados',
@@ -42,19 +39,22 @@ FROM information_schema.columns
 WHERE table_schema = DATABASE() AND table_name = 'tb_status' AND column_name = 'is_waiting'
 
 UNION ALL
-SELECT '022 · motivos de pausa marcados',
-       CONCAT(COUNT(*), ' motivo(s)')
-FROM tb_status WHERE is_waiting = 1 AND deleted_at IS NULL
-
-UNION ALL
-SELECT '022 · permissão sla_reasons.manage',
-       IF(COUNT(*) > 0, 'OK', 'FALTA')
-FROM tb_permission WHERE code = 'sla_reasons.manage'
-
-UNION ALL
-SELECT '029 · interruptor do botão Voltar para a Fila',
+SELECT '024/028 · data do próximo contacto no processo',
        IF(COUNT(*) = 1, 'OK', 'FALTA')
-FROM tb_setting WHERE `key` = 'show_release_button'
+FROM information_schema.columns
+WHERE table_schema = DATABASE() AND table_name = 'tb_process' AND column_name = 'next_contact_at'
+
+UNION ALL
+SELECT '026 · horário de atendimento',
+       IF(COUNT(*) = 1, 'OK', 'FALTA')
+FROM information_schema.tables
+WHERE table_schema = DATABASE() AND table_name = 'tb_business_hours'
+
+UNION ALL
+SELECT '027 · origem do processo (origin_batch_id)',
+       IF(COUNT(*) = 1, 'OK', 'FALTA')
+FROM information_schema.columns
+WHERE table_schema = DATABASE() AND table_name = 'tb_process' AND column_name = 'origin_batch_id'
 
 UNION ALL
 SELECT '030 · contacto com o cliente por prioridade (em minutos)',
@@ -68,7 +68,51 @@ SELECT '030 · coluna antiga em horas já não existe',
        IF(COUNT(*) = 0, 'OK', 'AINDA LÁ ESTÁ')
 FROM information_schema.columns
 WHERE table_schema = DATABASE() AND table_name = 'tb_priority'
-  AND column_name = 'next_contact_auto_hours'
+  AND column_name = 'next_contact_auto_hours';
+
+
+-- ===========================================================================
+-- 2) PERMISSÕES E DEFINIÇÕES semeadas pelas migrações.
+--    Só usa tabelas e colunas que existem desde o início — corre sempre.
+-- ===========================================================================
+SELECT '019 · permissão subjects.manage' AS verificacao,
+       IF(COUNT(*) > 0, 'OK', 'FALTA') AS estado
+FROM tb_permission WHERE code = 'subjects.manage'
+
+UNION ALL
+SELECT '020 · permissão process.change_status',
+       IF(COUNT(*) > 0, 'OK', 'FALTA')
+FROM tb_permission WHERE code = 'process.change_status'
+
+UNION ALL
+SELECT '022 · permissão sla_reasons.manage',
+       IF(COUNT(*) > 0, 'OK', 'FALTA')
+FROM tb_permission WHERE code = 'sla_reasons.manage'
+
+UNION ALL
+SELECT '021 · interruptores do SLA (esperado 2)',
+       IF(COUNT(*) = 2, 'OK', 'FALTA')
+FROM tb_setting WHERE `key` IN ('sla_renew_on_interaction', 'sla_pause_on_waiting')
+
+UNION ALL
+SELECT '026 · SLA em horário de atendimento',
+       IF(COUNT(*) = 1, 'OK', 'FALTA')
+FROM tb_setting WHERE `key` = 'sla_business_hours_enabled'
+
+UNION ALL
+SELECT '029 · interruptor do botão Voltar para a Fila',
+       IF(COUNT(*) = 1, 'OK', 'FALTA')
+FROM tb_setting WHERE `key` = 'show_release_button';
+
+
+-- ===========================================================================
+-- 3) CONTAGENS que dependem de colunas criadas pelas migrações.
+--    Se alguma das migrações acima estiver em FALTA, este comando dá erro —
+--    é esperado. Aplique as migrações e volte a correr.
+-- ===========================================================================
+SELECT '022 · motivos de pausa marcados' AS verificacao,
+       CONCAT(COUNT(*), ' motivo(s)') AS estado
+FROM tb_status WHERE is_waiting = 1 AND deleted_at IS NULL
 
 UNION ALL
 SELECT '030 · prioridades com contacto automático',
