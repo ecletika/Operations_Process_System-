@@ -47,19 +47,20 @@ final class InteractionService
     }
 
     /**
-     * Imobilizados (IMO) + Baixa (P4), por omissão: cada contacto registado
-     * empurra a Nova Data de Contacto para $hours horas à frente, tal como o
-     * SLA se renova por interação. 0 em next_contact_auto_hours desativa.
+     * Com o SLA em pausa combina-se voltar a ligar ao cliente de X em X horas
+     * (X vem da Prioridade — Configurações → Prioridades). Cada contacto
+     * registado conta como "já liguei agora", por isso empurra o próximo para
+     * mais X horas à frente. Fora da pausa não há lembrete periódico.
      */
     private function autoScheduleNextContact(int $processId, int $userId): void
     {
-        $hours = (int) \App\Core\Settings::get('next_contact_auto_hours', '48');
-        if ($hours <= 0) {
+        $process = $this->processes->findById($processId);
+        if ($process === null || (int) ($process['is_waiting'] ?? 0) !== 1) {
             return;
         }
 
-        $process = $this->processes->findById($processId);
-        if ($process === null || !ProcessService::allowsNextContact($process)) {
+        $hours = ProcessService::autoNextContactHours($process);
+        if ($hours <= 0) {
             return;
         }
 
@@ -67,7 +68,7 @@ final class InteractionService
         $this->timeline->record(
             $processId,
             'NEXT_CONTACT_SET',
-            "Próximo Contacto reagendado automaticamente (+{$hours}h)",
+            "Próximo contacto com o cliente reagendado automaticamente (+{$hours}h)",
             null,
             $userId
         );

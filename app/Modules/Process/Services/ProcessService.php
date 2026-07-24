@@ -272,6 +272,55 @@ final class ProcessService
             null,
             $userId
         );
+
+        $this->syncNextContactWithWaiting($process, $isWaiting, $userId);
+    }
+
+    /**
+     * Enquanto o SLA está em pausa o cliente não pode ficar esquecido: a
+     * Prioridade diz de quantas em quantas horas se volta a ligar-lhe
+     * (Configurações → Prioridades). Ao retomar o tratamento o lembrete
+     * deixa de fazer sentido e é removido.
+     *
+     * Só mexe na data quando a Prioridade tem o contacto automático ligado —
+     * uma data marcada à mão pelo operador nunca é apagada por aqui.
+     *
+     * @param array<string, mixed> $process estado do processo ANTES da mudança
+     */
+    private function syncNextContactWithWaiting(array $process, bool $isWaiting, int $userId): void
+    {
+        $hours = self::autoNextContactHours($process);
+        if ($hours <= 0) {
+            return;
+        }
+
+        $processId = (int) $process['id'];
+
+        if ($isWaiting) {
+            $this->processes->autoScheduleNextContact($processId, $hours, $userId);
+            $this->timeline->record(
+                $processId,
+                'NEXT_CONTACT_SET',
+                "Próximo contacto com o cliente agendado automaticamente (+{$hours}h, enquanto o SLA está em pausa)",
+                null,
+                $userId
+            );
+
+            return;
+        }
+
+        if (empty($process['next_contact_at'])) {
+            return;
+        }
+
+        $this->processes->setNextContactAt($processId, null, $userId);
+        $this->timeline->record(
+            $processId,
+            'NEXT_CONTACT_CLEARED',
+            'Tratamento retomado — lembrete de contacto periódico removido',
+            null,
+            $userId
+        );
     }
 
     /**
@@ -291,6 +340,21 @@ final class ProcessService
         $subjectOk = $subject === '' || (string) ($process['subject_code'] ?? '') === $subject;
 
         return $priorityOk && $subjectOk;
+    }
+
+    /**
+     * De quantas em quantas horas se contacta o cliente enquanto o SLA está
+     * em pausa — vem da Prioridade do processo (Configurações → Prioridades).
+     * 0 significa "sem lembrete automático": a data é escolhida à mão no
+     * calendário da ficha do processo.
+     *
+     * @param array<string, mixed> $process linha do processo (com next_contact_auto_hours)
+     */
+    public static function autoNextContactHours(array $process): int
+    {
+        $hours = (int) ($process['next_contact_auto_hours'] ?? 0);
+
+        return $hours > 0 ? $hours : 0;
     }
 
     /**
@@ -317,6 +381,13 @@ final class ProcessService
             $this->timeline->record($processId, 'NEXT_CONTACT_CLEARED', 'Nova Data de Contacto removida', null, $userId);
 
             return;
+        }
+
+        // O calendário está inibido na ficha do processo quando a Prioridade
+        // agenda sozinha; o servidor recusa pelo mesmo motivo, para um pedido
+        // fabricado não contornar a regra.
+        if (self::autoNextContactHours($process) > 0) {
+            throw new RuntimeException('Esta prioridade agenda o próximo contacto automaticamente — para escolher a data à mão, limpe o campo "Próx. Contacto Cliente" da prioridade em Configurações.');
         }
 
         // O formulário (datetime-local) envia hora local; guarda-se em UTC

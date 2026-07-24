@@ -88,6 +88,7 @@ final class AdministrationController extends Controller
             (string) $request->input('color', '#6b7280'),
             (int) $request->input('sort_order', 0),
             $sla !== null && $sla !== '' ? (int) $sla : null,
+            $this->nextContactAutoHours($request),
             $userId
         );
 
@@ -111,6 +112,7 @@ final class AdministrationController extends Controller
             (string) $request->input('color', '#6b7280'),
             (int) $request->input('sort_order', 0),
             $sla !== null && $sla !== '' ? (int) $sla : null,
+            $this->nextContactAutoHours($request),
             $userId
         );
 
@@ -411,6 +413,22 @@ final class AdministrationController extends Controller
 
         Session::flash('success', 'Assuntos do departamento atualizados.');
         Response::redirect('/admin/subject-departments');
+    }
+
+    /**
+     * Próximo Contacto Automático de uma Prioridade: campo vazio ou 0 significa
+     * "não configurado" — o operador escolhe a data no calendário do processo.
+     * Guarda-se NULL nesse caso, para não haver dois valores a dizer o mesmo.
+     */
+    private function nextContactAutoHours(Request $request): ?int
+    {
+        $hours = $request->input('next_contact_auto_hours');
+
+        if ($hours === null || trim((string) $hours) === '' || (int) $hours <= 0) {
+            return null;
+        }
+
+        return (int) $hours;
     }
 
     private function checkCsrf(Request $request): bool

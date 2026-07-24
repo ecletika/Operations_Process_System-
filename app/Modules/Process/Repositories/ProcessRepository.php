@@ -116,7 +116,7 @@ final class ProcessRepository
                    sub.name AS subject_name, sub.code AS subject_code,
                    st.code AS status_code, st.name AS status_name, st.is_waiting,
                    pr.code AS priority_code, pr.name AS priority_name, pr.color AS priority_color,
-                   pr.default_sla_minutes,
+                   pr.default_sla_minutes, pr.next_contact_auto_hours,
                    u.first_name AS assigned_first_name, u.last_name AS assigned_last_name,
                    u.last_activity_at AS assigned_last_activity,
                    creator.first_name AS creator_first_name, creator.last_name AS creator_last_name,

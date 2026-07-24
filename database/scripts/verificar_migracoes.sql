@@ -49,4 +49,21 @@ FROM tb_status WHERE is_waiting = 1 AND deleted_at IS NULL
 UNION ALL
 SELECT '022 · permissão sla_reasons.manage',
        IF(COUNT(*) > 0, 'OK', 'FALTA')
-FROM tb_permission WHERE code = 'sla_reasons.manage';
+FROM tb_permission WHERE code = 'sla_reasons.manage'
+
+UNION ALL
+SELECT '029 · próximo contacto automático por prioridade',
+       IF(COUNT(*) = 1, 'OK', 'FALTA')
+FROM information_schema.columns
+WHERE table_schema = DATABASE() AND table_name = 'tb_priority'
+  AND column_name = 'next_contact_auto_hours'
+
+UNION ALL
+SELECT '029 · prioridades com agendamento automático',
+       CONCAT(COUNT(*), ' prioridade(s)')
+FROM tb_priority WHERE next_contact_auto_hours > 0 AND deleted_at IS NULL
+
+UNION ALL
+SELECT '029 · interruptor do botão Voltar para a Fila',
+       IF(COUNT(*) = 1, 'OK', 'FALTA')
+FROM tb_setting WHERE `key` = 'show_release_button';

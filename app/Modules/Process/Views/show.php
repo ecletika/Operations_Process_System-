@@ -73,7 +73,9 @@
           </form>
         <?php endif; ?>
 
-        <?php if ($canAct && !in_array($process['status_code'], ['QUEUE', 'SOLVED', 'CLOSED'], true) && in_array('process.assume', \App\Core\Session::get('permissions', []), true)): ?>
+        <?php // O botão pode ser escondido em Configurações (show_release_button) sem perder a funcionalidade. ?>
+        <?php if ($canAct && !in_array($process['status_code'], ['QUEUE', 'SOLVED', 'CLOSED'], true) && in_array('process.assume', \App\Core\Session::get('permissions', []), true)
+                  && (string) \App\Core\Settings::get('show_release_button', '1') === '1'): ?>
           <form method="POST" action="/processes/<?= (int) $process['id'] ?>/release"
                 onsubmit="return confirm('Devolver este processo à Fila Inteligente™ para outro operador o assumir?');">
             <?= csrf_field() ?>
@@ -144,13 +146,23 @@
             }
             $ncMin = (new DateTimeImmutable('now', app_timezone()))->format('Y-m-d\TH:i');
           ?>
-          <form method="POST" action="/processes/<?= (int) $process['id'] ?>/next-contact" style="display:flex;gap:4px;align-items:center">
-            <?= csrf_field() ?>
-            <input type="datetime-local" name="next_contact_at" value="<?= e($ncLocal) ?>"
-                   min="<?= e($ncMin) ?>" title="Nova data e hora de contacto com o cliente"
-                   style="padding:5px 8px;border:1px solid #e5e7eb;border-radius:6px;font-size:13px">
-            <button type="submit" class="ops-btn ops-btn-sm" style="background:#0891b2" title="Agendar novo contacto">📅 Agendar</button>
-          </form>
+          <?php $autoHoras = \App\Modules\Process\Services\ProcessService::autoNextContactHours($process); ?>
+          <?php if ($autoHoras > 0): ?>
+            <span style="display:flex;gap:6px;align-items:center;font-size:13px;color:#6b7280"
+                  title="A prioridade &quot;<?= e($process['priority_name']) ?>&quot; contacta o cliente de <?= $autoHoras ?> em <?= $autoHoras ?> horas enquanto o SLA está em pausa, e agenda essa data sozinha. Para escolher a data à mão, limpe o campo &quot;Próx. Contacto Cliente&quot; desta prioridade em Configurações.">
+              <input type="datetime-local" value="<?= e($ncLocal) ?>" disabled
+                     style="padding:5px 8px;border:1px solid #e5e7eb;border-radius:6px;font-size:13px;background:#f3f4f6;color:#6b7280">
+              🔒 Automático (+<?= $autoHoras ?>h)
+            </span>
+          <?php else: ?>
+            <form method="POST" action="/processes/<?= (int) $process['id'] ?>/next-contact" style="display:flex;gap:4px;align-items:center">
+              <?= csrf_field() ?>
+              <input type="datetime-local" name="next_contact_at" value="<?= e($ncLocal) ?>"
+                     min="<?= e($ncMin) ?>" title="Nova data e hora de contacto com o cliente"
+                     style="padding:5px 8px;border:1px solid #e5e7eb;border-radius:6px;font-size:13px">
+              <button type="submit" class="ops-btn ops-btn-sm" style="background:#0891b2" title="Agendar novo contacto">📅 Agendar</button>
+            </form>
+          <?php endif; ?>
         <?php endif; ?>
 
         <?php if (!empty($canTransfer) && !empty($transferTargets)): ?>
