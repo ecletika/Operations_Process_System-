@@ -12,6 +12,7 @@ use App\Modules\Process\Repositories\CustomerRepository;
 use App\Modules\Process\Repositories\ProcessRepository;
 use App\Modules\Process\Repositories\StatusRepository;
 use App\Modules\Process\Repositories\VehicleRepository;
+use App\Modules\Process\Support\BusinessClock;
 use App\Traits\AuditTrait;
 use RuntimeException;
 
@@ -289,19 +290,21 @@ final class ProcessService
      */
     private function syncNextContactWithWaiting(array $process, bool $isWaiting, int $userId): void
     {
-        $hours = self::autoNextContactHours($process);
-        if ($hours <= 0) {
+        $minutes = self::autoNextContactMinutes($process);
+        if ($minutes <= 0) {
             return;
         }
 
         $processId = (int) $process['id'];
 
         if ($isWaiting) {
-            $this->processes->autoScheduleNextContact($processId, $hours, $userId);
+            $quando = self::nextContactDeadline($minutes);
+            $this->processes->setNextContactAt($processId, $quando, $userId);
             $this->timeline->record(
                 $processId,
                 'NEXT_CONTACT_SET',
-                "Próximo contacto com o cliente agendado automaticamente (+{$hours}h, enquanto o SLA está em pausa)",
+                'Próximo contacto com o cliente agendado automaticamente para '
+                    . self::formatLocal($quando) . " ({$minutes} min, SLA em pausa)",
                 null,
                 $userId
             );
@@ -343,18 +346,46 @@ final class ProcessService
     }
 
     /**
-     * De quantas em quantas horas se contacta o cliente enquanto o SLA está
-     * em pausa — vem da Prioridade do processo (Configurações → Prioridades).
-     * 0 significa "sem lembrete automático": a data é escolhida à mão no
-     * calendário da ficha do processo.
+     * De quantos em quantos minutos se contacta o cliente enquanto o SLA está
+     * em pausa — vem da Prioridade do processo (Configurações → Prioridades),
+     * na mesma unidade do SLA. 0 significa "sem lembrete automático": a data
+     * é escolhida à mão no calendário da ficha do processo.
      *
-     * @param array<string, mixed> $process linha do processo (com next_contact_auto_hours)
+     * @param array<string, mixed> $process linha do processo (com next_contact_auto_minutes)
      */
-    public static function autoNextContactHours(array $process): int
+    public static function autoNextContactMinutes(array $process): int
     {
-        $hours = (int) ($process['next_contact_auto_hours'] ?? 0);
+        $minutes = (int) ($process['next_contact_auto_minutes'] ?? 0);
 
-        return $hours > 0 ? $hours : 0;
+        return $minutes > 0 ? $minutes : 0;
+    }
+
+    /**
+     * Quando cai o próximo contacto, já em UTC ('Y-m-d H:i:s') como o resto do
+     * sistema guarda.
+     *
+     * Os minutos são contados no relógio de atendimento quando o horário útil
+     * está ligado (mesma regra do SLA): saltam fins de semana, feriados e o
+     * tempo fora de horas, para nunca marcar um contacto para domingo de
+     * madrugada. Com o horário desligado, contam-se minutos corridos.
+     */
+    public static function nextContactDeadline(int $minutes, ?int $fromTs = null): string
+    {
+        $fromTs ??= time();
+
+        $targetTs = BusinessClock::enabled()
+            ? BusinessClock::deadlineFrom($fromTs, $minutes)
+            : $fromTs + $minutes * 60;
+
+        return gmdate('Y-m-d H:i:s', $targetTs);
+    }
+
+    /** Data guardada (UTC) na hora de Portugal, para as mensagens da Timeline. */
+    private static function formatLocal(string $utc): string
+    {
+        return (new \DateTimeImmutable($utc, new \DateTimeZone('UTC')))
+            ->setTimezone(\app_timezone())
+            ->format('d/m/Y H:i');
     }
 
     /**
@@ -386,7 +417,7 @@ final class ProcessService
         // O calendário está inibido na ficha do processo quando a Prioridade
         // agenda sozinha; o servidor recusa pelo mesmo motivo, para um pedido
         // fabricado não contornar a regra.
-        if (self::autoNextContactHours($process) > 0) {
+        if (self::autoNextContactMinutes($process) > 0) {
             throw new RuntimeException('Esta prioridade agenda o próximo contacto automaticamente — para escolher a data à mão, limpe o campo "Próx. Contacto Cliente" da prioridade em Configurações.');
         }
 

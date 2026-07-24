@@ -57,14 +57,18 @@
 
       <h2 style="margin-top:32px">Prioridades</h2>
       <p style="color:#6b7280;margin:4px 0 12px">
-        <strong>Próx. Contacto Cliente (h)</strong>: de quantas em quantas horas se volta a contactar o
-        cliente <strong>enquanto o SLA está em pausa</strong> (processo em espera). Ao pôr em espera, o
+        <strong>Próx. Contacto Cliente (min)</strong>: de quantos em quantos minutos se volta a contactar
+        o cliente <strong>enquanto o SLA está em pausa</strong> (processo em espera). Ao pôr em espera, o
         sistema agenda sozinho o próximo contacto; cada contacto registado empurra o seguinte para mais
-        X horas; ao retomar o tratamento o lembrete é removido. Com este campo preenchido o calendário na
-        ficha do processo fica inibido — vazio, o operador escolhe a data à mão.
+        X minutos; ao retomar o tratamento o lembrete é removido. Com este campo preenchido o calendário
+        na ficha do processo fica inibido — vazio, o operador escolhe a data à mão.
+        <br>
+        Os minutos são contados <strong>no horário de atendimento</strong>, tal como o SLA: saltam fins de
+        semana, feriados e o tempo fora de horas, para nunca marcar um contacto para domingo de madrugada
+        (depende de <code>sla_business_hours_enabled</code>; desligado, contam-se minutos corridos).
       </p>
       <table class="ops-table">
-        <thead><tr><th>Código</th><th>Nome</th><th>Cor</th><th>Ordem</th><th>SLA (min)</th><th title="De quantas em quantas horas contactar o cliente enquanto o SLA está em pausa. Vazio = sem lembrete automático; o operador escolhe a data no calendário do processo.">Próx. Contacto Cliente (h)</th><th>Ativo</th><th></th></tr></thead>
+        <thead><tr><th>Código</th><th>Nome</th><th>Cor</th><th>Ordem</th><th>SLA (min)</th><th title="De quantos em quantos minutos de atendimento contactar o cliente enquanto o SLA está em pausa. Vazio = sem lembrete automático; o operador escolhe a data no calendário do processo.">Próx. Contacto Cliente (min)</th><th>Ativo</th><th></th></tr></thead>
         <tbody>
           <?php foreach ($priorities as $priority): ?>
             <tr>
@@ -76,9 +80,9 @@
                 <td><input type="number" name="sort_order" value="<?= (int) $priority['sort_order'] ?>" style="width:60px;padding:6px 10px;border:1px solid #e5e7eb;border-radius:6px"></td>
                 <td><input type="number" name="default_sla_minutes" value="<?= e((string) $priority['default_sla_minutes']) ?>" style="width:80px;padding:6px 10px;border:1px solid #e5e7eb;border-radius:6px"></td>
                 <td>
-                  <input type="number" name="next_contact_auto_hours" min="0" placeholder="manual"
-                         value="<?= e((string) ($priority['next_contact_auto_hours'] ?? '')) ?>"
-                         title="Preenchido: enquanto o SLA estiver em pausa, o próximo contacto com o cliente é agendado sozinho de X em X horas e o calendário do processo fica inibido. Vazio: sem lembrete automático."
+                  <input type="number" name="next_contact_auto_minutes" min="0" placeholder="manual"
+                         value="<?= e((string) ($priority['next_contact_auto_minutes'] ?? '')) ?>"
+                         title="Preenchido: enquanto o SLA estiver em pausa, o próximo contacto com o cliente é agendado sozinho a cada X minutos de atendimento e o calendário do processo fica inibido. Vazio: sem lembrete automático."
                          style="width:90px;padding:6px 10px;border:1px solid #e5e7eb;border-radius:6px">
                 </td>
                 <td>
@@ -104,9 +108,9 @@
           <input type="color" name="color" value="#6b7280">
           <input type="number" name="sort_order" placeholder="Ordem" style="width:80px;padding:6px 10px;border:1px solid #e5e7eb;border-radius:6px">
           <input type="number" name="default_sla_minutes" placeholder="SLA (min)" style="width:100px;padding:6px 10px;border:1px solid #e5e7eb;border-radius:6px">
-          <input type="number" name="next_contact_auto_hours" min="0" placeholder="Próx. contacto cliente (h)"
-                 title="De quantas em quantas horas contactar o cliente enquanto o SLA está em pausa. Deixe vazio para não haver lembrete automático."
-                 style="width:150px;padding:6px 10px;border:1px solid #e5e7eb;border-radius:6px">
+          <input type="number" name="next_contact_auto_minutes" min="0" placeholder="Próx. contacto (min)"
+                 title="De quantos em quantos minutos de atendimento contactar o cliente enquanto o SLA está em pausa. Deixe vazio para não haver lembrete automático."
+                 style="width:160px;padding:6px 10px;border:1px solid #e5e7eb;border-radius:6px">
           <button type="submit" class="ops-btn ops-btn-sm">Criar</button>
         </div>
       </form>

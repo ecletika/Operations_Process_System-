@@ -47,10 +47,11 @@ final class InteractionService
     }
 
     /**
-     * Com o SLA em pausa combina-se voltar a ligar ao cliente de X em X horas
-     * (X vem da Prioridade — Configurações → Prioridades). Cada contacto
-     * registado conta como "já liguei agora", por isso empurra o próximo para
-     * mais X horas à frente. Fora da pausa não há lembrete periódico.
+     * Com o SLA em pausa combina-se voltar a ligar ao cliente de X em X
+     * minutos de atendimento (X vem da Prioridade — Configurações →
+     * Prioridades). Cada contacto registado conta como "já liguei agora", por
+     * isso empurra o próximo para mais X minutos à frente. Fora da pausa não
+     * há lembrete periódico.
      */
     private function autoScheduleNextContact(int $processId, int $userId): void
     {
@@ -59,16 +60,16 @@ final class InteractionService
             return;
         }
 
-        $hours = ProcessService::autoNextContactHours($process);
-        if ($hours <= 0) {
+        $minutes = ProcessService::autoNextContactMinutes($process);
+        if ($minutes <= 0) {
             return;
         }
 
-        $this->processes->autoScheduleNextContact($processId, $hours, $userId);
+        $this->processes->setNextContactAt($processId, ProcessService::nextContactDeadline($minutes), $userId);
         $this->timeline->record(
             $processId,
             'NEXT_CONTACT_SET',
-            "Próximo contacto com o cliente reagendado automaticamente (+{$hours}h)",
+            "Próximo contacto com o cliente reagendado automaticamente (+{$minutes} min)",
             null,
             $userId
         );

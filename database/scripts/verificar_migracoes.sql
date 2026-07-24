@@ -52,18 +52,25 @@ SELECT '022 · permissão sla_reasons.manage',
 FROM tb_permission WHERE code = 'sla_reasons.manage'
 
 UNION ALL
-SELECT '029 · próximo contacto automático por prioridade',
+SELECT '029 · interruptor do botão Voltar para a Fila',
        IF(COUNT(*) = 1, 'OK', 'FALTA')
+FROM tb_setting WHERE `key` = 'show_release_button'
+
+UNION ALL
+SELECT '030 · contacto com o cliente por prioridade (em minutos)',
+       IF(COUNT(*) = 1, 'OK', 'FALTA')
+FROM information_schema.columns
+WHERE table_schema = DATABASE() AND table_name = 'tb_priority'
+  AND column_name = 'next_contact_auto_minutes'
+
+UNION ALL
+SELECT '030 · coluna antiga em horas já não existe',
+       IF(COUNT(*) = 0, 'OK', 'AINDA LÁ ESTÁ')
 FROM information_schema.columns
 WHERE table_schema = DATABASE() AND table_name = 'tb_priority'
   AND column_name = 'next_contact_auto_hours'
 
 UNION ALL
-SELECT '029 · prioridades com agendamento automático',
+SELECT '030 · prioridades com contacto automático',
        CONCAT(COUNT(*), ' prioridade(s)')
-FROM tb_priority WHERE next_contact_auto_hours > 0 AND deleted_at IS NULL
-
-UNION ALL
-SELECT '029 · interruptor do botão Voltar para a Fila',
-       IF(COUNT(*) = 1, 'OK', 'FALTA')
-FROM tb_setting WHERE `key` = 'show_release_button';
+FROM tb_priority WHERE next_contact_auto_minutes > 0 AND deleted_at IS NULL;

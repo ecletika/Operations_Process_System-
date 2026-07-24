@@ -116,7 +116,7 @@ final class ProcessRepository
                    sub.name AS subject_name, sub.code AS subject_code,
                    st.code AS status_code, st.name AS status_name, st.is_waiting,
                    pr.code AS priority_code, pr.name AS priority_name, pr.color AS priority_color,
-                   pr.default_sla_minutes, pr.next_contact_auto_hours,
+                   pr.default_sla_minutes, pr.next_contact_auto_minutes,
                    u.first_name AS assigned_first_name, u.last_name AS assigned_last_name,
                    u.last_activity_at AS assigned_last_activity,
                    creator.first_name AS creator_first_name, creator.last_name AS creator_last_name,
@@ -376,23 +376,6 @@ final class ProcessRepository
             WHERE id = :id
         ");
         $stmt->execute(['id' => $id]);
-    }
-
-    /**
-     * Preenche automaticamente a Nova Data de Contacto para $hours horas a
-     * partir de agora. Usado quando um contacto/registo é feito num processo
-     * com a combinação de Prioridade/Assunto configurada (ver
-     * ProcessService::allowsNextContact) — refresca sempre, tal como a
-     * renovação do SLA por interação.
-     */
-    public function autoScheduleNextContact(int $id, int $hours, int $userId): void
-    {
-        $stmt = $this->pdo->prepare('
-            UPDATE tb_process
-            SET next_contact_at = DATE_ADD(NOW(), INTERVAL :hours HOUR), updated_by = :user_id, updated_at = NOW()
-            WHERE id = :id
-        ');
-        $stmt->execute(['id' => $id, 'hours' => $hours, 'user_id' => $userId]);
     }
 
     /**

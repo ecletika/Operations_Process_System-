@@ -88,7 +88,7 @@ final class AdministrationController extends Controller
             (string) $request->input('color', '#6b7280'),
             (int) $request->input('sort_order', 0),
             $sla !== null && $sla !== '' ? (int) $sla : null,
-            $this->nextContactAutoHours($request),
+            $this->nextContactAutoMinutes($request),
             $userId
         );
 
@@ -112,7 +112,7 @@ final class AdministrationController extends Controller
             (string) $request->input('color', '#6b7280'),
             (int) $request->input('sort_order', 0),
             $sla !== null && $sla !== '' ? (int) $sla : null,
-            $this->nextContactAutoHours($request),
+            $this->nextContactAutoMinutes($request),
             $userId
         );
 
@@ -416,13 +416,14 @@ final class AdministrationController extends Controller
     }
 
     /**
-     * Próximo Contacto Automático de uma Prioridade: campo vazio ou 0 significa
-     * "não configurado" — o operador escolhe a data no calendário do processo.
-     * Guarda-se NULL nesse caso, para não haver dois valores a dizer o mesmo.
+     * Minutos entre contactos com o cliente de uma Prioridade: campo vazio ou 0
+     * significa "não configurado" — o operador escolhe a data no calendário do
+     * processo. Guarda-se NULL nesse caso, para não haver dois valores a dizer
+     * o mesmo.
      */
-    private function nextContactAutoHours(Request $request): ?int
+    private function nextContactAutoMinutes(Request $request): ?int
     {
-        $hours = $request->input('next_contact_auto_hours');
+        $hours = $request->input('next_contact_auto_minutes');
 
         if ($hours === null || trim((string) $hours) === '' || (int) $hours <= 0) {
             return null;

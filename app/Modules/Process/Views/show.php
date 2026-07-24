@@ -146,13 +146,13 @@
             }
             $ncMin = (new DateTimeImmutable('now', app_timezone()))->format('Y-m-d\TH:i');
           ?>
-          <?php $autoHoras = \App\Modules\Process\Services\ProcessService::autoNextContactHours($process); ?>
-          <?php if ($autoHoras > 0): ?>
+          <?php $autoMin = \App\Modules\Process\Services\ProcessService::autoNextContactMinutes($process); ?>
+          <?php if ($autoMin > 0): ?>
             <span style="display:flex;gap:6px;align-items:center;font-size:13px;color:#6b7280"
-                  title="A prioridade &quot;<?= e($process['priority_name']) ?>&quot; contacta o cliente de <?= $autoHoras ?> em <?= $autoHoras ?> horas enquanto o SLA está em pausa, e agenda essa data sozinha. Para escolher a data à mão, limpe o campo &quot;Próx. Contacto Cliente&quot; desta prioridade em Configurações.">
+                  title="A prioridade &quot;<?= e($process['priority_name']) ?>&quot; volta a contactar o cliente a cada <?= $autoMin ?> min de atendimento enquanto o SLA está em pausa, e agenda essa data sozinha (salta fins de semana e feriados). Para escolher a data à mão, limpe o campo &quot;Próx. Contacto Cliente&quot; desta prioridade em Configurações.">
               <input type="datetime-local" value="<?= e($ncLocal) ?>" disabled
                      style="padding:5px 8px;border:1px solid #e5e7eb;border-radius:6px;font-size:13px;background:#f3f4f6;color:#6b7280">
-              🔒 Automático (+<?= $autoHoras ?>h)
+              🔒 Automático (<?= $autoMin ?> min)
             </span>
           <?php else: ?>
             <form method="POST" action="/processes/<?= (int) $process['id'] ?>/next-contact" style="display:flex;gap:4px;align-items:center">

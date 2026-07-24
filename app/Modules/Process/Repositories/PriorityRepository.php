@@ -34,35 +34,36 @@ final class PriorityRepository
     }
 
     /**
-     * $nextContactAutoHours: horas para agendar sozinho a Nova Data de
-     * Contacto. null = manual (o operador escolhe a data no calendário).
+     * $nextContactAutoMinutes: minutos de atendimento entre contactos com o
+     * cliente enquanto o SLA está em pausa. null = sem lembrete automático
+     * (o operador escolhe a data no calendário do processo).
      */
-    public function create(string $code, string $name, string $color, int $sortOrder, ?int $defaultSlaMinutes, ?int $nextContactAutoHours, int $userId): void
+    public function create(string $code, string $name, string $color, int $sortOrder, ?int $defaultSlaMinutes, ?int $nextContactAutoMinutes, int $userId): void
     {
         $stmt = $this->pdo->prepare('
-            INSERT INTO tb_priority (uuid, code, name, color, sort_order, default_sla_minutes, next_contact_auto_hours, active, created_at, created_by)
-            VALUES (UUID(), :code, :name, :color, :sort_order, :sla, :auto_hours, 1, NOW(), :user_id)
+            INSERT INTO tb_priority (uuid, code, name, color, sort_order, default_sla_minutes, next_contact_auto_minutes, active, created_at, created_by)
+            VALUES (UUID(), :code, :name, :color, :sort_order, :sla, :auto_minutes, 1, NOW(), :user_id)
         ');
         $stmt->execute([
             'code' => $code, 'name' => $name, 'color' => $color,
             'sort_order' => $sortOrder, 'sla' => $defaultSlaMinutes,
-            'auto_hours' => $nextContactAutoHours, 'user_id' => $userId,
+            'auto_minutes' => $nextContactAutoMinutes, 'user_id' => $userId,
         ]);
     }
 
-    public function update(int $id, string $name, string $color, int $sortOrder, ?int $defaultSlaMinutes, ?int $nextContactAutoHours, int $userId): void
+    public function update(int $id, string $name, string $color, int $sortOrder, ?int $defaultSlaMinutes, ?int $nextContactAutoMinutes, int $userId): void
     {
         $stmt = $this->pdo->prepare('
             UPDATE tb_priority
             SET name = :name, color = :color, sort_order = :sort_order, default_sla_minutes = :sla,
-                next_contact_auto_hours = :auto_hours,
+                next_contact_auto_minutes = :auto_minutes,
                 updated_at = NOW(), updated_by = :user_id
             WHERE id = :id
         ');
         $stmt->execute([
             'id' => $id, 'name' => $name, 'color' => $color,
             'sort_order' => $sortOrder, 'sla' => $defaultSlaMinutes,
-            'auto_hours' => $nextContactAutoHours, 'user_id' => $userId,
+            'auto_minutes' => $nextContactAutoMinutes, 'user_id' => $userId,
         ]);
     }
 
