@@ -217,6 +217,12 @@
             <div class="label"><?= $etiqueta ?></div>
           </div>
         <?php endif; ?>
+        <?php if (!empty($process['next_contact_at'])): ?>
+          <div class="ops-kpi">
+            <div class="value" style="font-size:15px;line-height:1.3"><?= next_contact_badge($process['next_contact_at']) ?></div>
+            <div class="label">Próximo Contacto</div>
+          </div>
+        <?php endif; ?>
       </div>
 
       <h2 style="margin-top:32px">Timeline Viva™</h2>

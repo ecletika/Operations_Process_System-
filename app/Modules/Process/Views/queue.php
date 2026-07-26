@@ -25,12 +25,13 @@
             <th>Falta p/ SLA</th>
             <th>Criado por</th>
             <th>Criado em</th>
+            <th>Próximo Contacto</th>
             <th></th>
           </tr>
         </thead>
         <tbody>
           <?php if (empty($processes)): ?>
-            <tr><td colspan="10" style="text-align:center;color:#6b7280">Fila vazia. Bom trabalho!</td></tr>
+            <tr><td colspan="11" style="text-align:center;color:#6b7280">Fila vazia. Bom trabalho!</td></tr>
           <?php endif; ?>
           <?php foreach ($processes as $process): ?>
             <tr>
@@ -43,6 +44,7 @@
               <td><?= sla_badge($process) ?></td>
               <td style="color:#6b7280"><?= e(trim(($process['creator_first_name'] ?? '') . ' ' . ($process['creator_last_name'] ?? '')) ?: '—') ?></td>
               <td><?= dt($process['created_at']) ?></td>
+              <td><?= next_contact_badge($process['next_contact_at'] ?? null) ?></td>
               <td>
                 <form method="POST" action="/processes/<?= (int) $process['id'] ?>/assume">
                   <?= csrf_field() ?>

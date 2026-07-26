@@ -43,16 +43,16 @@ final class NoteService
     }
 
     /**
-     * Com o SLA em pausa combina-se voltar a ligar ao cliente de X em X
-     * minutos de atendimento (X vem da Prioridade — Configurações →
-     * Prioridades). Cada contacto registado conta como "já liguei agora", por
-     * isso empurra o próximo para mais X minutos à frente. Fora da pausa não
-     * há lembrete periódico.
+     * Se a Prioridade define um intervalo de contacto (Configurações →
+     * Prioridades), cada contacto registado conta como "já liguei agora" e
+     * empurra o próximo para mais X minutos de atendimento à frente. Aplica-se
+     * a qualquer processo com esse intervalo, esteja em espera ou em
+     * tratamento — sem intervalo definido, não há lembrete periódico.
      */
     private function autoScheduleNextContact(int $processId, int $userId): void
     {
         $process = $this->processes->findById($processId);
-        if ($process === null || (int) ($process['is_waiting'] ?? 0) !== 1) {
+        if ($process === null) {
             return;
         }
 

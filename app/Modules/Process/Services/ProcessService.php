@@ -278,49 +278,36 @@ final class ProcessService
     }
 
     /**
-     * Enquanto o SLA está em pausa o cliente não pode ficar esquecido: a
-     * Prioridade diz de quantas em quantas horas se volta a ligar-lhe
-     * (Configurações → Prioridades). Ao retomar o tratamento o lembrete
-     * deixa de fazer sentido e é removido.
+     * Ao pôr o processo em espera, agenda logo o próximo contacto com o cliente
+     * conforme o intervalo da Prioridade (Configurações → Prioridades), para
+     * o cliente não ficar esquecido enquanto o SLA está em pausa.
      *
-     * Só mexe na data quando a Prioridade tem o contacto automático ligado —
-     * uma data marcada à mão pelo operador nunca é apagada por aqui.
+     * Retomar o tratamento NÃO apaga a data: a cadência de contacto continua
+     * também com o processo em tratamento, e cada contacto registado empurra-a
+     * para a frente. Só mexe na data quando a Prioridade tem intervalo
+     * definido — uma data marcada à mão nunca é tocada por aqui.
      *
      * @param array<string, mixed> $process estado do processo ANTES da mudança
      */
     private function syncNextContactWithWaiting(array $process, bool $isWaiting, int $userId): void
     {
+        if (!$isWaiting) {
+            return;
+        }
+
         $minutes = self::autoNextContactMinutes($process);
         if ($minutes <= 0) {
             return;
         }
 
         $processId = (int) $process['id'];
-
-        if ($isWaiting) {
-            $quando = self::nextContactDeadline($minutes);
-            $this->processes->setNextContactAt($processId, $quando, $userId);
-            $this->timeline->record(
-                $processId,
-                'NEXT_CONTACT_SET',
-                'Próximo contacto com o cliente agendado automaticamente para '
-                    . self::formatLocal($quando) . " ({$minutes} min, SLA em pausa)",
-                null,
-                $userId
-            );
-
-            return;
-        }
-
-        if (empty($process['next_contact_at'])) {
-            return;
-        }
-
-        $this->processes->setNextContactAt($processId, null, $userId);
+        $quando = self::nextContactDeadline($minutes);
+        $this->processes->setNextContactAt($processId, $quando, $userId);
         $this->timeline->record(
             $processId,
-            'NEXT_CONTACT_CLEARED',
-            'Tratamento retomado — lembrete de contacto periódico removido',
+            'NEXT_CONTACT_SET',
+            'Próximo contacto com o cliente agendado automaticamente para '
+                . self::formatLocal($quando) . " ({$minutes} min, SLA em pausa)",
             null,
             $userId
         );
