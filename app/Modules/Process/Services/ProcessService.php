@@ -12,6 +12,7 @@ use App\Modules\Process\Repositories\CustomerRepository;
 use App\Modules\Process\Repositories\ProcessRepository;
 use App\Modules\Process\Repositories\StatusRepository;
 use App\Modules\Process\Repositories\VehicleRepository;
+use App\Modules\Process\Support\BusinessClock;
 use App\Traits\AuditTrait;
 use RuntimeException;
 
@@ -350,20 +351,22 @@ final class ProcessService
      * Quando cai o próximo contacto, já em UTC ('Y-m-d H:i:s') como o resto do
      * sistema guarda.
      *
-     * Sempre em minutos corridos (relógio de parede), independente do
-     * interruptor do horário de atendimento do SLA. BusinessClock::deadlineFrom()
-     * conta só MINUTOS ÚTEIS (dentro do expediente) — é o comportamento certo
-     * para o prazo do SLA, mas reutilizado aqui reinterpretava silenciosamente
-     * o valor configurado por Prioridade: 2880 min (pensados como "48h reais",
-     * ou seja 2 dias) passavam a significar "2880 minutos só de expediente",
-     * o que atravessa um fim de semana e chega a cerca de 7 dias depois em vez
-     * de 2. Ligar/desligar o horário de atendimento do SLA não deve mudar
-     * silenciosamente para quando fica marcado o próximo contacto.
+     * Os minutos são contados no relógio de atendimento quando o horário útil
+     * está ligado (mesma regra do SLA): de propósito, para nunca cair a um
+     * sábado ou domingo — é precisamente por isto que a Prioridade se
+     * configura em MINUTOS DE ATENDIMENTO e não em horas corridas. Ex.: para
+     * "2 dias" o valor certo é 16h (960 min) de atendimento, não 48h (2880
+     * min) — 48h corridas nunca caem num fim de semana só por acaso, mas
+     * também não são "2 dias de trabalho". Com o horário desligado, contam-se
+     * minutos corridos.
      */
     public static function nextContactDeadline(int $minutes, ?int $fromTs = null): string
     {
         $fromTs ??= time();
-        $targetTs = $fromTs + $minutes * 60;
+
+        $targetTs = BusinessClock::enabled()
+            ? BusinessClock::deadlineFrom($fromTs, $minutes)
+            : $fromTs + $minutes * 60;
 
         return gmdate('Y-m-d H:i:s', $targetTs);
     }
