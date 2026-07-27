@@ -12,7 +12,6 @@ use App\Modules\Process\Repositories\CustomerRepository;
 use App\Modules\Process\Repositories\ProcessRepository;
 use App\Modules\Process\Repositories\StatusRepository;
 use App\Modules\Process\Repositories\VehicleRepository;
-use App\Modules\Process\Support\BusinessClock;
 use App\Traits\AuditTrait;
 use RuntimeException;
 
@@ -351,18 +350,20 @@ final class ProcessService
      * Quando cai o próximo contacto, já em UTC ('Y-m-d H:i:s') como o resto do
      * sistema guarda.
      *
-     * Os minutos são contados no relógio de atendimento quando o horário útil
-     * está ligado (mesma regra do SLA): saltam fins de semana, feriados e o
-     * tempo fora de horas, para nunca marcar um contacto para domingo de
-     * madrugada. Com o horário desligado, contam-se minutos corridos.
+     * Sempre em minutos corridos (relógio de parede), independente do
+     * interruptor do horário de atendimento do SLA. BusinessClock::deadlineFrom()
+     * conta só MINUTOS ÚTEIS (dentro do expediente) — é o comportamento certo
+     * para o prazo do SLA, mas reutilizado aqui reinterpretava silenciosamente
+     * o valor configurado por Prioridade: 2880 min (pensados como "48h reais",
+     * ou seja 2 dias) passavam a significar "2880 minutos só de expediente",
+     * o que atravessa um fim de semana e chega a cerca de 7 dias depois em vez
+     * de 2. Ligar/desligar o horário de atendimento do SLA não deve mudar
+     * silenciosamente para quando fica marcado o próximo contacto.
      */
     public static function nextContactDeadline(int $minutes, ?int $fromTs = null): string
     {
         $fromTs ??= time();
-
-        $targetTs = BusinessClock::enabled()
-            ? BusinessClock::deadlineFrom($fromTs, $minutes)
-            : $fromTs + $minutes * 60;
+        $targetTs = $fromTs + $minutes * 60;
 
         return gmdate('Y-m-d H:i:s', $targetTs);
     }
@@ -562,6 +563,14 @@ final class ProcessService
 
         $solvedStatusId = $this->processes->statusIdByCode('SOLVED');
         $this->processes->close($processId, $solvedStatusId, $userId);
+
+        // Um processo concluído já não precisa de lembrete de próximo
+        // contacto — sem isto, a data que ficou marcada antes de fechar
+        // continuava a aparecer na ficha e nas listagens, e o job agendado
+        // ainda a considerava (mesmo já filtrando por estado aberto).
+        if (!empty($process['next_contact_at'])) {
+            $this->processes->setNextContactAt($processId, null, $userId);
+        }
 
         $this->timeline->record($processId, 'PROCESS_CLOSED', 'Processo concluído', null, $userId);
     }

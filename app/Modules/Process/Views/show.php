@@ -217,7 +217,7 @@
             <div class="label"><?= $etiqueta ?></div>
           </div>
         <?php endif; ?>
-        <?php if (!empty($process['next_contact_at'])): ?>
+        <?php if (!empty($process['next_contact_at']) && !in_array($process['status_code'], ['SOLVED', 'CLOSED'], true)): ?>
           <div class="ops-kpi">
             <div class="value" style="font-size:15px;line-height:1.3"><?= next_contact_badge($process['next_contact_at']) ?></div>
             <div class="label">Próximo Contacto</div>
