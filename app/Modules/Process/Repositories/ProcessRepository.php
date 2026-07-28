@@ -450,10 +450,11 @@ final class ProcessRepository
      * $archived=false → caixa "em curso" (não concluídos);
      * $archived=true  → "Caixa de Entrada Arquivada" (Resolvidos/Encerrados) (#10).
      */
-    public function listAssignedTo(int $userId, bool $archived = false, ?string $subjectCode = null): array
+    public function listAssignedTo(int $userId, bool $archived = false, ?string $subjectCode = null, ?string $excludeSubjectCode = null): array
     {
         $statusFilter = $archived ? "st.code IN ('SOLVED', 'CLOSED')" : "st.code NOT IN ('SOLVED', 'CLOSED')";
         $subjectFilter = $subjectCode !== null ? 'AND sub.code = :subject_code' : '';
+        $excludeFilter = $excludeSubjectCode !== null ? 'AND sub.code != :exclude_subject_code' : '';
 
         $stmt = $this->pdo->prepare("
             SELECT p.*, v.plate AS vehicle_plate, c.name AS customer_name,
@@ -465,12 +466,15 @@ final class ProcessRepository
             JOIN tb_subject sub ON sub.id = p.subject_id
             JOIN tb_status st ON st.id = p.status_id
             JOIN tb_priority pr ON pr.id = p.priority_id
-            WHERE p.deleted_at IS NULL AND p.assigned_to = :user_id AND {$statusFilter} {$subjectFilter}
+            WHERE p.deleted_at IS NULL AND p.assigned_to = :user_id AND {$statusFilter} {$subjectFilter} {$excludeFilter}
             ORDER BY p.last_contact_at DESC
         ");
         $params = ['user_id' => $userId];
         if ($subjectCode !== null) {
             $params['subject_code'] = $subjectCode;
+        }
+        if ($excludeSubjectCode !== null) {
+            $params['exclude_subject_code'] = $excludeSubjectCode;
         }
         $stmt->execute($params);
 
@@ -481,10 +485,11 @@ final class ProcessRepository
      * Processos Criados por mim — o criador acompanha (e pode interagir),
      * mesmo que outro operador os tenha assumido.
      */
-    public function listCreatedBy(int $userId, bool $archived = false, ?string $subjectCode = null): array
+    public function listCreatedBy(int $userId, bool $archived = false, ?string $subjectCode = null, ?string $excludeSubjectCode = null): array
     {
         $statusFilter = $archived ? "st.code IN ('SOLVED', 'CLOSED')" : "st.code NOT IN ('SOLVED', 'CLOSED')";
         $subjectFilter = $subjectCode !== null ? 'AND sub.code = :subject_code' : '';
+        $excludeFilter = $excludeSubjectCode !== null ? 'AND sub.code != :exclude_subject_code' : '';
 
         $stmt = $this->pdo->prepare("
             SELECT p.*, v.plate AS vehicle_plate, c.name AS customer_name,
@@ -499,12 +504,15 @@ final class ProcessRepository
             JOIN tb_status st ON st.id = p.status_id
             JOIN tb_priority pr ON pr.id = p.priority_id
             LEFT JOIN tb_user u ON u.id = p.assigned_to
-            WHERE p.deleted_at IS NULL AND p.created_by = :user_id AND {$statusFilter} {$subjectFilter}
+            WHERE p.deleted_at IS NULL AND p.created_by = :user_id AND {$statusFilter} {$subjectFilter} {$excludeFilter}
             ORDER BY p.last_contact_at DESC
         ");
         $params = ['user_id' => $userId];
         if ($subjectCode !== null) {
             $params['subject_code'] = $subjectCode;
+        }
+        if ($excludeSubjectCode !== null) {
+            $params['exclude_subject_code'] = $excludeSubjectCode;
         }
         $stmt->execute($params);
 

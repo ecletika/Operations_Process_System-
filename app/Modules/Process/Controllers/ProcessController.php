@@ -102,10 +102,12 @@ final class ProcessController extends Controller
         // A aba Imobilizados nunca mistura com a Arquivada: mostra sempre os
         // processos em curso, para facilitar o controlo dos imobilizados.
         $subjectCode = $imobilizados ? 'IMO' : null;
+        // Imobilizados sai do "Em curso" — só aparece na aba própria.
+        $excludeSubjectCode = (!$archived && !$imobilizados) ? 'IMO' : null;
 
         $this->view('Process/Views/mine', [
-            'processes' => $repository->listAssignedTo($userId, $imobilizados ? false : $archived, $subjectCode),
-            'createdProcesses' => $repository->listCreatedBy($userId, $imobilizados ? false : $archived, $subjectCode),
+            'processes' => $repository->listAssignedTo($userId, $imobilizados ? false : $archived, $subjectCode, $excludeSubjectCode),
+            'createdProcesses' => $repository->listCreatedBy($userId, $imobilizados ? false : $archived, $subjectCode, $excludeSubjectCode),
             'userId' => $userId,
             'archived' => $archived,
             'imobilizados' => $imobilizados,
