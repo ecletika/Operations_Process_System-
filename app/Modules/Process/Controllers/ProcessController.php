@@ -96,13 +96,19 @@ final class ProcessController extends Controller
     {
         $userId = (int) Session::get('user_id');
         $repository = new ProcessRepository();
-        $archived = (string) $request->input('view', '') === 'archived';
+        $view = (string) $request->input('view', '');
+        $archived = $view === 'archived';
+        $imobilizados = $view === 'imobilizados';
+        // A aba Imobilizados nunca mistura com a Arquivada: mostra sempre os
+        // processos em curso, para facilitar o controlo dos imobilizados.
+        $subjectCode = $imobilizados ? 'IMO' : null;
 
         $this->view('Process/Views/mine', [
-            'processes' => $repository->listAssignedTo($userId, $archived),
-            'createdProcesses' => $repository->listCreatedBy($userId, $archived),
+            'processes' => $repository->listAssignedTo($userId, $imobilizados ? false : $archived, $subjectCode),
+            'createdProcesses' => $repository->listCreatedBy($userId, $imobilizados ? false : $archived, $subjectCode),
             'userId' => $userId,
             'archived' => $archived,
+            'imobilizados' => $imobilizados,
         ]);
     }
 

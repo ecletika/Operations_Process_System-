@@ -450,9 +450,10 @@ final class ProcessRepository
      * $archived=false → caixa "em curso" (não concluídos);
      * $archived=true  → "Caixa de Entrada Arquivada" (Resolvidos/Encerrados) (#10).
      */
-    public function listAssignedTo(int $userId, bool $archived = false): array
+    public function listAssignedTo(int $userId, bool $archived = false, ?string $subjectCode = null): array
     {
         $statusFilter = $archived ? "st.code IN ('SOLVED', 'CLOSED')" : "st.code NOT IN ('SOLVED', 'CLOSED')";
+        $subjectFilter = $subjectCode !== null ? 'AND sub.code = :subject_code' : '';
 
         $stmt = $this->pdo->prepare("
             SELECT p.*, v.plate AS vehicle_plate, c.name AS customer_name,
@@ -464,10 +465,14 @@ final class ProcessRepository
             JOIN tb_subject sub ON sub.id = p.subject_id
             JOIN tb_status st ON st.id = p.status_id
             JOIN tb_priority pr ON pr.id = p.priority_id
-            WHERE p.deleted_at IS NULL AND p.assigned_to = :user_id AND {$statusFilter}
+            WHERE p.deleted_at IS NULL AND p.assigned_to = :user_id AND {$statusFilter} {$subjectFilter}
             ORDER BY p.last_contact_at DESC
         ");
-        $stmt->execute(['user_id' => $userId]);
+        $params = ['user_id' => $userId];
+        if ($subjectCode !== null) {
+            $params['subject_code'] = $subjectCode;
+        }
+        $stmt->execute($params);
 
         return $stmt->fetchAll();
     }
@@ -476,9 +481,10 @@ final class ProcessRepository
      * Processos Criados por mim — o criador acompanha (e pode interagir),
      * mesmo que outro operador os tenha assumido.
      */
-    public function listCreatedBy(int $userId, bool $archived = false): array
+    public function listCreatedBy(int $userId, bool $archived = false, ?string $subjectCode = null): array
     {
         $statusFilter = $archived ? "st.code IN ('SOLVED', 'CLOSED')" : "st.code NOT IN ('SOLVED', 'CLOSED')";
+        $subjectFilter = $subjectCode !== null ? 'AND sub.code = :subject_code' : '';
 
         $stmt = $this->pdo->prepare("
             SELECT p.*, v.plate AS vehicle_plate, c.name AS customer_name,
@@ -493,10 +499,14 @@ final class ProcessRepository
             JOIN tb_status st ON st.id = p.status_id
             JOIN tb_priority pr ON pr.id = p.priority_id
             LEFT JOIN tb_user u ON u.id = p.assigned_to
-            WHERE p.deleted_at IS NULL AND p.created_by = :user_id AND {$statusFilter}
+            WHERE p.deleted_at IS NULL AND p.created_by = :user_id AND {$statusFilter} {$subjectFilter}
             ORDER BY p.last_contact_at DESC
         ");
-        $stmt->execute(['user_id' => $userId]);
+        $params = ['user_id' => $userId];
+        if ($subjectCode !== null) {
+            $params['subject_code'] = $subjectCode;
+        }
+        $stmt->execute($params);
 
         return $stmt->fetchAll();
     }
