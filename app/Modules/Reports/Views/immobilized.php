@@ -54,6 +54,25 @@
         <div class="ops-form-row" style="margin:0"><label for="to">Data até</label><input type="date" id="to" name="to" value="<?= e($to) ?>"></div>
         <div class="ops-form-row" style="margin:0"><label for="plate">Matrícula</label><input type="text" id="plate" name="plate" value="<?= e($plate) ?>" placeholder="ex.: 67-22-XB"></div>
         <div class="ops-form-row" style="margin:0"><label for="vehicle">Viatura (marca/modelo)</label><input type="text" id="vehicle" name="vehicle" value="<?= e($vehicle) ?>" placeholder="ex.: SEAT Ibiza"></div>
+        <div class="ops-form-row" style="margin:0">
+          <label for="operator_id">Operador (responsável)</label>
+          <select id="operator_id" name="operator_id">
+            <option value="0">Todos</option>
+            <?php foreach (($operatorOptions ?? []) as $op): ?>
+              <option value="<?= (int) $op['id'] ?>" <?= (int) ($selectedOperator ?? 0) === (int) $op['id'] ? 'selected' : '' ?>>
+                <?= e(trim(($op['first_name'] ?? '') . ' ' . ($op['last_name'] ?? ''))) ?>
+              </option>
+            <?php endforeach; ?>
+          </select>
+        </div>
+        <div class="ops-form-row" style="margin:0">
+          <label for="state">Estado</label>
+          <select id="state" name="state">
+            <option value="" <?= ($selectedState ?? '') === '' ? 'selected' : '' ?>>Todos</option>
+            <option value="abertos" <?= ($selectedState ?? '') === 'abertos' ? 'selected' : '' ?>>Em curso (abertos)</option>
+            <option value="fechados" <?= ($selectedState ?? '') === 'fechados' ? 'selected' : '' ?>>Concluídos / Fechados</option>
+          </select>
+        </div>
         <button type="submit" class="ops-btn ops-btn-sm">Filtrar</button>
         <button type="submit" formaction="/reports/imobilizados.xls" class="ops-btn ops-btn-sm" style="background:#16a34a">⬇ Exportar Excel</button>
       </form>

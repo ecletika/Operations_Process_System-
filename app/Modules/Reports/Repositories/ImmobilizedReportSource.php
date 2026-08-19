@@ -12,7 +12,7 @@ namespace App\Modules\Reports\Repositories;
 interface ImmobilizedReportSource
 {
     /**
-     * @param array{from?:?string, to?:?string, plate?:string, vehicle?:string} $filters
+     * @param array{from?:?string, to?:?string, plate?:string, vehicle?:string, operator_id?:int, state?:string} $filters
      * @return list<array<string,mixed>>
      */
     public function processes(string $subjectCode, array $filters, int $limit = 500): array;

@@ -139,6 +139,9 @@ final class ReportController extends Controller
             'to' => (string) $request->input('to', ''),
             'plate' => (string) $request->input('plate', ''),
             'vehicle' => (string) $request->input('vehicle', ''),
+            'operatorOptions' => (new \App\Modules\Auth\Repositories\UserRepository())->listAll(),
+            'selectedOperator' => (int) $request->input('operator_id', 0),
+            'selectedState' => (string) $request->input('state', ''),
         ]);
     }
 
@@ -163,16 +166,19 @@ final class ReportController extends Controller
         exit;
     }
 
-    /** @return array{from:?string, to:?string, plate:string, vehicle:string} */
+    /** @return array{from:?string, to:?string, plate:string, vehicle:string, operator_id:int, state:string} */
     private function immobilizedFilters(Request $request): array
     {
         [$from, $to] = $this->periodFromRequest($request);
+        $state = (string) $request->input('state', '');
 
         return [
             'from' => $from,
             'to' => $to,
             'plate' => trim((string) $request->input('plate', '')),
             'vehicle' => trim((string) $request->input('vehicle', '')),
+            'operator_id' => (int) $request->input('operator_id', 0),
+            'state' => in_array($state, ['abertos', 'fechados'], true) ? $state : '',
         ];
     }
 

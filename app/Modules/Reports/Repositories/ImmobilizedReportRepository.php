@@ -50,6 +50,17 @@ final class ImmobilizedReportRepository implements ImmobilizedReportSource
             $params['vehicle'] = '%' . $filters['vehicle'] . '%';
             $params['vehicle2'] = '%' . $filters['vehicle'] . '%';
         }
+        if (!empty($filters['operator_id'])) {
+            $conditions[] = 'p.assigned_to = :operator_id';
+            $params['operator_id'] = (int) $filters['operator_id'];
+        }
+        // Estado: por omissão mostra tudo; "abertos" = ainda por concluir,
+        // "fechados" = já resolvidos/encerrados.
+        if (($filters['state'] ?? '') === 'abertos') {
+            $conditions[] = "st.code NOT IN ('SOLVED', 'CLOSED')";
+        } elseif (($filters['state'] ?? '') === 'fechados') {
+            $conditions[] = "st.code IN ('SOLVED', 'CLOSED')";
+        }
 
         $sql = '
             SELECT p.id, p.process_number, p.created_at, p.closed_at,
