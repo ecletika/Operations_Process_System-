@@ -105,6 +105,8 @@ $router->get('/timeline', [TimelineController::class, 'index'], [Authenticate::c
 $router->get('/intelligence', [IntelligenceController::class, 'index'], [Authenticate::class, [PermissionMiddleware::class, 'reports.export']]);
 
 $router->get('/reports', [ReportController::class, 'index'], [Authenticate::class, [PermissionMiddleware::class, 'reports.export']]);
+$router->get('/reports/imobilizados', [ReportController::class, 'immobilized'], [Authenticate::class, [PermissionMiddleware::class, 'reports.export']]);
+$router->get('/reports/imobilizados.xls', [ReportController::class, 'exportImmobilizedXls'], [Authenticate::class, [PermissionMiddleware::class, 'reports.export']]);
 $router->get('/reports/heatmap', [ReportController::class, 'heatmap'], [Authenticate::class, [PermissionMiddleware::class, 'reports.export']]);
 $router->get('/reports/heatmap.xls', [ReportController::class, 'exportHeatmapXls'], [Authenticate::class, [PermissionMiddleware::class, 'reports.export']]);
 $router->get('/reports/view/{code}', [ReportController::class, 'show'], [Authenticate::class, [PermissionMiddleware::class, 'reports.export']]);

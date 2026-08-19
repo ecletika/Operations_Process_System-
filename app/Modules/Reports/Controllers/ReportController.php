@@ -8,6 +8,7 @@ use App\Core\Controller;
 use App\Core\Request;
 use App\Modules\Reports\Repositories\AnalyticsRepository;
 use App\Modules\Reports\Services\ExcelExportService;
+use App\Modules\Reports\Services\ImmobilizedReportService;
 use App\Modules\Reports\Services\ReportService;
 use App\Modules\Reports\Services\SimplePdfWriter;
 use App\Traits\AuditTrait;
@@ -125,6 +126,54 @@ final class ReportController extends Controller
         header('Content-Disposition: attachment; filename="relatorio_' . $code . '_' . date('Y-m-d_His') . '.xls"');
         echo $html;
         exit;
+    }
+
+    /** Relatório de Imobilizados — cumprimento do prazo de contacto (16h úteis). */
+    public function immobilized(Request $request): never
+    {
+        $report = (new ImmobilizedReportService())->build($this->immobilizedFilters($request));
+
+        $this->view('Reports/Views/immobilized', [
+            'report' => $report,
+            'from' => (string) $request->input('from', ''),
+            'to' => (string) $request->input('to', ''),
+            'plate' => (string) $request->input('plate', ''),
+            'vehicle' => (string) $request->input('vehicle', ''),
+        ]);
+    }
+
+    /** Excel do Relatório de Imobilizados: uma linha por contacto, com os filtros atuais. */
+    public function exportImmobilizedXls(Request $request): never
+    {
+        $service = new ImmobilizedReportService();
+        $report = $service->build($this->immobilizedFilters($request));
+        $rows = $service->excelRows($report);
+
+        $this->logAudit('EXPORTED', 'report_imobilizados', 0, null, [
+            'rows' => count($rows),
+            'processes' => $report['summary']['processes'],
+            'format' => 'xls',
+        ]);
+
+        $html = (new ExcelExportService())->render($rows, 'Imobilizados - Cumprimento de Prazos');
+
+        header('Content-Type: application/vnd.ms-excel; charset=utf-8');
+        header('Content-Disposition: attachment; filename="relatorio_imobilizados_' . date('Y-m-d_His') . '.xls"');
+        echo $html;
+        exit;
+    }
+
+    /** @return array{from:?string, to:?string, plate:string, vehicle:string} */
+    private function immobilizedFilters(Request $request): array
+    {
+        [$from, $to] = $this->periodFromRequest($request);
+
+        return [
+            'from' => $from,
+            'to' => $to,
+            'plate' => trim((string) $request->input('plate', '')),
+            'vehicle' => trim((string) $request->input('vehicle', '')),
+        ];
     }
 
     /** Heatmap de Contactos: interações por dia da semana × hora. */

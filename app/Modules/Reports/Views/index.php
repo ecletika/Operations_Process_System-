@@ -20,6 +20,10 @@
             <div style="color:#6b7280;font-size:13px"><?= e($description) ?></div>
           </a>
         <?php endforeach; ?>
+        <a href="/reports/imobilizados" style="text-decoration:none;color:inherit;border:1px solid #e5e7eb;border-radius:10px;padding:16px;background:#fff;display:block">
+          <div style="font-weight:700;margin-bottom:4px">🅿️ Imobilizados — Cumprimento de Prazos</div>
+          <div style="color:#6b7280;font-size:13px">Linha do tempo dos contactos de cada Imobilizado, verde/vermelho conforme o prazo de 16h úteis.</div>
+        </a>
         <a href="/reports/heatmap" style="text-decoration:none;color:inherit;border:1px solid #e5e7eb;border-radius:10px;padding:16px;background:#fff;display:block">
           <div style="font-weight:700;margin-bottom:4px">🌡️ Heatmap de Contactos</div>
           <div style="color:#6b7280;font-size:13px">Interações por dia da semana × hora, para dimensionar a equipa.</div>
