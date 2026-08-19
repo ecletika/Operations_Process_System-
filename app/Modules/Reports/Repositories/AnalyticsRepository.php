@@ -72,14 +72,61 @@ final class AnalyticsRepository
     }
 
     /**
-     * Relatório SLA por colaborador × prioridade: % de processos concluídos
-     * dentro do SLA (default_sla_minutes) — mostra quem está a cumprir.
+     * Filtro IN genérico (ex.: prioridades), com prefixo de parâmetro próprio
+     * para não colidir com o filtro de operadores no mesmo statement.
      *
-     * @param int[] $operatorIds filtro opcional (um ou mais operadores)
+     * @param int[] $ids
+     * @return array{0:string,1:array}
      */
-    public function sla(?string $from, ?string $to, array $operatorIds = []): array
+    private function inClause(array $ids, string $column, string $prefix): array
+    {
+        $ids = array_values(array_filter(array_map('intval', $ids)));
+        if ($ids === []) {
+            return ['', []];
+        }
+
+        $placeholders = [];
+        $params = [];
+        foreach ($ids as $i => $id) {
+            $placeholders[] = ":{$prefix}{$i}";
+            $params["{$prefix}{$i}"] = $id;
+        }
+
+        return [' AND ' . $column . ' IN (' . implode(', ', $placeholders) . ')', $params];
+    }
+
+    /**
+     * Relatório SLA: % de processos concluídos dentro do SLA
+     * (default_sla_minutes) por prioridade — mostra quem/qual equipa cumpre.
+     *
+     * @param int[] $operatorIds filtro opcional (só no modo "colaborador")
+     * @param int[] $priorityIds filtro opcional por prioridade
+     * @param string $groupBy 'colaborador' (por omissão) ou 'equipa' (Filial · Departamento)
+     */
+    public function sla(?string $from, ?string $to, array $operatorIds = [], array $priorityIds = [], string $groupBy = 'colaborador'): array
     {
         [$period, $params] = $this->periodClause($from, $to);
+        [$prFilter, $prParams] = $this->inClause($priorityIds, 'pr.id', 'pri');
+
+        if ($groupBy === 'equipa') {
+            return $this->run("
+                SELECT CONCAT(br.name, ' · ', d.name) AS equipa,
+                       pr.name AS prioridade, pr.default_sla_minutes AS sla_minutos,
+                       COUNT(p.id) AS concluidos,
+                       SUM(CASE WHEN TIMESTAMPDIFF(MINUTE, p.created_at, p.closed_at) <= pr.default_sla_minutes
+                                THEN 1 ELSE 0 END) AS dentro_sla,
+                       ROUND(AVG(TIMESTAMPDIFF(MINUTE, p.created_at, p.closed_at)), 0) AS tempo_medio_min
+                FROM tb_process p
+                JOIN tb_priority pr ON pr.id = p.priority_id
+                JOIN tb_batch bt ON bt.id = p.batch_id
+                JOIN tb_department d ON d.id = bt.department_id
+                JOIN tb_branch br ON br.id = d.branch_id
+                WHERE p.deleted_at IS NULL AND p.closed_at IS NOT NULL {$period}{$prFilter}
+                GROUP BY bt.id, br.name, d.name, pr.id, pr.name, pr.default_sla_minutes, pr.sort_order
+                ORDER BY equipa ASC, pr.sort_order ASC
+            ", $params + $prParams);
+        }
+
         [$opFilter, $opParams] = $this->operatorClause($operatorIds, 'p.closed_by');
 
         return $this->run("
@@ -92,10 +139,10 @@ final class AnalyticsRepository
             FROM tb_process p
             JOIN tb_priority pr ON pr.id = p.priority_id
             JOIN tb_user u ON u.id = p.closed_by
-            WHERE p.deleted_at IS NULL AND p.closed_at IS NOT NULL {$period}{$opFilter}
+            WHERE p.deleted_at IS NULL AND p.closed_at IS NOT NULL {$period}{$opFilter}{$prFilter}
             GROUP BY u.id, u.first_name, u.last_name, pr.id, pr.name, pr.default_sla_minutes, pr.sort_order
             ORDER BY colaborador ASC, pr.sort_order ASC
-        ", $params + $opParams);
+        ", $params + $opParams + $prParams);
     }
 
     /**

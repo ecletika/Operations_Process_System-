@@ -30,6 +30,8 @@
                 'from' => $from,
                 'to' => $to,
                 'operators' => $selectedOperators ?? [],
+                'priorities' => $selectedPriorities ?? [],
+                'group' => ($groupBy ?? '') === 'equipa' ? 'equipa' : '',
             ]));
           ?>
           <div style="display:flex;gap:8px">
@@ -39,6 +41,32 @@
                class="ops-btn ops-btn-sm" style="background:#16a34a;text-decoration:none">⬇️ Baixar Excel</a>
           </div>
         </div>
+
+        <?php if (!empty($showGroupToggle) || !empty($priorityOptions)): ?>
+          <div style="display:flex;gap:22px;flex-wrap:wrap;margin:16px 0 0">
+            <?php if (!empty($showGroupToggle)): ?>
+              <div class="ops-form-row" style="margin:0;min-width:200px">
+                <label for="group">Sair por</label>
+                <select id="group" name="group">
+                  <option value="colaborador" <?= ($groupBy ?? '') !== 'equipa' ? 'selected' : '' ?>>Colaborador</option>
+                  <option value="equipa" <?= ($groupBy ?? '') === 'equipa' ? 'selected' : '' ?>>Equipa (Filial · Departamento)</option>
+                </select>
+              </div>
+            <?php endif; ?>
+            <?php if (!empty($priorityOptions)): ?>
+              <div class="ops-form-row" style="margin:0;min-width:220px">
+                <label for="priorities">Prioridade(s) <span style="font-weight:400;color:#9ca3af">(Ctrl/Cmd+clique para várias)</span></label>
+                <select id="priorities" name="priorities[]" multiple size="4" style="min-width:220px">
+                  <?php foreach ($priorityOptions as $pr): ?>
+                    <option value="<?= (int) $pr['id'] ?>" <?= in_array((int) $pr['id'], $selectedPriorities ?? [], true) ? 'selected' : '' ?>>
+                      <?= e($pr['name']) ?>
+                    </option>
+                  <?php endforeach; ?>
+                </select>
+              </div>
+            <?php endif; ?>
+          </div>
+        <?php endif; ?>
 
         <?php if (!empty($operatorOptions)): ?>
           <div class="ops-form-row" style="margin:16px 0 0">

@@ -53,6 +53,7 @@ final class ReportController extends Controller
         $rows = $this->buildReportRows($code, $request);
         $hasOperatorFilter = in_array($code, ['sla', 'operators'], true);
         $operatorIds = array_map('intval', (array) $request->input('operators', []));
+        $groupBy = $this->slaGroupBy($request);
 
         $this->view('Reports/Views/report', [
             'code' => $code,
@@ -61,9 +62,21 @@ final class ReportController extends Controller
             'rows' => $rows,
             'from' => (string) $request->input('from', ''),
             'to' => (string) $request->input('to', ''),
-            'operatorOptions' => $hasOperatorFilter ? (new \App\Modules\Auth\Repositories\UserRepository())->listAll() : [],
+            // O filtro de operador só faz sentido a agrupar por colaborador.
+            'operatorOptions' => $hasOperatorFilter && $groupBy !== 'equipa' ? (new \App\Modules\Auth\Repositories\UserRepository())->listAll() : [],
             'selectedOperators' => $operatorIds,
+            // SLA ganha filtro por prioridade e alternância colaborador/equipa.
+            'priorityOptions' => $code === 'sla' ? (new \App\Modules\Process\Repositories\PriorityRepository())->listAll() : [],
+            'selectedPriorities' => array_map('intval', (array) $request->input('priorities', [])),
+            'showGroupToggle' => $code === 'sla',
+            'groupBy' => $groupBy,
         ]);
+    }
+
+    /** SLA: modo de saída — por colaborador (omissão) ou por equipa. */
+    private function slaGroupBy(Request $request): string
+    {
+        return $request->input('group') === 'equipa' ? 'equipa' : 'colaborador';
     }
 
     /** Constrói as linhas de um relatório tabular (partilhado pela vista e pelo Excel). */
@@ -74,9 +87,12 @@ final class ReportController extends Controller
 
         // Filtro por operador(es) — só nos relatórios SLA e Produtividade.
         $operatorIds = array_map('intval', (array) $request->input('operators', []));
+        // SLA: filtro por prioridade e modo de agrupamento (colaborador/equipa).
+        $priorityIds = array_map('intval', (array) $request->input('priorities', []));
+        $groupBy = $this->slaGroupBy($request);
 
         $rows = match ($code) {
-            'sla' => $repository->sla($from, $to, $operatorIds),
+            'sla' => $repository->sla($from, $to, $operatorIds, $priorityIds, $groupBy),
             'operators' => $repository->operators($from, $to, $operatorIds),
             'batches' => $repository->batches($from, $to),
             'customers' => $repository->customers($from, $to),
