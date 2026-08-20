@@ -43,16 +43,15 @@ final class NoteService
     }
 
     /**
-     * Se a Prioridade define um intervalo de contacto (Configurações →
-     * Prioridades), cada contacto registado conta como "já liguei agora" e
-     * empurra o próximo para mais X minutos de atendimento à frente. Aplica-se
-     * a qualquer processo com esse intervalo, esteja em espera ou em
-     * tratamento — sem intervalo definido, não há lembrete periódico.
+     * Só para Imobilizados (a combinação Assunto/Prioridade configurada em
+     * Configurações): cada contacto registado conta como "já liguei agora" e
+     * empurra o próximo contacto para mais X minutos de atendimento à frente.
+     * Fora dessa combinação não há agendamento automático.
      */
     private function autoScheduleNextContact(int $processId, int $userId): void
     {
         $process = $this->processes->findById($processId);
-        if ($process === null) {
+        if ($process === null || !ProcessService::allowsNextContact($process)) {
             return;
         }
 

@@ -154,6 +154,26 @@ final class ProcessService
             $userId
         );
 
+        // Imobilizado nasce já com o próximo contacto agendado (a criação conta
+        // como 1º contacto): assim não fica sem próximo enquanto ninguém regista
+        // a 1ª interação. Só para a combinação Imobilizado configurada.
+        $created = $this->processes->findById($processId);
+        if ($created !== null && self::allowsNextContact($created)) {
+            $minutes = self::autoNextContactMinutes($created);
+            if ($minutes > 0) {
+                $quando = self::nextContactDeadline($minutes);
+                $this->processes->setNextContactAt($processId, $quando, $userId);
+                $this->timeline->record(
+                    $processId,
+                    'NEXT_CONTACT_SET',
+                    'Próximo contacto com o cliente agendado automaticamente para '
+                        . self::formatLocal($quando) . " ({$minutes} min)",
+                    null,
+                    $userId
+                );
+            }
+        }
+
         // RF-0038 - notifica supervisores/administradores da empresa.
         $this->notifications->notifySupervisors(
             $companyId,
@@ -291,7 +311,7 @@ final class ProcessService
      */
     private function syncNextContactWithWaiting(array $process, bool $isWaiting, int $userId): void
     {
-        if (!$isWaiting) {
+        if (!$isWaiting || !self::allowsNextContact($process)) {
             return;
         }
 
