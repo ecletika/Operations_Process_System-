@@ -147,7 +147,7 @@
                       <td class="cc-empty">—</td>
                     <?php else: ?>
                       <td class="cc <?= $c['onTime'] ? 'ok' : 'late' ?>">
-                        <span class="badge"><?= $c['onTime'] ? '🟢 ' . e($c['humanGap']) : '🔴 ' . e($c['humanGap']) . ' · +' . e($c['humanOver']) ?></span>
+                        <span class="badge"><?= $c['onTime'] ? '🟢 No prazo' : '🔴 Em atraso · +' . e($c['humanOver']) ?></span>
                         <div class="when"><?= e($c['when']) ?></div>
                         <div class="canal"><?= e($c['channel']) ?><?= $c['who'] !== '' ? ' · ' . e($c['who']) : '' ?></div>
                         <?php if ($c['text'] !== ''): ?>

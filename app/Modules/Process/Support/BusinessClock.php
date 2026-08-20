@@ -97,6 +97,36 @@ final class BusinessClock
         return $fromTs + $slaMinutes * 60;
     }
 
+    /** É um dia de atendimento? (não é fim de semana fechado nem feriado). */
+    public static function isOpenDay(DateTimeImmutable $day): bool
+    {
+        return self::windowFor($day)[0] !== null;
+    }
+
+    /**
+     * Instante (timestamp UTC) $days DIAS ÚTEIS depois de $fromTs, mantendo a
+     * MESMA hora do dia e saltando fins de semana e feriados. Ex.: 6ª-feira
+     * 16:00 + 2 dias úteis = 3ª-feira seguinte 16:00 (salta sábado e domingo).
+     */
+    public static function plusBusinessDays(int $fromTs, int $days): int
+    {
+        if ($days <= 0) {
+            return $fromTs;
+        }
+
+        $cursor = (new DateTimeImmutable('@' . $fromTs))->setTimezone(app_timezone());
+        $counted = 0;
+
+        for ($i = 0; $i < 400 && $counted < $days; $i++) {
+            $cursor = $cursor->modify('+1 day'); // mantém a hora do dia
+            if (self::isOpenDay($cursor)) {
+                $counted++;
+            }
+        }
+
+        return $cursor->getTimestamp();
+    }
+
     /**
      * Janela de atendimento [abertura, fecho] (timestamps UTC) do dia de
      * $day. Devolve [null, null] se for fim de semana fechado ou feriado.

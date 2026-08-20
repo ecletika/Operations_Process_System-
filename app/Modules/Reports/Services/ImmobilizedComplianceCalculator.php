@@ -54,14 +54,18 @@ final class ImmobilizedComplianceCalculator
         $prev = $startTs;
 
         foreach ($contactTs as $ts) {
+            // O prazo é uma DATA (último + intervalo, em dias úteis): o contacto
+            // está no prazo se aconteceu até essa data. O "minutos" fica só como
+            // gap informativo.
+            $dueTs = (int) $deadline($prev, $this->deadlineMinutes);
+            $isOnTime = $ts <= $dueTs;
             $minutes = (int) $between($prev, $ts);
-            $isOnTime = $minutes <= $this->deadlineMinutes;
 
             $contacts[] = [
                 'ts' => $ts,
                 'businessMinutes' => $minutes,
                 'onTime' => $isOnTime,
-                'overBy' => max(0, $minutes - $this->deadlineMinutes),
+                'overBy' => $isOnTime ? 0 : (int) intdiv($ts - $dueTs, 60),
             ];
 
             $isOnTime ? $onTime++ : $late++;
@@ -70,13 +74,14 @@ final class ImmobilizedComplianceCalculator
 
         $next = null;
         if (!$closed) {
-            $elapsed = (int) $between($prev, $nowTs);
+            $dueTs = (int) $deadline($prev, $this->deadlineMinutes);
+            $overdue = $nowTs > $dueTs;
             $next = [
-                'dueTs' => (int) $deadline($prev, $this->deadlineMinutes),
-                'elapsed' => $elapsed,
-                'overdue' => $elapsed > $this->deadlineMinutes,
-                'overBy' => max(0, $elapsed - $this->deadlineMinutes),
-                'remaining' => max(0, $this->deadlineMinutes - $elapsed),
+                'dueTs' => $dueTs,
+                'elapsed' => (int) $between($prev, $nowTs),
+                'overdue' => $overdue,
+                'overBy' => $overdue ? (int) intdiv($nowTs - $dueTs, 60) : 0,
+                'remaining' => $overdue ? 0 : (int) intdiv($dueTs - $nowTs, 60),
             ];
         }
 

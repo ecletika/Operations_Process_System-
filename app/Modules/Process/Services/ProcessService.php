@@ -367,26 +367,42 @@ final class ProcessService
         return $minutes > 0 ? $minutes : 0;
     }
 
+    /** 1 dia útil = 8 horas (480 min). É a convenção do "16h úteis = 2 dias". */
+    private const MINUTES_PER_BUSINESS_DAY = 480;
+
     /**
      * Quando cai o próximo contacto, já em UTC ('Y-m-d H:i:s') como o resto do
      * sistema guarda.
      *
-     * Os minutos são contados no relógio de atendimento quando o horário útil
-     * está ligado (mesma regra do SLA): de propósito, para nunca cair a um
-     * sábado ou domingo — é precisamente por isto que a Prioridade se
-     * configura em MINUTOS DE ATENDIMENTO e não em horas corridas. Ex.: para
-     * "2 dias" o valor certo é 16h (960 min) de atendimento, não 48h (2880
-     * min) — 48h corridas nunca caem num fim de semana só por acaso, mas
-     * também não são "2 dias de trabalho". Com o horário desligado, contam-se
-     * minutos corridos.
+     * Regra (Imobilizados): o próximo contacto é o último contacto + N DIAS
+     * ÚTEIS, mantendo a MESMA hora do dia e saltando fins de semana e feriados.
+     * "16 horas úteis" = 2 dias úteis (1 dia útil = 8h = 480 min). Ex.: 6ª-feira
+     * 16:00 → 3ª-feira 16:00 (salta sábado e domingo). Se sobrarem minutos que
+     * não fecham um dia inteiro, somam-se ao relógio. Com o horário de
+     * atendimento desligado, contam-se minutos corridos.
      */
     public static function nextContactDeadline(int $minutes, ?int $fromTs = null): string
     {
         $fromTs ??= time();
 
-        $targetTs = BusinessClock::enabled()
-            ? BusinessClock::deadlineFrom($fromTs, $minutes)
-            : $fromTs + $minutes * 60;
+        if (!BusinessClock::enabled()) {
+            return gmdate('Y-m-d H:i:s', $fromTs + $minutes * 60);
+        }
+
+        $days = intdiv($minutes, self::MINUTES_PER_BUSINESS_DAY);
+        $remMinutes = $minutes % self::MINUTES_PER_BUSINESS_DAY;
+
+        $targetTs = BusinessClock::plusBusinessDays($fromTs, $days);
+
+        if ($remMinutes > 0) {
+            $cursor = (new \DateTimeImmutable('@' . ($targetTs + $remMinutes * 60)))->setTimezone(\app_timezone());
+            // Se os minutos extra caírem num dia não útil, empurra para o
+            // próximo dia útil, mantendo a hora.
+            while (!BusinessClock::isOpenDay($cursor)) {
+                $cursor = $cursor->modify('+1 day');
+            }
+            $targetTs = $cursor->getTimestamp();
+        }
 
         return gmdate('Y-m-d H:i:s', $targetTs);
     }

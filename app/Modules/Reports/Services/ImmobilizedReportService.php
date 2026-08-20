@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Reports\Services;
 
 use App\Core\Settings;
+use App\Modules\Process\Services\ProcessService;
 use App\Modules\Process\Support\BusinessClock;
 use App\Modules\Reports\Repositories\ImmobilizedReportRepository;
 use App\Modules\Reports\Repositories\ImmobilizedReportSource;
@@ -184,23 +185,28 @@ final class ImmobilizedReportService
     }
 
     /**
-     * Relógio a usar: com o horário de atendimento ligado (mesmo do SLA), conta
-     * minutos úteis e salta fins de semana/feriados; desligado, minutos corridos.
+     * Relógio do relatório. O PRAZO (deadline) usa a mesma regra do resto do
+     * sistema — último contacto + N dias úteis, mesma hora — via
+     * ProcessService::nextContactDeadline, para o verde/vermelho aqui bater
+     * certo com o "Próximo Contacto" mostrado nas listas. O "between" continua
+     * a devolver minutos úteis, só para o gap informativo.
      *
      * @return array{0:callable(int,int):int, 1:callable(int,int):int}
      */
     private static function clock(): array
     {
+        $deadline = static fn (int $a, int $m): int => self::ts(ProcessService::nextContactDeadline($m, $a));
+
         if (BusinessClock::enabled()) {
             return [
                 static fn (int $a, int $b): int => BusinessClock::minutesBetween($a, $b),
-                static fn (int $a, int $m): int => BusinessClock::deadlineFrom($a, $m),
+                $deadline,
             ];
         }
 
         return [
             static fn (int $a, int $b): int => (int) max(0, ($b - $a) / 60),
-            static fn (int $a, int $m): int => $a + $m * 60,
+            $deadline,
         ];
     }
 
