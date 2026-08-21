@@ -482,7 +482,9 @@ final class ProcessController extends Controller
     {
         $date = (string) $request->input('next_contact_at', '');
         $allowed = $this->allowedBatchIds();
-        $this->runAction($request, $params, fn (ProcessService $service, int $id, int $userId) => $service->setNextContact($id, $date, $userId, $allowed));
+        // Gestão/Supervisão pode sobrepor à mão mesmo quando é automática.
+        $canOverride = in_array('process.next_contact_override', (array) \App\Core\Session::get('permissions', []), true);
+        $this->runAction($request, $params, fn (ProcessService $service, int $id, int $userId) => $service->setNextContact($id, $date, $userId, $allowed, $canOverride));
     }
 
     public function close(Request $request, array $params): never

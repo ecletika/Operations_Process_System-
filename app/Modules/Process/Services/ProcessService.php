@@ -420,7 +420,7 @@ final class ProcessService
      * contactar daqui a X dias). Fica visível na Caixa de Entrada do
      * responsável, para saber quando a data vence.
      */
-    public function setNextContact(int $processId, ?string $date, int $userId, ?array $allowedBatchIds = null): void
+    public function setNextContact(int $processId, ?string $date, int $userId, ?array $allowedBatchIds = null, bool $canOverride = false): void
     {
         $process = $this->processes->findById($processId);
         if ($process === null) {
@@ -441,10 +441,11 @@ final class ProcessService
             return;
         }
 
-        // O calendário está inibido na ficha do processo quando a Prioridade
+        // O calendário está inibido para os operadores quando a Prioridade
         // agenda sozinha; o servidor recusa pelo mesmo motivo, para um pedido
-        // fabricado não contornar a regra.
-        if (self::autoNextContactMinutes($process) > 0) {
+        // fabricado não contornar a regra. Gestão/Supervisão ($canOverride)
+        // pode sobrepor à mão — a contagem automática continua na mesma.
+        if (!$canOverride && self::autoNextContactMinutes($process) > 0) {
             throw new RuntimeException('Esta prioridade agenda o próximo contacto automaticamente — para escolher a data à mão, limpe o campo "Próx. Contacto Cliente" da prioridade em Configurações.');
         }
 
