@@ -23,7 +23,10 @@ final class SlaCalendarRepository
     /** @return array<int, array<string, mixed>> indexado por weekday (0=Dom) */
     public function hours(): array
     {
-        $rows = $this->pdo->query('SELECT weekday, open_time, close_time FROM tb_business_hours ORDER BY weekday')->fetchAll();
+        $cols = Database::hasColumn('tb_business_hours', 'lunch_start')
+            ? 'weekday, open_time, close_time, lunch_start, lunch_end'
+            : 'weekday, open_time, close_time';
+        $rows = $this->pdo->query("SELECT {$cols} FROM tb_business_hours ORDER BY weekday")->fetchAll();
         $byDay = [];
         foreach ($rows as $row) {
             $byDay[(int) $row['weekday']] = $row;
@@ -32,8 +35,27 @@ final class SlaCalendarRepository
         return $byDay;
     }
 
-    public function setDay(int $weekday, ?string $open, ?string $close, int $userId): void
+    public function setDay(int $weekday, ?string $open, ?string $close, ?string $lunchStart, ?string $lunchEnd, int $userId): void
     {
+        $n = static fn (?string $v): ?string => $v !== null && $v !== '' ? $v : null;
+
+        if (Database::hasColumn('tb_business_hours', 'lunch_start')) {
+            $stmt = $this->pdo->prepare('
+                INSERT INTO tb_business_hours (weekday, open_time, close_time, lunch_start, lunch_end, updated_by)
+                VALUES (:weekday, :open, :close, :ls, :le, :user_id)
+                ON DUPLICATE KEY UPDATE open_time = VALUES(open_time), close_time = VALUES(close_time),
+                                        lunch_start = VALUES(lunch_start), lunch_end = VALUES(lunch_end),
+                                        updated_by = VALUES(updated_by), updated_at = NOW()
+            ');
+            $stmt->execute([
+                'weekday' => $weekday, 'open' => $n($open), 'close' => $n($close),
+                'ls' => $n($lunchStart), 'le' => $n($lunchEnd), 'user_id' => $userId,
+            ]);
+
+            return;
+        }
+
+        // Migração 033 ainda não aplicada — grava sem almoço.
         $stmt = $this->pdo->prepare('
             INSERT INTO tb_business_hours (weekday, open_time, close_time, updated_by)
             VALUES (:weekday, :open, :close, :user_id)
@@ -41,10 +63,7 @@ final class SlaCalendarRepository
                                     updated_by = VALUES(updated_by), updated_at = NOW()
         ');
         $stmt->execute([
-            'weekday' => $weekday,
-            'open' => $open !== null && $open !== '' ? $open : null,
-            'close' => $close !== null && $close !== '' ? $close : null,
-            'user_id' => $userId,
+            'weekday' => $weekday, 'open' => $n($open), 'close' => $n($close), 'user_id' => $userId,
         ]);
     }
 

@@ -20,7 +20,7 @@ use DateTimeZone;
  */
 final class BusinessClock
 {
-    /** @var array<int, array{open:?string, close:?string}>|null */
+    /** @var array<int, array{open:?string, close:?string, lunch_start:?string, lunch_end:?string}>|null */
     private static ?array $hours = null;
     /** @var array<string, bool>|null feriados: 'm-d' recorrentes + 'Y-m-d' fixos */
     private static ?array $holidays = null;
@@ -46,14 +46,13 @@ final class BusinessClock
         $end = (new DateTimeImmutable('@' . $toTs))->setTimezone($tz);
         $minutes = 0;
 
-        // Avança dia a dia, somando a interseção de [cursor, end] com a
-        // janela de atendimento de cada dia. Limite de segurança de ~2 anos.
+        // Avança dia a dia, somando a interseção de [from, to] com cada
+        // SEGMENTO de atendimento do dia (a manhã e a tarde, saltando o almoço).
+        // Limite de segurança de ~2 anos.
         for ($i = 0; $i < 800 && $cursor < $end; $i++) {
-            [$openTs, $closeTs] = self::windowFor($cursor);
-
-            if ($openTs !== null) {
-                $segStart = max($cursor->getTimestamp(), $openTs);
-                $segEnd = min($end->getTimestamp(), $closeTs);
+            foreach (self::segmentsFor($cursor) as [$s, $e]) {
+                $segStart = max($fromTs, $s);
+                $segEnd = min($toTs, $e);
                 if ($segEnd > $segStart) {
                     $minutes += (int) floor(($segEnd - $segStart) / 60);
                 }
@@ -77,12 +76,10 @@ final class BusinessClock
         $remaining = max(0, $slaMinutes);
 
         for ($i = 0; $i < 800; $i++) {
-            [$openTs, $closeTs] = self::windowFor($cursor);
-
-            if ($openTs !== null) {
-                $segStart = max($cursor->getTimestamp(), $openTs);
-                if ($closeTs > $segStart) {
-                    $disponivel = (int) floor(($closeTs - $segStart) / 60);
+            foreach (self::segmentsFor($cursor) as [$s, $e]) {
+                $segStart = max($fromTs, $s);
+                if ($e > $segStart) {
+                    $disponivel = (int) floor(($e - $segStart) / 60);
                     if ($remaining <= $disponivel) {
                         return $segStart + $remaining * 60;
                     }
@@ -100,7 +97,7 @@ final class BusinessClock
     /** É um dia de atendimento? (não é fim de semana fechado nem feriado). */
     public static function isOpenDay(DateTimeImmutable $day): bool
     {
-        return self::windowFor($day)[0] !== null;
+        return self::segmentsFor($day) !== [];
     }
 
     /**
@@ -128,15 +125,17 @@ final class BusinessClock
     }
 
     /**
-     * Janela de atendimento [abertura, fecho] (timestamps UTC) do dia de
-     * $day. Devolve [null, null] se for fim de semana fechado ou feriado.
+     * Segmentos de atendimento (timestamps UTC) do dia de $day: normalmente um
+     * só [abertura, fecho], ou DOIS quando há almoço configurado — manhã
+     * [abertura, início_almoço] e tarde [fim_almoço, fecho]. Vazio se for fim
+     * de semana fechado ou feriado.
      *
-     * @return array{0:?int, 1:?int}
+     * @return list<array{0:int, 1:int}>
      */
-    private static function windowFor(DateTimeImmutable $day): array
+    private static function segmentsFor(DateTimeImmutable $day): array
     {
         if (self::isHoliday($day)) {
-            return [null, null];
+            return [];
         }
 
         $hours = self::hours();
@@ -144,17 +143,39 @@ final class BusinessClock
         $row = $hours[$wd] ?? null;
 
         if ($row === null || $row['open'] === null || $row['close'] === null) {
-            return [null, null];
+            return [];
         }
 
-        $open = DateTimeImmutable::createFromFormat('!Y-m-d H:i:s', $day->format('Y-m-d') . ' ' . $row['open'], $day->getTimezone());
-        $close = DateTimeImmutable::createFromFormat('!Y-m-d H:i:s', $day->format('Y-m-d') . ' ' . $row['close'], $day->getTimezone());
+        $mk = static fn (string $time): int|false => ($dt = DateTimeImmutable::createFromFormat(
+            '!Y-m-d H:i:s',
+            $day->format('Y-m-d') . ' ' . $time,
+            $day->getTimezone()
+        )) === false ? false : $dt->getTimestamp();
 
-        if ($open === false || $close === false || $close <= $open) {
-            return [null, null];
+        $openTs = $mk($row['open']);
+        $closeTs = $mk($row['close']);
+        if ($openTs === false || $closeTs === false || $closeTs <= $openTs) {
+            return [];
         }
 
-        return [$open->getTimestamp(), $close->getTimestamp()];
+        // Almoço, se configurado e válido (dentro da janela do dia).
+        if (($row['lunch_start'] ?? null) !== null && ($row['lunch_end'] ?? null) !== null) {
+            $lsTs = $mk($row['lunch_start']);
+            $leTs = $mk($row['lunch_end']);
+            if ($lsTs !== false && $leTs !== false && $leTs > $lsTs && $lsTs >= $openTs && $leTs <= $closeTs) {
+                $segments = [];
+                if ($lsTs > $openTs) {
+                    $segments[] = [$openTs, $lsTs];
+                }
+                if ($closeTs > $leTs) {
+                    $segments[] = [$leTs, $closeTs];
+                }
+
+                return $segments;
+            }
+        }
+
+        return [[$openTs, $closeTs]];
     }
 
     private static function isHoliday(DateTimeImmutable $day): bool
@@ -164,14 +185,25 @@ final class BusinessClock
         return isset($holidays[$day->format('m-d')]) || isset($holidays[$day->format('Y-m-d')]);
     }
 
-    /** @return array<int, array{open:?string, close:?string}> */
+    /** @return array<int, array{open:?string, close:?string, lunch_start:?string, lunch_end:?string}> */
     private static function hours(): array
     {
         if (self::$hours === null) {
             self::$hours = [];
-            $rows = Database::connection()->query('SELECT weekday, open_time, close_time FROM tb_business_hours')->fetchAll();
+            // Resiliente à migração 033: se as colunas de almoço ainda não
+            // existirem, o horário funciona na mesma (sem almoço).
+            $hasLunch = Database::hasColumn('tb_business_hours', 'lunch_start');
+            $cols = $hasLunch
+                ? 'weekday, open_time, close_time, lunch_start, lunch_end'
+                : 'weekday, open_time, close_time';
+            $rows = Database::connection()->query("SELECT {$cols} FROM tb_business_hours")->fetchAll();
             foreach ($rows as $row) {
-                self::$hours[(int) $row['weekday']] = ['open' => $row['open_time'], 'close' => $row['close_time']];
+                self::$hours[(int) $row['weekday']] = [
+                    'open' => $row['open_time'],
+                    'close' => $row['close_time'],
+                    'lunch_start' => $hasLunch ? ($row['lunch_start'] ?? null) : null,
+                    'lunch_end' => $hasLunch ? ($row['lunch_end'] ?? null) : null,
+                ];
             }
         }
 

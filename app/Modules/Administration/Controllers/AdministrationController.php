@@ -204,14 +204,18 @@ final class AdministrationController extends Controller
         $settings->updateValue('sla_business_hours_enabled', $request->input('enabled') !== null ? '1' : '0', $userId);
 
         $repository = new \App\Modules\Administration\Repositories\SlaCalendarRepository();
-        $days = (array) $request->input('days', []);      // [weekday => 1] os que estão abertos
-        $opens = (array) $request->input('open', []);     // [weekday => 'HH:MM']
-        $closes = (array) $request->input('close', []);   // [weekday => 'HH:MM']
+        $days = (array) $request->input('days', []);          // [weekday => 1] os que estão abertos
+        $opens = (array) $request->input('open', []);         // [weekday => 'HH:MM']
+        $closes = (array) $request->input('close', []);       // [weekday => 'HH:MM']
+        $lunchStarts = (array) $request->input('lunch_start', []);
+        $lunchEnds = (array) $request->input('lunch_end', []);
 
         for ($wd = 0; $wd <= 6; $wd++) {
             $aberto = isset($days[$wd]);
             $open = $aberto ? trim((string) ($opens[$wd] ?? '')) : null;
             $close = $aberto ? trim((string) ($closes[$wd] ?? '')) : null;
+            $lunchStart = $aberto ? trim((string) ($lunchStarts[$wd] ?? '')) : '';
+            $lunchEnd = $aberto ? trim((string) ($lunchEnds[$wd] ?? '')) : '';
 
             // Dia aberto tem de ter horas válidas com fecho depois da abertura.
             if ($aberto && ($open === '' || $close === '' || $close <= $open)) {
@@ -219,7 +223,25 @@ final class AdministrationController extends Controller
                 Response::redirect('/admin/sla-calendar');
             }
 
-            $repository->setDay($wd, $open, $close, $userId);
+            // Almoço: ou os dois vazios (sem almoço), ou os dois preenchidos,
+            // com fim depois do início e dentro do horário do dia.
+            $temAlmoco = $lunchStart !== '' || $lunchEnd !== '';
+            if ($aberto && $temAlmoco) {
+                if ($lunchStart === '' || $lunchEnd === '' || $lunchEnd <= $lunchStart
+                    || $lunchStart < (string) $open || $lunchEnd > (string) $close) {
+                    Session::flash('errors', ['Verifique o almoço: preencha início e fim, com o fim depois do início e ambos dentro do horário de atendimento.']);
+                    Response::redirect('/admin/sla-calendar');
+                }
+            }
+
+            $repository->setDay(
+                $wd,
+                $open,
+                $close,
+                $temAlmoco ? $lunchStart : null,
+                $temAlmoco ? $lunchEnd : null,
+                $userId
+            );
         }
 
         $this->logAudit('UPDATE', 'tb_business_hours', 0, null, ['saved' => true]);
