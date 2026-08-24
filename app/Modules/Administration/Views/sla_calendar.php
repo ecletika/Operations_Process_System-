@@ -32,7 +32,7 @@
 
         <p style="color:#9ca3af;font-size:12px;margin:0 0 12px">O <strong>almoço</strong> é opcional: preenchido, o SLA também não conta nesse intervalo. Deixe vazio para não haver pausa de almoço.</p>
         <table class="ops-table">
-          <thead><tr><th>Dia</th><th>Aberto</th><th>Abertura</th><th>Fecho</th><th>Almoço (início)</th><th>Almoço (fim)</th></tr></thead>
+          <thead><tr><th>Dia</th><th>Aberto</th><th>Abertura</th><th>Almoço (início)</th><th>Almoço (fim)</th><th>Fecho</th></tr></thead>
           <tbody>
             <?php foreach ($dias as $wd => $label): ?>
               <?php
@@ -45,9 +45,9 @@
                 <td><strong><?= e($label) ?></strong></td>
                 <td><input type="checkbox" name="days[<?= $wd ?>]" value="1" <?= $aberto ? 'checked' : '' ?>></td>
                 <td><input type="time" name="open[<?= $wd ?>]" value="<?= e($aberto ? substr((string) $h['open_time'], 0, 5) : '09:00') ?>" style="padding:5px 8px;border:1px solid #e5e7eb;border-radius:6px"></td>
-                <td><input type="time" name="close[<?= $wd ?>]" value="<?= e($aberto ? substr((string) $h['close_time'], 0, 5) : '18:00') ?>" style="padding:5px 8px;border:1px solid #e5e7eb;border-radius:6px"></td>
                 <td><input type="time" name="lunch_start[<?= $wd ?>]" value="<?= e($ls) ?>" style="padding:5px 8px;border:1px solid #e5e7eb;border-radius:6px"></td>
                 <td><input type="time" name="lunch_end[<?= $wd ?>]" value="<?= e($le) ?>" style="padding:5px 8px;border:1px solid #e5e7eb;border-radius:6px"></td>
+                <td><input type="time" name="close[<?= $wd ?>]" value="<?= e($aberto ? substr((string) $h['close_time'], 0, 5) : '18:00') ?>" style="padding:5px 8px;border:1px solid #e5e7eb;border-radius:6px"></td>
               </tr>
             <?php endforeach; ?>
           </tbody>
