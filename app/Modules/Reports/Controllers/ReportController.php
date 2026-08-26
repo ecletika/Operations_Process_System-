@@ -79,6 +79,45 @@ final class ReportController extends Controller
         return $request->input('group') === 'equipa' ? 'equipa' : 'colaborador';
     }
 
+    /**
+     * Drill-down do Relatório SLA: fragmento (para modal) com os processos
+     * concluídos de uma célula (operador/equipa × prioridade), tempo total de
+     * cada um e, no fim, a média e a % dentro do SLA.
+     */
+    public function slaProcesses(Request $request): never
+    {
+        [$from, $to] = $this->periodFromRequest($request);
+        $priorityId = (int) $request->input('priority_id', 0);
+        $operatorId = (int) $request->input('operator_id', 0);
+        $batchId = (int) $request->input('batch_id', 0);
+
+        $rows = (new AnalyticsRepository())->slaClosedProcesses(
+            $from,
+            $to,
+            $priorityId,
+            $operatorId > 0 ? $operatorId : null,
+            $batchId > 0 ? $batchId : null
+        );
+
+        $count = count($rows);
+        $within = 0;
+        $sum = 0;
+        foreach ($rows as $r) {
+            $within += (int) $r['dentro_sla'];
+            $sum += (int) $r['tempo_total_min'];
+        }
+
+        $this->view('Reports/Views/sla_processes_modal', [
+            'rows' => $rows,
+            'label' => trim((string) $request->input('label', '')),
+            'priorityName' => trim((string) $request->input('priority', '')),
+            'count' => $count,
+            'within' => $within,
+            'avg' => $count > 0 ? (int) round($sum / $count) : 0,
+            'pct' => $count > 0 ? (int) round($within / $count * 100) : null,
+        ]);
+    }
+
     /** Constrói as linhas de um relatório tabular (partilhado pela vista e pelo Excel). */
     private function buildReportRows(string $code, Request $request): array
     {

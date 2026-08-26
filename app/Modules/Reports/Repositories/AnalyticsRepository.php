@@ -115,7 +115,8 @@ final class AnalyticsRepository
                        COUNT(p.id) AS concluidos,
                        SUM(CASE WHEN TIMESTAMPDIFF(MINUTE, p.created_at, p.closed_at) <= pr.default_sla_minutes
                                 THEN 1 ELSE 0 END) AS dentro_sla,
-                       ROUND(AVG(TIMESTAMPDIFF(MINUTE, p.created_at, p.closed_at)), 0) AS tempo_medio_min
+                       ROUND(AVG(TIMESTAMPDIFF(MINUTE, p.created_at, p.closed_at)), 0) AS tempo_medio_min,
+                       bt.id AS batch_id, pr.id AS priority_id
                 FROM tb_process p
                 JOIN tb_priority pr ON pr.id = p.priority_id
                 JOIN tb_batch bt ON bt.id = p.batch_id
@@ -135,7 +136,8 @@ final class AnalyticsRepository
                    COUNT(p.id) AS concluidos,
                    SUM(CASE WHEN TIMESTAMPDIFF(MINUTE, p.created_at, p.closed_at) <= pr.default_sla_minutes
                             THEN 1 ELSE 0 END) AS dentro_sla,
-                   ROUND(AVG(TIMESTAMPDIFF(MINUTE, p.created_at, p.closed_at)), 0) AS tempo_medio_min
+                   ROUND(AVG(TIMESTAMPDIFF(MINUTE, p.created_at, p.closed_at)), 0) AS tempo_medio_min,
+                   u.id AS operator_id, pr.id AS priority_id
             FROM tb_process p
             JOIN tb_priority pr ON pr.id = p.priority_id
             JOIN tb_user u ON u.id = p.closed_by
@@ -143,6 +145,45 @@ final class AnalyticsRepository
             GROUP BY u.id, u.first_name, u.last_name, pr.id, pr.name, pr.default_sla_minutes, pr.sort_order
             ORDER BY colaborador ASC, pr.sort_order ASC
         ", $params + $opParams + $prParams);
+    }
+
+    /**
+     * Drill-down do Relatório SLA: os processos CONCLUÍDOS que compõem uma
+     * célula (operador OU equipa, numa prioridade). Devolve cada processo com
+     * início, fim e tempo total de finalização (minutos), e se ficou dentro do
+     * SLA — os mesmos critérios da agregação sla().
+     *
+     * @return list<array<string,mixed>>
+     */
+    public function slaClosedProcesses(?string $from, ?string $to, int $priorityId, ?int $operatorId, ?int $batchId): array
+    {
+        [$period, $params] = $this->periodClause($from, $to);
+
+        $who = '';
+        if ($operatorId !== null) {
+            $who = ' AND p.closed_by = :who';
+            $params['who'] = $operatorId;
+        } elseif ($batchId !== null) {
+            $who = ' AND p.batch_id = :who';
+            $params['who'] = $batchId;
+        }
+        $params['pri'] = $priorityId;
+
+        return $this->run("
+            SELECT p.id, p.process_number, p.created_at, p.closed_at,
+                   c.name AS customer_name, v.plate AS vehicle_plate,
+                   pr.default_sla_minutes AS sla_minutos,
+                   TIMESTAMPDIFF(MINUTE, p.created_at, p.closed_at) AS tempo_total_min,
+                   CASE WHEN TIMESTAMPDIFF(MINUTE, p.created_at, p.closed_at) <= pr.default_sla_minutes
+                        THEN 1 ELSE 0 END AS dentro_sla
+            FROM tb_process p
+            JOIN tb_priority pr ON pr.id = p.priority_id
+            JOIN tb_customer c ON c.id = p.customer_id
+            JOIN tb_vehicle v ON v.id = p.vehicle_id
+            WHERE p.deleted_at IS NULL AND p.closed_at IS NOT NULL
+              AND p.priority_id = :pri {$period}{$who}
+            ORDER BY p.created_at ASC
+        ", $params);
     }
 
     /**
