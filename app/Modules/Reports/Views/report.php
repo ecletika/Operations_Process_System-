@@ -26,6 +26,20 @@
     .sla-modal-close{position:absolute;top:10px;right:14px;border:none;background:none;font-size:26px;line-height:1;color:#6b7280;cursor:pointer}
     .sla-modal-close:hover{color:#111827}
     .sla-drill{cursor:pointer}
+    /* Dropdown pesquisável (progressive enhancement de um <select multiple>) */
+    .ss-wrap{position:relative}
+    .ss-control{display:flex;flex-wrap:wrap;gap:4px;align-items:center;min-height:40px;border:1px solid #e5e7eb;border-radius:8px;padding:5px 7px;background:#fff;cursor:text}
+    .ss-control:focus-within{border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.15)}
+    .ss-chip{display:inline-flex;align-items:center;gap:4px;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:6px;padding:1px 6px;font-size:12px;white-space:nowrap}
+    .ss-chip button{border:none;background:none;color:#1d4ed8;cursor:pointer;font-size:14px;line-height:1;padding:0}
+    .ss-input{border:none;outline:none;flex:1;min-width:90px;font-size:13px;padding:2px;background:transparent}
+    .ss-panel{position:absolute;z-index:50;left:0;right:0;top:calc(100% + 2px);max-height:240px;overflow:auto;background:#fff;border:1px solid #e5e7eb;border-radius:8px;box-shadow:0 10px 24px rgba(0,0,0,.14);display:none}
+    .ss-panel.open{display:block}
+    .ss-opt{padding:8px 10px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:8px}
+    .ss-opt:hover,.ss-opt.active{background:#f1f5f9}
+    .ss-opt.sel{color:#1d4ed8;font-weight:600}
+    .ss-opt .tick{width:14px;text-align:center;color:#1d4ed8}
+    .ss-empty{padding:9px 10px;color:#9ca3af;font-size:12px}
   </style>
 </head>
 <body>
@@ -88,8 +102,8 @@
               <?php endif; ?>
               <?php if (!empty($operatorOptions)): ?>
                 <div class="rf-field">
-                  <label for="operators">Operador(es) <span class="hint">— Ctrl/Cmd+clique para vários</span></label>
-                  <select class="rf-control" id="operators" name="operators[]" multiple size="4">
+                  <label for="operators">Operador(es) <span class="hint">— escreva para procurar</span></label>
+                  <select class="rf-control ss-enhance" id="operators" name="operators[]" multiple size="4" data-placeholder="Procurar operador…">
                     <?php foreach ($operatorOptions as $op): ?>
                       <?php if ((int) $op['active'] !== 1) { continue; } ?>
                       <option value="<?= (int) $op['id'] ?>" <?= in_array((int) $op['id'], $selectedOperators ?? [], true) ? 'selected' : '' ?>>
@@ -204,5 +218,82 @@
       <?php endif; ?>
     </main>
   </div>
+  <script>
+  // Dropdown pesquisável: transforma <select multiple class="ss-enhance"> numa
+  // caixa com pesquisa e chips. Progressive enhancement — se o JS falhar, o
+  // <select> nativo continua a funcionar e a enviar operators[] como antes.
+  (function () {
+    function enhance(select) {
+      var placeholder = select.getAttribute('data-placeholder') || 'Procurar…';
+      var options = Array.prototype.map.call(select.options, function (o) {
+        return { value: o.value, label: o.text, selected: o.selected };
+      });
+      var wrap = document.createElement('div'); wrap.className = 'ss-wrap';
+      var control = document.createElement('div'); control.className = 'ss-control';
+      var input = document.createElement('input'); input.className = 'ss-input'; input.type = 'text';
+      input.setAttribute('autocomplete', 'off');
+      var panel = document.createElement('div'); panel.className = 'ss-panel';
+      control.appendChild(input); wrap.appendChild(control); wrap.appendChild(panel);
+      select.style.display = 'none';
+      select.parentNode.insertBefore(wrap, select);
+      var activeIdx = -1;
+      function selectedCount() { return options.filter(function (o) { return o.selected; }).length; }
+      function syncNative() {
+        Array.prototype.forEach.call(select.options, function (o) {
+          var m = options.find(function (x) { return x.value === o.value; });
+          o.selected = !!(m && m.selected);
+        });
+      }
+      function renderChips() {
+        Array.prototype.slice.call(control.querySelectorAll('.ss-chip')).forEach(function (c) { c.remove(); });
+        options.filter(function (o) { return o.selected; }).forEach(function (o) {
+          var chip = document.createElement('span'); chip.className = 'ss-chip';
+          chip.textContent = o.label;
+          var x = document.createElement('button'); x.type = 'button'; x.textContent = '×';
+          x.addEventListener('click', function (e) { e.stopPropagation(); o.selected = false; syncNative(); renderChips(); renderPanel(); });
+          chip.appendChild(x); control.insertBefore(chip, input);
+        });
+        input.placeholder = selectedCount() ? '' : placeholder;
+      }
+      function renderPanel() {
+        var q = input.value.trim().toLowerCase();
+        var matches = options.filter(function (o) { return o.label.toLowerCase().indexOf(q) !== -1; });
+        panel.innerHTML = '';
+        if (matches.length === 0) {
+          var empty = document.createElement('div'); empty.className = 'ss-empty'; empty.textContent = 'Sem resultados';
+          panel.appendChild(empty); return;
+        }
+        matches.forEach(function (o, i) {
+          var row = document.createElement('div');
+          row.className = 'ss-opt' + (o.selected ? ' sel' : '') + (i === activeIdx ? ' active' : '');
+          row.innerHTML = '<span class="tick">' + (o.selected ? '✓' : '') + '</span>' + escapeHtml(o.label);
+          row.addEventListener('mousedown', function (e) {
+            e.preventDefault(); o.selected = !o.selected; syncNative(); renderChips(); renderPanel(); input.focus();
+          });
+          panel.appendChild(row);
+        });
+      }
+      function escapeHtml(s) { return s.replace(/[&<>"]/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]; }); }
+      function open() { panel.classList.add('open'); renderPanel(); }
+      function close() { panel.classList.remove('open'); activeIdx = -1; }
+      control.addEventListener('click', function () { input.focus(); open(); });
+      input.addEventListener('focus', open);
+      input.addEventListener('input', function () { activeIdx = -1; open(); });
+      input.addEventListener('keydown', function (e) {
+        var rows = panel.querySelectorAll('.ss-opt');
+        if (e.key === 'ArrowDown') { e.preventDefault(); activeIdx = Math.min(rows.length - 1, activeIdx + 1); renderPanel(); }
+        else if (e.key === 'ArrowUp') { e.preventDefault(); activeIdx = Math.max(0, activeIdx - 1); renderPanel(); }
+        else if (e.key === 'Enter') { e.preventDefault(); if (rows[activeIdx]) rows[activeIdx].dispatchEvent(new MouseEvent('mousedown')); }
+        else if (e.key === 'Escape') { close(); }
+        else if (e.key === 'Backspace' && input.value === '') {
+          var sel = options.filter(function (o) { return o.selected; }); if (sel.length) { sel[sel.length - 1].selected = false; syncNative(); renderChips(); renderPanel(); }
+        }
+      });
+      document.addEventListener('click', function (e) { if (!wrap.contains(e.target)) close(); });
+      renderChips();
+    }
+    document.querySelectorAll('select.ss-enhance[multiple]').forEach(enhance);
+  })();
+  </script>
 </body>
 </html>
