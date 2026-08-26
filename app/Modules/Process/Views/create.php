@@ -5,6 +5,15 @@
   <title>OPS · Novo Processo</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="stylesheet" href="/css/app.css">
+  <style>
+    .dept-modal-overlay{display:none;position:fixed;inset:0;z-index:70;background:rgba(15,23,42,.55);align-items:center;justify-content:center;padding:20px}
+    .dept-modal-overlay.open{display:flex}
+    .dept-modal{background:#fff;border-radius:14px;max-width:360px;width:100%;padding:22px 22px 18px;box-shadow:0 24px 50px rgba(0,0,0,.35);text-align:center}
+    .dept-modal .ico{font-size:34px;line-height:1;margin-bottom:8px}
+    .dept-modal h3{margin:0 0 6px;font-size:18px}
+    .dept-modal p{margin:0 0 16px;color:#6b7280;font-size:14px}
+    .dept-modal button{cursor:pointer}
+  </style>
 </head>
 <body>
   <div class="ops-shell">
@@ -40,7 +49,7 @@
         </div>
       <?php else: ?>
         <div class="ops-panel">
-          <form method="POST" action="/processes">
+          <form method="POST" action="/processes" id="create-form">
             <?= csrf_field() ?>
             <div class="ops-form-row">
               <label for="plate">Matrícula</label>
@@ -97,8 +106,9 @@
             <?php if (!empty($canChooseBatch) && !empty($batches)): ?>
             <div class="ops-form-row">
               <label for="batch_id">Filial / Departamento (onde o processo entra na fila)</label>
-              <select id="batch_id" name="batch_id" required>
-                <?php $selBatch = (string) ($old['batch_id'] ?? $sessionBatchId); ?>
+              <?php $selBatch = (string) ($old['batch_id'] ?? ''); ?>
+              <select id="batch_id" name="batch_id">
+                <option value="" <?= $selBatch === '' ? 'selected' : '' ?>>— Escolha um departamento —</option>
                 <?php foreach ($batches as $batch): ?>
                   <option value="<?= (int) $batch['id'] ?>" <?= $selBatch === (string) $batch['id'] ? 'selected' : '' ?>>
                     <?= e(($batch['branch_name'] ?? '') !== '' ? $batch['branch_name'] . ' · ' . $batch['department_name'] : $batch['department_name']) ?>
@@ -206,5 +216,32 @@
       <?php endif; ?>
     </main>
   </div>
+
+  <div id="dept-modal" class="dept-modal-overlay" role="dialog" aria-modal="true">
+    <div class="dept-modal">
+      <div class="ico">🏢</div>
+      <h3>Falta o departamento</h3>
+      <p>Precisa de escolher um departamento para criar o processo.</p>
+      <button type="button" class="ops-btn ops-btn-sm" id="dept-modal-ok">Escolher departamento</button>
+    </div>
+  </div>
+  <script>
+  // O departamento é obrigatório: sem escolha, mostra um modal pequeno em vez
+  // de submeter. Clicar fora (ou no botão) fecha o modal.
+  (function () {
+    var form = document.getElementById('create-form');
+    var batch = document.getElementById('batch_id');
+    var modal = document.getElementById('dept-modal');
+    if (!form || !batch || !modal) { return; } // sem escolha de departamento: nada a validar
+    function openModal() { modal.classList.add('open'); }
+    function closeModal() { modal.classList.remove('open'); try { batch.focus(); } catch (e) {} }
+    form.addEventListener('submit', function (e) {
+      if (batch.value === '') { e.preventDefault(); openModal(); }
+    });
+    modal.addEventListener('click', function (e) { if (e.target === modal) closeModal(); });
+    document.getElementById('dept-modal-ok').addEventListener('click', closeModal);
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeModal(); });
+  })();
+  </script>
 </body>
 </html>

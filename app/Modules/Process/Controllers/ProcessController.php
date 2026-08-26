@@ -295,13 +295,22 @@ final class ProcessController extends Controller
         $companyId = (int) Session::get('company_id');
         $batchId = Session::get('batch_id');
 
-        // Admin/Supervisor (ou quem tem visibilidade total) pode escolher a
-        // Filial/Lote de destino; validamos que o lote submetido existe.
+        // Admin/Supervisor (ou quem tem visibilidade total) escolhe a
+        // Filial/Departamento de destino — e é OBRIGATÓRIO: sem escolha, o
+        // processo não é criado (não cai no departamento do próprio por omissão).
         if ($this->canChooseBatch()) {
             $chosen = (int) $request->input('batch_id', 0);
-            if ($chosen > 0 && (new BatchRepository())->findActiveById($chosen) !== null) {
-                $batchId = $chosen;
+            if ($chosen <= 0) {
+                Session::flash('errors', ['Escolha um departamento para o processo.']);
+                Session::flash('old', $request->all());
+                Response::redirect('/processes/create');
             }
+            if ((new BatchRepository())->findActiveById($chosen) === null) {
+                Session::flash('errors', ['Departamento inválido. Escolha um da lista.']);
+                Session::flash('old', $request->all());
+                Response::redirect('/processes/create');
+            }
+            $batchId = $chosen;
         }
 
         if ($batchId === null) {
