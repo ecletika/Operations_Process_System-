@@ -108,13 +108,13 @@ final class ProcessService
         $windowDays = (int) Settings::get('reopen_window_days', 30);
         $recentlyClosed = $this->processes->findRecentlyClosedByVehicleAndSubject($vehicleId, $dto->subjectId, $windowDays);
 
-        if ($recentlyClosed !== null && !$dto->reopenIfEligible) {
+        if ($recentlyClosed !== null && $dto->reopenIfEligible === null) {
             // O operador ainda não decidiu; o Controller deve perguntar
             // "Deseja reabrir o Processo?" e reenviar com reopen_if_eligible=1/0.
             return ProcessResult::needsReopenDecision((int) $recentlyClosed['id'], $recentlyClosed['process_number']);
         }
 
-        if ($recentlyClosed !== null && $dto->reopenIfEligible) {
+        if ($recentlyClosed !== null && $dto->reopenIfEligible === true) {
             $this->reopen((int) $recentlyClosed['id'], $userId);
             $this->interactions->addInteraction(
                 (int) $recentlyClosed['id'],

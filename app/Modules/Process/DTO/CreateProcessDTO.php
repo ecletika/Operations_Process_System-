@@ -24,7 +24,8 @@ final class CreateProcessDTO
         public readonly int $subjectId,
         public readonly int $priorityId,
         public readonly string $description,
-        public readonly bool $reopenIfEligible,
+        /** null = ainda não decidiu (mostrar prompt); true = reabrir; false = criar novo. */
+        public readonly ?bool $reopenIfEligible,
         public readonly ?string $vehicleBrand = null,
         public readonly ?string $vehicleModel = null,
     ) {
@@ -63,7 +64,11 @@ final class CreateProcessDTO
             subjectId: (int) ($input['subject_id'] ?? 0),
             priorityId: (int) ($input['priority_id'] ?? 0),
             description: trim((string) ($input['description'] ?? '')),
-            reopenIfEligible: (bool) ($input['reopen_if_eligible'] ?? false),
+            // Três estados: sem o campo = ainda não decidiu (null); '1' =
+            // reabrir; '0' (ou outro) = criar mesmo um processo novo.
+            reopenIfEligible: array_key_exists('reopen_if_eligible', $input)
+                ? ((string) $input['reopen_if_eligible'] === '1')
+                : null,
             vehicleBrand: ($b = trim((string) ($input['vehicle_brand'] ?? ''))) !== '' ? $b : null,
             vehicleModel: ($m = trim((string) ($input['vehicle_model'] ?? ''))) !== '' ? $m : null,
         );
