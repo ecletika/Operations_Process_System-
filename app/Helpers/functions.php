@@ -144,6 +144,31 @@ if (!function_exists('online_dot')) {
     }
 }
 
+if (!function_exists('sla_elapsed_minutes')) {
+    /**
+     * Minutos decorridos entre dois instantes para efeitos de SLA — a ÚNICA
+     * regra de contagem do sistema, para o relógio ao vivo (sla_state) e os
+     * Relatórios darem sempre o mesmo número.
+     *
+     * Com "Contar o SLA apenas em horário de atendimento" ligado, conta só os
+     * minutos úteis (dentro do horário, fora do almoço e dos feriados); caso
+     * contrário conta 24h/dia. Aceita timestamps ou datas em texto.
+     */
+    function sla_elapsed_minutes(int|string $from, int|string $to): int
+    {
+        $fromTs = is_int($from) ? $from : (int) strtotime($from);
+        $toTs = is_int($to) ? $to : (int) strtotime($to);
+
+        if ($toTs <= $fromTs) {
+            return 0;
+        }
+
+        return \App\Modules\Process\Support\BusinessClock::enabled()
+            ? \App\Modules\Process\Support\BusinessClock::minutesBetween($fromTs, $toTs)
+            : (int) floor(($toTs - $fromTs) / 60);
+    }
+}
+
 if (!function_exists('sla_state')) {
     /**
      * Estado do SLA de um processo. Duas regras, ambas ligáveis/desligáveis
@@ -182,22 +207,18 @@ if (!function_exists('sla_state')) {
 
         $paused = $pause ? (int) ($p['sla_paused_minutes'] ?? 0) : 0;
 
-        // Com o horário de atendimento ligado, "decorrido" conta só os minutos
-        // úteis (dentro do horário, sem feriados); caso contrário, 24h/dia.
-        $businessHours = \App\Modules\Process\Support\BusinessClock::enabled();
-        $baseTs = strtotime((string) $base);
-        $elapsedFn = static fn (int $fromTs, int $toTs): int => $businessHours
-            ? \App\Modules\Process\Support\BusinessClock::minutesBetween($fromTs, $toTs)
-            : max(0, (int) floor(($toTs - $fromTs) / 60));
+        // A contagem (24h/dia ou só horário de atendimento) vive em
+        // sla_elapsed_minutes(), partilhada com os Relatórios.
+        $baseTs = (int) strtotime((string) $base);
 
         // Em espera → o relógio está parado; o tempo não corre contra ninguém.
         if ($pause && !empty($p['wait_started_at'])) {
-            $ateAEspera = $elapsedFn($baseTs, strtotime((string) $p['wait_started_at']));
+            $ateAEspera = sla_elapsed_minutes($baseTs, (string) $p['wait_started_at']);
 
             return ['status' => 'paused', 'minutes_left' => (int) $sla - $ateAEspera + $paused];
         }
 
-        $elapsed = $elapsedFn($baseTs, time());
+        $elapsed = sla_elapsed_minutes($baseTs, time());
 
         return ['status' => 'running', 'minutes_left' => (int) $sla - $elapsed + $paused];
     }

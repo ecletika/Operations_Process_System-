@@ -105,6 +105,13 @@ final class AnalyticsRepository
      */
     public function sla(?string $from, ?string $to, array $operatorIds = [], array $priorityIds = [], string $groupBy = 'colaborador'): array
     {
+        // Com o horário de atendimento ligado o tempo decorrido deixa de ser
+        // uma subtracção de datas, por isso a agregação passa para PHP. Com ele
+        // desligado mantém-se o SQL agregado — mesmo resultado, mais rápido.
+        if (\App\Modules\Process\Support\BusinessClock::enabled()) {
+            return $this->slaEmHorarioUtil($from, $to, $operatorIds, $priorityIds, $groupBy);
+        }
+
         [$period, $params] = $this->periodClause($from, $to);
         [$prFilter, $prParams] = $this->inClause($priorityIds, 'pr.id', 'pri');
 
@@ -148,6 +155,108 @@ final class AnalyticsRepository
     }
 
     /**
+     * Mesma leitura do Relatório SLA, mas com o relógio de negócio: traz um
+     * registo por processo concluído e agrega em PHP, porque os minutos úteis
+     * dependem do horário, do almoço e dos feriados — coisas que o
+     * TIMESTAMPDIFF do SQL desconhece.
+     *
+     * @param int[] $operatorIds
+     * @param int[] $priorityIds
+     */
+    private function slaEmHorarioUtil(?string $from, ?string $to, array $operatorIds, array $priorityIds, string $groupBy): array
+    {
+        [$period, $params] = $this->periodClause($from, $to);
+        [$prFilter, $prParams] = $this->inClause($priorityIds, 'pr.id', 'pri');
+
+        if ($groupBy === 'equipa') {
+            $rows = $this->run("
+                SELECT CONCAT(br.name, ' · ', d.name) AS equipa,
+                       pr.name AS prioridade, pr.default_sla_minutes AS sla_minutos,
+                       p.created_at, p.closed_at,
+                       bt.id AS batch_id, pr.id AS priority_id
+                FROM tb_process p
+                JOIN tb_priority pr ON pr.id = p.priority_id
+                JOIN tb_batch bt ON bt.id = p.batch_id
+                JOIN tb_department d ON d.id = bt.department_id
+                JOIN tb_branch br ON br.id = d.branch_id
+                WHERE p.deleted_at IS NULL AND p.closed_at IS NOT NULL {$period}{$prFilter}
+                ORDER BY equipa ASC, pr.sort_order ASC
+            ", $params + $prParams);
+
+            return $this->agregaSla($rows, 'equipa', 'batch_id');
+        }
+
+        [$opFilter, $opParams] = $this->operatorClause($operatorIds, 'p.closed_by');
+
+        $rows = $this->run("
+            SELECT CONCAT(u.first_name, ' ', u.last_name) AS colaborador,
+                   pr.name AS prioridade, pr.default_sla_minutes AS sla_minutos,
+                   p.created_at, p.closed_at,
+                   u.id AS operator_id, pr.id AS priority_id
+            FROM tb_process p
+            JOIN tb_priority pr ON pr.id = p.priority_id
+            JOIN tb_user u ON u.id = p.closed_by
+            WHERE p.deleted_at IS NULL AND p.closed_at IS NOT NULL {$period}{$opFilter}{$prFilter}
+            ORDER BY colaborador ASC, pr.sort_order ASC
+        ", $params + $opParams + $prParams);
+
+        return $this->agregaSla($rows, 'colaborador', 'operator_id');
+    }
+
+    /**
+     * Agrega os processos por (operador|equipa × prioridade), contando os
+     * minutos com a regra de SLA em vigor. Devolve as mesmas colunas que a
+     * versão em SQL, para as vistas e o Excel não notarem a diferença.
+     *
+     * @param list<array<string,mixed>> $rows
+     */
+    private function agregaSla(array $rows, string $labelKey, string $idKey): array
+    {
+        $grupos = [];
+
+        foreach ($rows as $row) {
+            $chave = $row[$idKey] . '|' . $row['priority_id'];
+            $minutos = sla_elapsed_minutes((string) $row['created_at'], (string) $row['closed_at']);
+
+            if (!isset($grupos[$chave])) {
+                $grupos[$chave] = [
+                    $labelKey => $row[$labelKey],
+                    'prioridade' => $row['prioridade'],
+                    'sla_minutos' => $row['sla_minutos'],
+                    'concluidos' => 0,
+                    'dentro_sla' => 0,
+                    'tempo_medio_min' => 0,
+                    $idKey => $row[$idKey],
+                    'priority_id' => $row['priority_id'],
+                    '_soma' => 0,
+                ];
+            }
+
+            $grupos[$chave]['concluidos']++;
+            $grupos[$chave]['dentro_sla'] += self::withinSla($minutos, $row['sla_minutos']);
+            $grupos[$chave]['_soma'] += $minutos;
+        }
+
+        foreach ($grupos as &$grupo) {
+            $grupo['tempo_medio_min'] = (int) round($grupo['_soma'] / $grupo['concluidos']);
+            unset($grupo['_soma']);
+        }
+        unset($grupo);
+
+        return array_values($grupos);
+    }
+
+    /** 1 se o processo ficou dentro do SLA; 0 se estourou (ou não tem SLA definido). */
+    private static function withinSla(int $minutos, mixed $slaMinutos): int
+    {
+        if ($slaMinutos === null || $slaMinutos === '') {
+            return 0;
+        }
+
+        return $minutos <= (int) $slaMinutos ? 1 : 0;
+    }
+
+    /**
      * Drill-down do Relatório SLA: os processos CONCLUÍDOS que compõem uma
      * célula (operador OU equipa, numa prioridade). Devolve cada processo com
      * início, fim e tempo total de finalização (minutos), e se ficou dentro do
@@ -169,13 +278,10 @@ final class AnalyticsRepository
         }
         $params['pri'] = $priorityId;
 
-        return $this->run("
+        $rows = $this->run("
             SELECT p.id, p.process_number, p.created_at, p.closed_at,
                    c.name AS customer_name, v.plate AS vehicle_plate,
-                   pr.default_sla_minutes AS sla_minutos,
-                   TIMESTAMPDIFF(MINUTE, p.created_at, p.closed_at) AS tempo_total_min,
-                   CASE WHEN TIMESTAMPDIFF(MINUTE, p.created_at, p.closed_at) <= pr.default_sla_minutes
-                        THEN 1 ELSE 0 END AS dentro_sla
+                   pr.default_sla_minutes AS sla_minutos
             FROM tb_process p
             JOIN tb_priority pr ON pr.id = p.priority_id
             JOIN tb_customer c ON c.id = p.customer_id
@@ -184,6 +290,16 @@ final class AnalyticsRepository
               AND p.priority_id = :pri {$period}{$who}
             ORDER BY p.created_at ASC
         ", $params);
+
+        // O tempo decorrido é calculado em PHP (e não com TIMESTAMPDIFF) para
+        // respeitar o horário de atendimento — ver sla_elapsed_minutes().
+        foreach ($rows as &$row) {
+            $row['tempo_total_min'] = sla_elapsed_minutes((string) $row['created_at'], (string) $row['closed_at']);
+            $row['dentro_sla'] = self::withinSla($row['tempo_total_min'], $row['sla_minutos']);
+        }
+        unset($row);
+
+        return $rows;
     }
 
     /**
