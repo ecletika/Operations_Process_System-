@@ -43,6 +43,7 @@
             <input type="hidden" name="subject_id" value="<?= e($old['subject_id'] ?? '') ?>">
             <input type="hidden" name="priority_id" value="<?= e($old['priority_id'] ?? '') ?>">
             <input type="hidden" name="description" value="<?= e($old['description'] ?? '') ?>">
+            <input type="hidden" name="batch_id" value="<?= e($old['batch_id'] ?? '') ?>">
             <button type="submit" name="reopen_if_eligible" value="1" class="ops-btn ops-btn-sm">Reabrir processo existente</button>
             <button type="submit" name="reopen_if_eligible" value="0" class="ops-btn ops-btn-sm" style="background:#6b7280">Criar processo novo</button>
           </form>
