@@ -58,16 +58,16 @@ final class DashboardService
     private function criticalCount(?int $userId): int
     {
         // RN-0058 (simplificado p/ v1): ultrapassou o SLA ou já foi reaberto 2+ vezes.
+        // Traz as linhas em vez de contar em SQL: o "ultrapassou o SLA" tem de
+        // usar a mesma regra do resto do sistema (sla_elapsed_minutes), que o
+        // TIMESTAMPDIFF não sabe aplicar. São só processos em aberto.
         $sql = "
-            SELECT COUNT(*) FROM tb_process p
+            SELECT p.created_at, p.reopen_count, pr.default_sla_minutes
+            FROM tb_process p
             JOIN tb_status st ON st.id = p.status_id
             JOIN tb_priority pr ON pr.id = p.priority_id
             WHERE p.deleted_at IS NULL
               AND st.code NOT IN ('SOLVED', 'CLOSED')
-              AND (
-                    (pr.default_sla_minutes IS NOT NULL AND TIMESTAMPDIFF(MINUTE, p.created_at, NOW()) > pr.default_sla_minutes)
-                    OR p.reopen_count >= 2
-              )
         ";
         $params = [];
         if ($userId !== null) {
@@ -78,24 +78,47 @@ final class DashboardService
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute($params);
 
-        return (int) $stmt->fetchColumn();
+        $agora = time();
+        $criticos = 0;
+        foreach ($stmt->fetchAll() as $linha) {
+            $sla = $linha['default_sla_minutes'];
+            $estourou = $sla !== null && $sla !== ''
+                && sla_elapsed_minutes((string) $linha['created_at'], $agora) > (int) $sla;
+
+            if ($estourou || (int) $linha['reopen_count'] >= 2) {
+                $criticos++;
+            }
+        }
+
+        return $criticos;
     }
 
     private function slaNearCount(int $userId): int
     {
         $stmt = $this->pdo->prepare("
-            SELECT COUNT(*) FROM tb_process p
+            SELECT p.created_at, pr.default_sla_minutes
+            FROM tb_process p
             JOIN tb_status st ON st.id = p.status_id
             JOIN tb_priority pr ON pr.id = p.priority_id
             WHERE p.deleted_at IS NULL
               AND p.assigned_to = :user_id
               AND st.code NOT IN ('SOLVED', 'CLOSED')
               AND pr.default_sla_minutes IS NOT NULL
-              AND (pr.default_sla_minutes - TIMESTAMPDIFF(MINUTE, p.created_at, NOW())) BETWEEN 0 AND 15
         ");
         $stmt->execute(['user_id' => $userId]);
 
-        return (int) $stmt->fetchColumn();
+        // "Falta pouco" tem de ser medido em minutos de atendimento: senão o
+        // aviso disparava de madrugada, com o relógio do SLA parado.
+        $agora = time();
+        $emRisco = 0;
+        foreach ($stmt->fetchAll() as $linha) {
+            $falta = (int) $linha['default_sla_minutes'] - sla_elapsed_minutes((string) $linha['created_at'], $agora);
+            if ($falta >= 0 && $falta <= 15) {
+                $emRisco++;
+            }
+        }
+
+        return $emRisco;
     }
 
     private function myProcessesCount(int $userId): int
@@ -193,22 +216,30 @@ final class DashboardService
             WHERE p.deleted_at IS NULL AND s.code IN ('SOLVED', 'CLOSED') AND DATE(p.closed_at) = CURDATE()
         ")->fetchColumn();
 
-        $slaRow = $this->pdo->query("
-            SELECT
-                SUM(CASE WHEN TIMESTAMPDIFF(MINUTE, p.created_at, p.closed_at) <= pr.default_sla_minutes THEN 1 ELSE 0 END) AS met,
-                COUNT(*) AS total,
-                AVG(TIMESTAMPDIFF(MINUTE, p.created_at, p.closed_at)) AS avg_minutes
+        // Fechados hoje, um a um: a % de cumprimento e o tempo médio têm de bater
+        // certo com o Relatório SLA — são os números que sustentam os prémios.
+        $fechadosHoje = $this->pdo->query("
+            SELECT p.created_at, p.closed_at, pr.default_sla_minutes
             FROM tb_process p
             JOIN tb_status s ON s.id = p.status_id
             JOIN tb_priority pr ON pr.id = p.priority_id
             WHERE p.deleted_at IS NULL AND s.code IN ('SOLVED', 'CLOSED') AND DATE(p.closed_at) = CURDATE()
-        ")->fetch();
+        ")->fetchAll();
 
-        $slaPercentage = ($slaRow && (int) $slaRow['total'] > 0)
-            ? round(((int) $slaRow['met'] / (int) $slaRow['total']) * 100, 1)
-            : null;
+        $met = 0;
+        $somaMinutos = 0;
+        foreach ($fechadosHoje as $linha) {
+            $minutos = sla_elapsed_minutes((string) $linha['created_at'], (string) $linha['closed_at']);
+            $somaMinutos += $minutos;
+            $sla = $linha['default_sla_minutes'];
+            if ($sla !== null && $sla !== '' && $minutos <= (int) $sla) {
+                $met++;
+            }
+        }
 
-        $avgResolutionMinutes = $slaRow && $slaRow['avg_minutes'] !== null ? (int) round((float) $slaRow['avg_minutes']) : null;
+        $totalFechados = count($fechadosHoje);
+        $slaPercentage = $totalFechados > 0 ? round(($met / $totalFechados) * 100, 1) : null;
+        $avgResolutionMinutes = $totalFechados > 0 ? (int) round($somaMinutos / $totalFechados) : null;
 
         $operatorsOnline = (int) $this->pdo->query('
             SELECT COUNT(*) FROM tb_user
@@ -311,19 +342,41 @@ final class DashboardService
      */
     private function ranking(): array
     {
-        return $this->pdo->query("
-            SELECT u.first_name, u.last_name,
-                   COUNT(*) AS closed_total,
-                   AVG(TIMESTAMPDIFF(MINUTE, p.created_at, p.closed_at)) AS avg_minutes
+        $linhas = $this->pdo->query("
+            SELECT u.id, u.first_name, u.last_name, p.created_at, p.closed_at
             FROM tb_process p
             JOIN tb_user u ON u.id = p.closed_by
             JOIN tb_status s ON s.id = p.status_id
             WHERE p.deleted_at IS NULL
               AND s.code IN ('SOLVED', 'CLOSED')
               AND p.closed_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
-            GROUP BY u.id, u.first_name, u.last_name
-            ORDER BY closed_total DESC
-            LIMIT 5
         ")->fetchAll();
+
+        // O tempo médio do ranking conta em minutos de atendimento, como o
+        // resto do SLA — senão quem fecha de manhã o que entrou à noite parece
+        // lento sem o ser.
+        $porOperador = [];
+        foreach ($linhas as $linha) {
+            $id = (int) $linha['id'];
+            $porOperador[$id] ??= [
+                'first_name' => $linha['first_name'],
+                'last_name' => $linha['last_name'],
+                'closed_total' => 0,
+                'avg_minutes' => 0,
+                '_soma' => 0,
+            ];
+            $porOperador[$id]['closed_total']++;
+            $porOperador[$id]['_soma'] += sla_elapsed_minutes((string) $linha['created_at'], (string) $linha['closed_at']);
+        }
+
+        foreach ($porOperador as &$operador) {
+            $operador['avg_minutes'] = $operador['_soma'] / $operador['closed_total'];
+            unset($operador['_soma']);
+        }
+        unset($operador);
+
+        usort($porOperador, static fn (array $a, array $b): int => $b['closed_total'] <=> $a['closed_total']);
+
+        return array_slice(array_values($porOperador), 0, 5);
     }
 }

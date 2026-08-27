@@ -283,7 +283,16 @@ final class ProcessService
 
         $isWaiting = in_array($targetStatusCode, $this->waitingCodes(), true);
         $statusId = $this->processes->statusIdByCode($targetStatusCode);
-        $this->processes->changeStatus($processId, $statusId, $userId, $isWaiting);
+
+        // Ao retomar, o tempo desta pausa conta com a mesma regra do resto do
+        // SLA (só horário de atendimento, se estiver ligado) — senão uma espera
+        // durante a noite devolvia horas de crédito que ninguém esteve parado.
+        $pausedToAdd = 0;
+        if (!$isWaiting && !empty($process['wait_started_at'])) {
+            $pausedToAdd = sla_elapsed_minutes((string) $process['wait_started_at'], time());
+        }
+
+        $this->processes->changeStatus($processId, $statusId, $userId, $isWaiting, $pausedToAdd);
 
         $label = $this->processes->statusNameByCode($targetStatusCode);
         $this->timeline->record(

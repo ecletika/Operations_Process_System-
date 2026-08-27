@@ -232,7 +232,13 @@ final class ProcessRepository
      *  - a sair de uma espera → acumula o tempo parado em sla_paused_minutes
      *    e volta a contar.
      */
-    public function changeStatus(int $id, int $statusId, int $userId, bool $isWaiting): void
+    /**
+     * Muda o estado. Ao SAIR da espera soma o tempo dessa pausa a
+     * sla_paused_minutes — em minutos ÚTEIS, calculados pelo chamador com
+     * sla_elapsed_minutes(). Era um TIMESTAMPDIFF, que somava a noite e o
+     * fim de semana inteiros e inflacionava a pausa gravada.
+     */
+    public function changeStatus(int $id, int $statusId, int $userId, bool $isWaiting, int $pausedMinutesToAdd = 0): void
     {
         if ($isWaiting) {
             // Só marca o início da espera se ainda não estiver em pausa,
@@ -248,14 +254,19 @@ final class ProcessRepository
             $stmt = $this->pdo->prepare('
                 UPDATE tb_process
                 SET status_id = :status_id,
-                    sla_paused_minutes = sla_paused_minutes + IFNULL(TIMESTAMPDIFF(MINUTE, wait_started_at, NOW()), 0),
+                    sla_paused_minutes = sla_paused_minutes + :paused_minutes,
                     wait_started_at = NULL,
                     updated_by = :user_id, updated_at = NOW()
                 WHERE id = :id
             ');
         }
 
-        $stmt->execute(['id' => $id, 'status_id' => $statusId, 'user_id' => $userId]);
+        $params = ['id' => $id, 'status_id' => $statusId, 'user_id' => $userId];
+        if (!$isWaiting) {
+            $params['paused_minutes'] = max(0, $pausedMinutesToAdd);
+        }
+
+        $stmt->execute($params);
     }
 
     public function close(int $id, int $statusId, int $userId): void

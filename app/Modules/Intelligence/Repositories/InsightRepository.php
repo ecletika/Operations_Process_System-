@@ -48,12 +48,6 @@ final class InsightRepository
                 SUM(CASE WHEN s.code IN ('SOLVED', 'CLOSED') THEN 1 ELSE 0 END) AS concluidos,
                 SUM(CASE WHEN p.reopen_count > 0 THEN 1 ELSE 0 END) AS reabertos,
                 SUM(CASE WHEN pr.code = 'P1' AND s.code NOT IN ('SOLVED', 'CLOSED') THEN 1 ELSE 0 END) AS criticos_abertos,
-                AVG(CASE WHEN p.closed_at IS NOT NULL
-                         THEN TIMESTAMPDIFF(MINUTE, p.created_at, p.closed_at) END) AS tempo_medio_min,
-                SUM(CASE WHEN p.closed_at IS NOT NULL
-                          AND pr.default_sla_minutes IS NOT NULL
-                          AND TIMESTAMPDIFF(MINUTE, p.created_at, p.closed_at) <= pr.default_sla_minutes
-                         THEN 1 ELSE 0 END) AS dentro_sla,
                 SUM(CASE WHEN p.closed_at IS NOT NULL AND pr.default_sla_minutes IS NOT NULL
                          THEN 1 ELSE 0 END) AS concluidos_com_sla
             FROM tb_process p
@@ -64,8 +58,13 @@ final class InsightRepository
         $stmt->execute($params);
         $row = $stmt->fetch() ?: [];
 
+        // O tempo médio e o cumprimento do SLA saem daqui em PHP, com a mesma
+        // regra do Relatório SLA e do Dashboard — o TIMESTAMPDIFF ignorava o
+        // horário de atendimento e dava um número diferente para o mesmo mês.
+        [$tempoMedio, $dentroSla] = $this->slaFechados($where, $params);
+
         $slaTotal = (int) ($row['concluidos_com_sla'] ?? 0);
-        $slaPct = $slaTotal > 0 ? (int) round(((int) $row['dentro_sla'] / $slaTotal) * 100) : null;
+        $slaPct = $slaTotal > 0 ? (int) round(($dentroSla / $slaTotal) * 100) : null;
 
         return [
             'total' => (int) ($row['total'] ?? 0),
@@ -73,7 +72,7 @@ final class InsightRepository
             'concluidos' => (int) ($row['concluidos'] ?? 0),
             'reabertos' => (int) ($row['reabertos'] ?? 0),
             'criticos_abertos' => (int) ($row['criticos_abertos'] ?? 0),
-            'tempo_medio_min' => $row['tempo_medio_min'] !== null ? (int) round((float) $row['tempo_medio_min']) : null,
+            'tempo_medio_min' => $tempoMedio,
             'sla_pct' => $slaPct,
         ];
     }
@@ -114,6 +113,43 @@ final class InsightRepository
         }
 
         return $series;
+    }
+
+    /**
+     * Tempo médio de finalização e número de processos dentro do SLA, para o
+     * mesmo filtro do resumo. Em PHP porque os minutos contam com o horário de
+     * atendimento (ver sla_elapsed_minutes).
+     *
+     * @return array{0: ?int, 1: int} [tempo médio em minutos, dentro do SLA]
+     */
+    private function slaFechados(string $where, array $params): array
+    {
+        $stmt = $this->pdo->prepare("
+            SELECT p.created_at, p.closed_at, pr.default_sla_minutes
+            FROM tb_process p
+            JOIN tb_status s ON s.id = p.status_id
+            JOIN tb_priority pr ON pr.id = p.priority_id
+            WHERE {$where} AND p.closed_at IS NOT NULL
+        ");
+        $stmt->execute($params);
+        $linhas = $stmt->fetchAll();
+
+        if ($linhas === []) {
+            return [null, 0];
+        }
+
+        $soma = 0;
+        $dentro = 0;
+        foreach ($linhas as $linha) {
+            $minutos = sla_elapsed_minutes((string) $linha['created_at'], (string) $linha['closed_at']);
+            $soma += $minutos;
+            $sla = $linha['default_sla_minutes'];
+            if ($sla !== null && $sla !== '' && $minutos <= (int) $sla) {
+                $dentro++;
+            }
+        }
+
+        return [(int) round($soma / count($linhas)), $dentro];
     }
 
     /**
