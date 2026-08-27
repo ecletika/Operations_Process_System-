@@ -30,7 +30,8 @@ final class BatchScope
     }
 
     /**
-     * Lotes do próprio departamento, sem exceções — nem para chefias.
+     * Lotes de trabalho do utilizador (o seu departamento mais os que a
+     * ficha lhe autoriza), sem exceções — nem para chefias.
      * (Usado pelo "Próximo Processo": dá sempre o trabalho de quem clica.)
      *
      * @return array<int>

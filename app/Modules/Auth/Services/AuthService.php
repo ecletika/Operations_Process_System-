@@ -71,9 +71,8 @@ final class AuthService
     {
         $permissions = $this->users->permissionsForRole((int) $user['role_id']);
         $batchId = $this->users->primaryBatchId((int) $user['id']);
-        $allowedBatchIds = $this->users->batchIdsForUser((int) $user['id']);
 
-        $this->establishSession($user, $permissions, $batchId, $allowedBatchIds);
+        $this->establishSession($user, $permissions, $batchId, $this->workBatchIds($user));
         Session::forget('mfa_pending_user_id');
         $this->logAudit('LOGIN', 'tb_user', (int) $user['id']);
     }
@@ -143,6 +142,35 @@ final class AuthService
         Session::destroy();
     }
 
+    /**
+     * Lotes em que o utilizador trabalha na Fila Inteligente™: o lote do
+     * seu Departamento mais os lotes dos departamentos que a ficha lhe
+     * autoriza (Visibilidade = toda a Filial ou departamentos escolhidos).
+     *
+     * Antes, os departamentos escolhidos só alargavam "Todos os Processos" e
+     * a Fila ficava sempre presa ao próprio departamento — um utilizador de
+     * CRM autorizado a Colisão nunca via (nem podia assumir) esses processos.
+     *
+     * @param  array<string, mixed> $user
+     * @return int[]
+     */
+    private function workBatchIds(array $user): array
+    {
+        $batchIds = $this->users->batchIdsForUser((int) $user['id']);
+
+        $extraDepartmentIds = $this->users->viewableDepartmentIds(
+            (int) $user['id'],
+            (string) ($user['view_scope'] ?? 'OWN'),
+            isset($user['branch_id']) ? (int) $user['branch_id'] : null
+        );
+
+        if ($extraDepartmentIds !== []) {
+            $batchIds = array_merge($batchIds, $this->users->batchIdsForDepartments($extraDepartmentIds));
+        }
+
+        return array_values(array_unique($batchIds));
+    }
+
     private function establishSession(array $user, array $permissions, ?int $batchId, array $allowedBatchIds = []): void
     {
         Session::regenerate();
@@ -154,9 +182,9 @@ final class AuthService
         Session::put('company_id', (int) $user['company_id']);
         Session::put('branch_id', (int) $user['branch_id']);
         Session::put('department_id', (int) $user['department_id']);
-        // Supervisor de Departamento: vê a Filial inteira (BRANCH) ou apenas
-        // os departamentos escolhidos (CUSTOM) em "Todos os Processos".
-        // Só afeta o que VÊ — assumir/reatribuir continua limitado ao seu lote.
+        // Visibilidade por departamento: a Filial inteira (BRANCH) ou apenas
+        // os departamentos escolhidos (CUSTOM). Alimenta "Todos os Processos"
+        // e também a Fila Inteligente™ (ver workBatchIds).
         $viewScope = (string) ($user['view_scope'] ?? 'OWN');
         Session::put('view_scope', $viewScope);
         Session::put('viewable_department_ids', $this->users->viewableDepartmentIds(
@@ -165,9 +193,10 @@ final class AuthService
             isset($user['branch_id']) ? (int) $user['branch_id'] : null
         ));
         Session::put('batch_id', $batchId);
-        // Lotes que o operador pode ver/assumir (o seu departamento). O
-        // isolamento por departamento (RN-0011) usa esta lista: só os
-        // processos destes lotes entram na Fila Inteligente™ do operador.
+        // Lotes que o operador pode ver/assumir: o do seu departamento mais
+        // os dos departamentos autorizados na ficha. O isolamento por
+        // departamento (RN-0011) usa esta lista: só os processos destes
+        // lotes entram na Fila Inteligente™ do operador.
         Session::put('allowed_batch_ids', $allowedBatchIds);
         Session::put('view_all_batches', !empty($user['view_all_batches']));
     }

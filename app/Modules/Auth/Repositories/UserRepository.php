@@ -386,6 +386,32 @@ final class UserRepository
         }
     }
 
+    /**
+     * Lotes correspondentes a uma lista de departamentos. Cada Departamento
+     * tem sempre um Lote próprio, por isso isto traduz "departamentos que
+     * pode trabalhar" para "lotes que entram na Fila Inteligente™".
+     *
+     * @param  int[] $departmentIds
+     * @return int[]
+     */
+    public function batchIdsForDepartments(array $departmentIds): array
+    {
+        $ids = array_values(array_filter(array_unique(array_map('intval', $departmentIds)), static fn (int $id): bool => $id > 0));
+
+        if ($ids === []) {
+            return [];
+        }
+
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        $stmt = $this->pdo->prepare("
+            SELECT id FROM tb_batch
+            WHERE department_id IN ({$placeholders}) AND deleted_at IS NULL
+        ");
+        $stmt->execute($ids);
+
+        return array_map('intval', array_column($stmt->fetchAll(), 'id'));
+    }
+
     /** @return int[] departamentos escolhidos na ficha (para a mostrar) */
     public function viewDepartmentIdsFor(int $userId): array
     {

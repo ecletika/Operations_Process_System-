@@ -170,21 +170,22 @@
 
         <?php $scope = (string) ($formValues['view_scope'] ?? 'OWN'); ?>
         <div class="ops-form-row">
-          <label for="view_scope">Visibilidade em "Todos os Processos"</label>
+          <label for="view_scope">Departamentos que pode trabalhar</label>
           <select id="view_scope" name="view_scope">
             <option value="OWN" <?= $scope === 'OWN' ? 'selected' : '' ?>>Apenas o seu departamento</option>
             <option value="BRANCH" <?= $scope === 'BRANCH' ? 'selected' : '' ?>>Toda a Filial (todos os departamentos da filial dele)</option>
             <option value="CUSTOM" <?= $scope === 'CUSTOM' ? 'selected' : '' ?>>Departamentos escolhidos ↓</option>
           </select>
           <p style="color:#6b7280;font-size:12px;margin:4px 0 0">
-            Isto define apenas o que ele <strong>vê</strong>. Assumir e reatribuir continua sempre
-            limitado aos processos do <strong>próprio departamento</strong>.
+            Além do seu próprio departamento, ele passa a ver estes departamentos na
+            <strong>Fila Inteligente™</strong> (e pode assumir de lá) e também em
+            "Todos os Processos", se o Perfil lhe der esse menu.
           </p>
           <p id="view_scope_hint" style="font-size:12px;margin:6px 0 0;padding:8px 10px;border-radius:6px;display:none"></p>
         </div>
 
         <div class="ops-form-row" id="view_departments_box" style="<?= $scope === 'CUSTOM' ? '' : 'display:none' ?>">
-          <label>Departamentos que pode ver</label>
+          <label>Departamentos autorizados</label>
           <div style="display:flex;flex-wrap:wrap;gap:8px 18px;border:1px solid #e5e7eb;border-radius:8px;padding:10px">
             <?php foreach ($allDepartments as $department): ?>
               <label style="display:flex;align-items:center;gap:6px;min-width:220px;cursor:pointer;font-weight:400">
@@ -253,13 +254,13 @@
 
         if (tipo === 'all') {
           hint.style.cssText += ';display:block;background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af';
-          hint.textContent = 'ℹ️ Este perfil já vê TODOS os processos de todas as filiais — esta definição não se aplica.';
+          hint.textContent = 'ℹ️ Este perfil já vê TODOS os processos de todas as filiais — para VER, esta definição não acrescenta nada. Continua a valer para a Fila Inteligente™ e o Próximo Processo, que dão sempre trabalho dos departamentos indicados aqui.';
         } else if (tipo === 'none') {
-          hint.style.cssText += ';display:block;background:#fffbeb;border:1px solid #fde68a;color:#92400e';
-          hint.textContent = '⚠️ Este perfil não tem acesso ao menu "Todos os Processos", por isso esta definição não terá efeito. Para o tornar supervisor, escolha o Perfil "Supervisor de Departamento" acima.';
+          hint.style.cssText += ';display:block;background:#f0fdf4;border:1px solid #bbf7d0;color:#166534';
+          hint.textContent = '✓ Este perfil não tem o menu "Todos os Processos", mas a definição vale na mesma: estes departamentos entram na Fila Inteligente™ dele e pode assumir de lá.';
         } else {
           hint.style.cssText += ';display:block;background:#f0fdf4;border:1px solid #bbf7d0;color:#166534';
-          hint.textContent = '✓ Este perfil vê "Todos os Processos" conforme o âmbito escolhido aqui, mas só assume/reatribui no seu departamento.';
+          hint.textContent = '✓ Este perfil vê "Todos os Processos" conforme o âmbito escolhido aqui, e a Fila Inteligente™ mostra-lhe (para assumir) os processos destes departamentos.';
         }
       }
 
