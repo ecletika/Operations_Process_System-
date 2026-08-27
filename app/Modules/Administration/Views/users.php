@@ -16,18 +16,30 @@
       <?php if ($success): ?><div class="ops-alert ops-alert-success"><?= e($success) ?></div><?php endif; ?>
       <?php foreach ($errors as $error): ?><div class="ops-alert" style="background:#fef2f2;border:1px solid #fecaca;color:#dc2626"><?= e($error) ?></div><?php endforeach; ?>
 
-      <div style="display:flex;gap:8px;align-items:center;margin:12px 0">
-        <input type="text" id="user_search" placeholder="🔎 Procurar por nome, utilizador, email ou perfil..."
-               style="flex:1;max-width:480px;padding:9px 12px;border:1px solid #e5e7eb;border-radius:8px">
-        <button type="button" id="user_search_clear" class="ops-btn ops-btn-sm" style="background:#6b7280">Limpar</button>
-        <span id="user_search_count" style="color:#6b7280;font-size:13px"></span>
-      </div>
+      <?php if ($editingUser): ?>
+        <div style="display:flex;gap:10px;align-items:center;margin:12px 0;padding:10px 12px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px">
+          <a href="/admin/users" class="ops-btn ops-btn-sm" style="background:#6b7280;text-decoration:none">← Voltar à lista</a>
+          <span style="color:#1e40af">
+            A editar <strong><?= e($editingUser['first_name'] . ' ' . $editingUser['last_name']) ?></strong>
+            (<code><?= e($editingUser['username']) ?></code>)
+          </span>
+        </div>
+      <?php else: ?>
+        <div style="display:flex;gap:8px;align-items:center;margin:12px 0">
+          <input type="text" id="user_search" placeholder="🔎 Procurar por nome, utilizador, email ou perfil..."
+                 style="flex:1;max-width:480px;padding:9px 12px;border:1px solid #e5e7eb;border-radius:8px">
+          <button type="button" id="user_search_clear" class="ops-btn ops-btn-sm" style="background:#6b7280">Limpar</button>
+          <span id="user_search_count" style="color:#6b7280;font-size:13px"></span>
+        </div>
+      <?php endif; ?>
 
       <table class="ops-table">
         <thead><tr><th>Nome</th><th>Utilizador</th><th>Email</th><th>Perfil</th><th>Ativo</th><th></th></tr></thead>
         <tbody>
           <?php $currentGroup = null; ?>
           <?php foreach ($users as $user): ?>
+            <?php // A editar: a lista inteira só distrai — fica apenas a linha dele. ?>
+            <?php if ($editingUser && (int) $user['id'] !== (int) $editingUser['id']) { continue; } ?>
             <?php $group = $user['branch_name'] . ' · ' . $user['department_name']; ?>
             <?php if ($group !== $currentGroup): $currentGroup = $group; ?>
               <tr class="user-group">
@@ -44,7 +56,9 @@
               <td><?= e($user['role_name']) ?></td>
               <td><?= $user['active'] ? '✅' : '❌' ?></td>
               <td style="display:flex;gap:6px">
-                <a href="/admin/users/<?= (int) $user['id'] ?>/edit" class="ops-btn ops-btn-sm">Editar</a>
+                <?php if (!$editingUser): ?>
+                  <a href="/admin/users/<?= (int) $user['id'] ?>/edit" class="ops-btn ops-btn-sm">Editar</a>
+                <?php endif; ?>
                 <form method="POST" action="/admin/users/<?= (int) $user['id'] ?>/toggle">
                   <?= csrf_field() ?>
                   <button type="submit" name="active" value="<?= $user['active'] ? '0' : '1' ?>"
