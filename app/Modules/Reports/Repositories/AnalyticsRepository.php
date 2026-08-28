@@ -126,10 +126,11 @@ final class AnalyticsRepository
                        bt.id AS batch_id, pr.id AS priority_id
                 FROM tb_process p
                 JOIN tb_priority pr ON pr.id = p.priority_id
+                JOIN tb_status st ON st.id = p.status_id
                 JOIN tb_batch bt ON bt.id = p.batch_id
                 JOIN tb_department d ON d.id = bt.department_id
                 JOIN tb_branch br ON br.id = d.branch_id
-                WHERE p.deleted_at IS NULL AND p.closed_at IS NOT NULL {$period}{$prFilter}
+                WHERE p.deleted_at IS NULL AND p.closed_at IS NOT NULL AND st.code IN ('SOLVED', 'CLOSED') {$period}{$prFilter}
                 GROUP BY bt.id, br.name, d.name, pr.id, pr.name, pr.default_sla_minutes, pr.sort_order
                 ORDER BY equipa ASC, pr.sort_order ASC
             ", $params + $prParams);
@@ -147,8 +148,9 @@ final class AnalyticsRepository
                    u.id AS operator_id, pr.id AS priority_id
             FROM tb_process p
             JOIN tb_priority pr ON pr.id = p.priority_id
+            JOIN tb_status st ON st.id = p.status_id
             JOIN tb_user u ON u.id = p.closed_by
-            WHERE p.deleted_at IS NULL AND p.closed_at IS NOT NULL {$period}{$opFilter}{$prFilter}
+            WHERE p.deleted_at IS NULL AND p.closed_at IS NOT NULL AND st.code IN ('SOLVED', 'CLOSED') {$period}{$opFilter}{$prFilter}
             GROUP BY u.id, u.first_name, u.last_name, pr.id, pr.name, pr.default_sla_minutes, pr.sort_order
             ORDER BY colaborador ASC, pr.sort_order ASC
         ", $params + $opParams + $prParams);
@@ -172,14 +174,15 @@ final class AnalyticsRepository
             $rows = $this->run("
                 SELECT CONCAT(br.name, ' · ', d.name) AS equipa,
                        pr.name AS prioridade, pr.default_sla_minutes AS sla_minutos,
-                       p.created_at, p.closed_at,
+                       p.created_at, p.closed_at, p.sla_closed_minutes,
                        bt.id AS batch_id, pr.id AS priority_id
                 FROM tb_process p
                 JOIN tb_priority pr ON pr.id = p.priority_id
+                JOIN tb_status st ON st.id = p.status_id
                 JOIN tb_batch bt ON bt.id = p.batch_id
                 JOIN tb_department d ON d.id = bt.department_id
                 JOIN tb_branch br ON br.id = d.branch_id
-                WHERE p.deleted_at IS NULL AND p.closed_at IS NOT NULL {$period}{$prFilter}
+                WHERE p.deleted_at IS NULL AND p.closed_at IS NOT NULL AND st.code IN ('SOLVED', 'CLOSED') {$period}{$prFilter}
                 ORDER BY equipa ASC, pr.sort_order ASC
             ", $params + $prParams);
 
@@ -191,12 +194,13 @@ final class AnalyticsRepository
         $rows = $this->run("
             SELECT CONCAT(u.first_name, ' ', u.last_name) AS colaborador,
                    pr.name AS prioridade, pr.default_sla_minutes AS sla_minutos,
-                   p.created_at, p.closed_at,
+                   p.created_at, p.closed_at, p.sla_closed_minutes,
                    u.id AS operator_id, pr.id AS priority_id
             FROM tb_process p
             JOIN tb_priority pr ON pr.id = p.priority_id
+            JOIN tb_status st ON st.id = p.status_id
             JOIN tb_user u ON u.id = p.closed_by
-            WHERE p.deleted_at IS NULL AND p.closed_at IS NOT NULL {$period}{$opFilter}{$prFilter}
+            WHERE p.deleted_at IS NULL AND p.closed_at IS NOT NULL AND st.code IN ('SOLVED', 'CLOSED') {$period}{$opFilter}{$prFilter}
             ORDER BY colaborador ASC, pr.sort_order ASC
         ", $params + $opParams + $prParams);
 
@@ -216,7 +220,7 @@ final class AnalyticsRepository
 
         foreach ($rows as $row) {
             $chave = $row[$idKey] . '|' . $row['priority_id'];
-            $minutos = sla_elapsed_minutes((string) $row['created_at'], (string) $row['closed_at']);
+            $minutos = sla_process_minutes($row);
 
             if (!isset($grupos[$chave])) {
                 $grupos[$chave] = [
@@ -279,14 +283,16 @@ final class AnalyticsRepository
         $params['pri'] = $priorityId;
 
         $rows = $this->run("
-            SELECT p.id, p.process_number, p.created_at, p.closed_at,
+            SELECT p.id, p.process_number, p.created_at, p.closed_at, p.sla_closed_minutes,
                    c.name AS customer_name, v.plate AS vehicle_plate,
                    pr.default_sla_minutes AS sla_minutos
             FROM tb_process p
             JOIN tb_priority pr ON pr.id = p.priority_id
+            JOIN tb_status st ON st.id = p.status_id
             JOIN tb_customer c ON c.id = p.customer_id
             JOIN tb_vehicle v ON v.id = p.vehicle_id
             WHERE p.deleted_at IS NULL AND p.closed_at IS NOT NULL
+              AND st.code IN ('SOLVED', 'CLOSED')
               AND p.priority_id = :pri {$period}{$who}
             ORDER BY p.created_at ASC
         ", $params);
@@ -296,7 +302,7 @@ final class AnalyticsRepository
         $pausas = $this->pausasPorProcesso(array_map(static fn (array $r): int => (int) $r['id'], $rows));
 
         foreach ($rows as &$row) {
-            $row['tempo_total_min'] = sla_elapsed_minutes((string) $row['created_at'], (string) $row['closed_at']);
+            $row['tempo_total_min'] = sla_process_minutes($row);
             $row['dentro_sla'] = self::withinSla($row['tempo_total_min'], $row['sla_minutos']);
 
             $pausa = $pausas[(int) $row['id']] ?? null;

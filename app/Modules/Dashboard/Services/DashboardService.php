@@ -62,7 +62,7 @@ final class DashboardService
         // usar a mesma regra do resto do sistema (sla_elapsed_minutes), que o
         // TIMESTAMPDIFF não sabe aplicar. São só processos em aberto.
         $sql = "
-            SELECT p.created_at, p.reopen_count, pr.default_sla_minutes
+            SELECT p.created_at, p.closed_at, p.sla_closed_minutes, p.reopen_count, pr.default_sla_minutes
             FROM tb_process p
             JOIN tb_status st ON st.id = p.status_id
             JOIN tb_priority pr ON pr.id = p.priority_id
@@ -83,7 +83,7 @@ final class DashboardService
         foreach ($stmt->fetchAll() as $linha) {
             $sla = $linha['default_sla_minutes'];
             $estourou = $sla !== null && $sla !== ''
-                && sla_elapsed_minutes((string) $linha['created_at'], $agora) > (int) $sla;
+                && sla_process_minutes($linha) > (int) $sla;
 
             if ($estourou || (int) $linha['reopen_count'] >= 2) {
                 $criticos++;
@@ -96,7 +96,7 @@ final class DashboardService
     private function slaNearCount(int $userId): int
     {
         $stmt = $this->pdo->prepare("
-            SELECT p.created_at, pr.default_sla_minutes
+            SELECT p.created_at, p.closed_at, p.sla_closed_minutes, pr.default_sla_minutes
             FROM tb_process p
             JOIN tb_status st ON st.id = p.status_id
             JOIN tb_priority pr ON pr.id = p.priority_id
@@ -112,7 +112,7 @@ final class DashboardService
         $agora = time();
         $emRisco = 0;
         foreach ($stmt->fetchAll() as $linha) {
-            $falta = (int) $linha['default_sla_minutes'] - sla_elapsed_minutes((string) $linha['created_at'], $agora);
+            $falta = (int) $linha['default_sla_minutes'] - sla_process_minutes($linha);
             if ($falta >= 0 && $falta <= 15) {
                 $emRisco++;
             }
@@ -219,7 +219,7 @@ final class DashboardService
         // Fechados hoje, um a um: a % de cumprimento e o tempo médio têm de bater
         // certo com o Relatório SLA — são os números que sustentam os prémios.
         $fechadosHoje = $this->pdo->query("
-            SELECT p.created_at, p.closed_at, pr.default_sla_minutes
+            SELECT p.created_at, p.closed_at, p.sla_closed_minutes, pr.default_sla_minutes
             FROM tb_process p
             JOIN tb_status s ON s.id = p.status_id
             JOIN tb_priority pr ON pr.id = p.priority_id
@@ -229,7 +229,7 @@ final class DashboardService
         $met = 0;
         $somaMinutos = 0;
         foreach ($fechadosHoje as $linha) {
-            $minutos = sla_elapsed_minutes((string) $linha['created_at'], (string) $linha['closed_at']);
+            $minutos = sla_process_minutes($linha);
             $somaMinutos += $minutos;
             $sla = $linha['default_sla_minutes'];
             if ($sla !== null && $sla !== '' && $minutos <= (int) $sla) {
@@ -343,7 +343,7 @@ final class DashboardService
     private function ranking(): array
     {
         $linhas = $this->pdo->query("
-            SELECT u.id, u.first_name, u.last_name, p.created_at, p.closed_at
+            SELECT u.id, u.first_name, u.last_name, p.created_at, p.closed_at, p.sla_closed_minutes
             FROM tb_process p
             JOIN tb_user u ON u.id = p.closed_by
             JOIN tb_status s ON s.id = p.status_id
@@ -366,7 +366,7 @@ final class DashboardService
                 '_soma' => 0,
             ];
             $porOperador[$id]['closed_total']++;
-            $porOperador[$id]['_soma'] += sla_elapsed_minutes((string) $linha['created_at'], (string) $linha['closed_at']);
+            $porOperador[$id]['_soma'] += sla_process_minutes($linha);
         }
 
         foreach ($porOperador as &$operador) {

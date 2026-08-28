@@ -67,7 +67,8 @@ final class IntelligenceService
         // ligado o relógio está parado fora de expediente, e o aviso em SQL
         // disparava de madrugada por causa do TIMESTAMPDIFF.
         $stmt = $this->pdo->prepare("
-            SELECT p.id, p.process_number, p.assigned_to, p.created_at, pr.default_sla_minutes
+            SELECT p.id, p.process_number, p.assigned_to, p.created_at, p.closed_at,
+                   p.sla_closed_minutes, pr.default_sla_minutes
             FROM tb_process p
             JOIN tb_status s ON s.id = p.status_id
             JOIN tb_priority pr ON pr.id = p.priority_id
@@ -82,7 +83,7 @@ final class IntelligenceService
         $avisados = 0;
 
         foreach ($stmt->fetchAll() as $row) {
-            $remaining = (int) $row['default_sla_minutes'] - sla_elapsed_minutes((string) $row['created_at'], $agora);
+            $remaining = (int) $row['default_sla_minutes'] - sla_process_minutes($row);
             if ($remaining < 0 || $remaining > $minutesBeforeDeadline) {
                 continue;
             }

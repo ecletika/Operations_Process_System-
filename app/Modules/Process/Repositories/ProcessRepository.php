@@ -279,16 +279,33 @@ final class ProcessRepository
         $stmt->execute(['id' => $id, 'status_id' => $statusId, 'closed_by' => $userId, 'updated_by' => $userId]);
     }
 
-    public function reopen(int $id, int $statusId, int $userId): void
+    /**
+     * Reabre um processo. Guarda em sla_closed_minutes o tempo (útil) que ele
+     * esteve ENCERRADO, calculado pelo chamador, e limpa closed_at — o
+     * processo deixou de estar fechado.
+     *
+     * Sem isto, o SLA de um processo reaberto incluia os dias em que esteve
+     * encerrado: 1h18m de trabalho apareciam como 13h37m. E, com o closed_at
+     * antigo por limpar, um processo reaberto e ainda em curso continuava a
+     * ser contado como concluído nos relatórios.
+     */
+    public function reopen(int $id, int $statusId, int $userId, int $closedMinutesToAdd = 0): void
     {
         $stmt = $this->pdo->prepare('
             UPDATE tb_process
             SET status_id = :status_id, reopen_count = reopen_count + 1,
+                sla_closed_minutes = sla_closed_minutes + :closed_minutes,
+                closed_at = NULL, closed_by = NULL,
                 assigned_to = NULL, assumed_at = NULL,
                 updated_by = :user_id, updated_at = NOW()
             WHERE id = :id
         ');
-        $stmt->execute(['id' => $id, 'status_id' => $statusId, 'user_id' => $userId]);
+        $stmt->execute([
+            'id' => $id,
+            'status_id' => $statusId,
+            'user_id' => $userId,
+            'closed_minutes' => max(0, $closedMinutesToAdd),
+        ]);
     }
 
     /**
@@ -749,7 +766,7 @@ final class ProcessRepository
 
         $sql = '
             SELECT p.id, p.process_number, p.contact_count, p.reopen_count, p.created_at, p.closed_at,
-                   p.last_contact_at, p.next_contact_at, p.sla_paused_minutes, p.wait_started_at, p.batch_id,
+                   p.last_contact_at, p.next_contact_at, p.sla_paused_minutes, p.sla_closed_minutes, p.wait_started_at, p.batch_id,
                    c.name AS customer_name, v.plate AS vehicle_plate,
                    sub.name AS subject_name, sub.code AS subject_code,
                    st.code AS status_code, st.name AS status_name, st.is_waiting,

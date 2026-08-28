@@ -125,7 +125,7 @@ final class InsightRepository
     private function slaFechados(string $where, array $params): array
     {
         $stmt = $this->pdo->prepare("
-            SELECT p.created_at, p.closed_at, pr.default_sla_minutes
+            SELECT p.created_at, p.closed_at, p.sla_closed_minutes, pr.default_sla_minutes
             FROM tb_process p
             JOIN tb_status s ON s.id = p.status_id
             JOIN tb_priority pr ON pr.id = p.priority_id
@@ -141,7 +141,7 @@ final class InsightRepository
         $soma = 0;
         $dentro = 0;
         foreach ($linhas as $linha) {
-            $minutos = sla_elapsed_minutes((string) $linha['created_at'], (string) $linha['closed_at']);
+            $minutos = sla_process_minutes($linha);
             $soma += $minutos;
             $sla = $linha['default_sla_minutes'];
             if ($sla !== null && $sla !== '' && $minutos <= (int) $sla) {

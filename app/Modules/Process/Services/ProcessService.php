@@ -654,7 +654,13 @@ final class ProcessService
         $this->guardTransition($process['status_code'], 'QUEUE');
 
         $queueStatusId = $this->processes->statusIdByCode('QUEUE');
-        $this->processes->reopen($processId, $queueStatusId, $userId);
+        // Tempo que esteve encerrado, com a regra de SLA em vigor: nao conta
+        // para ninguem, e por isso e descontado da contagem do processo.
+        $encerrado = !empty($process['closed_at'])
+            ? sla_elapsed_minutes((string) $process['closed_at'], time())
+            : 0;
+
+        $this->processes->reopen($processId, $queueStatusId, $userId, $encerrado);
 
         $this->timeline->record($processId, 'PROCESS_REOPENED', 'Processo reaberto', null, $userId);
     }
@@ -718,9 +724,10 @@ final class ProcessService
     public function calculateDna(array $process, int $eventsTotal): array
     {
         $createdAt = (string) $process['created_at'];
-        $end = $process['closed_at'] !== null ? (string) $process['closed_at'] : time();
 
-        $totalMinutes = sla_elapsed_minutes($createdAt, $end);
+        // Tempo em curso: desconta o que o processo esteve encerrado entre um
+        // fecho e uma reabertura (ver sla_process_minutes).
+        $totalMinutes = sla_process_minutes($process);
 
         $timeToAssumeMinutes = null;
         if ($process['assumed_at'] !== null) {

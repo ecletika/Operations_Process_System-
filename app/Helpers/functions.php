@@ -169,6 +169,32 @@ if (!function_exists('sla_elapsed_minutes')) {
     }
 }
 
+if (!function_exists('sla_process_minutes')) {
+    /**
+     * Minutos de SLA de um processo: o tempo em que esteve mesmo EM CURSO.
+     *
+     * Desconta o tempo em que o processo esteve ENCERRADO entre um fecho e uma
+     * reabertura (sla_closed_minutes). Um processo aberto às 15h38, resolvido
+     * às 16h28 e reaberto dois dias depois para 28 minutos de trabalho levou
+     * 1h18m — não 13h37m. O tempo em que esteve fechado não é de ninguém.
+     *
+     * @param array<string, mixed> $p linha do processo (created_at, closed_at,
+     *                                sla_closed_minutes)
+     */
+    function sla_process_minutes(array $p): int
+    {
+        $inicio = (string) ($p['created_at'] ?? '');
+        if ($inicio === '') {
+            return 0;
+        }
+
+        $fim = ($p['closed_at'] ?? null) !== null ? (string) $p['closed_at'] : time();
+        $encerrado = (int) ($p['sla_closed_minutes'] ?? 0);
+
+        return max(0, sla_elapsed_minutes($inicio, $fim) - max(0, $encerrado));
+    }
+}
+
 if (!function_exists('sla_state')) {
     /**
      * Estado do SLA de um processo. Duas regras, ambas ligáveis/desligáveis
@@ -219,6 +245,14 @@ if (!function_exists('sla_state')) {
         }
 
         $elapsed = sla_elapsed_minutes($baseTs, time());
+
+        // A contar desde a criação: desconta o tempo em que o processo esteve
+        // encerrado (entre um fecho e uma reabertura). A contar desde o último
+        // contacto não há nada a descontar — esse contacto é posterior à
+        // reabertura, senão descontava-se duas vezes.
+        if (!$renew) {
+            $elapsed = max(0, $elapsed - (int) ($p['sla_closed_minutes'] ?? 0));
+        }
 
         return ['status' => 'running', 'minutes_left' => (int) $sla - $elapsed + $paused];
     }

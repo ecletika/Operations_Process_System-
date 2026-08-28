@@ -199,6 +199,64 @@ $check('com o horário desligado a ficha volta ao tempo corrido',
 $horarioLigado(true);
 
 // =====================================================================
+// PR-2026-00001155: aberto dia 24 às 15:38 e resolvido às 16:28 (50 min),
+// reaberto dia 26 às 11:18 e encerrado às 11:46 (28 min). São 1h18m de
+// trabalho — apareciam 13h37m, porque a conta incluia os dois dias em que o
+// processo esteve encerrado à espera de ser reaberto.
+echo "\n== Processos reabertos: o tempo encerrado não conta ==\n";
+$horarioLigado(true);
+
+// 24/08 15:38->16:28 = 50 ; 26/08 11:18->11:46 = 28
+$fechado1155 = sla_elapsed_minutes($utc('2026-08-24 16:28'), $utc('2026-08-26 11:18'));
+$processo1155 = [
+    'created_at' => $utc('2026-08-24 15:38'),
+    'closed_at' => $utc('2026-08-26 11:46'),
+    'sla_closed_minutes' => $fechado1155,
+];
+
+$check('tempo encerrado entre o fecho e a reabertura', $fechado1155, 740);
+$check('sem descontar dava 13h37m',
+    sla_human(sla_elapsed_minutes($processo1155['created_at'], $processo1155['closed_at'])), '13h38m');
+$check('a descontar dá os 50+28 minutos de trabalho', sla_process_minutes($processo1155), 78);
+$check('formatado: 1h18m', sla_human(sla_process_minutes($processo1155)), '1h18m');
+
+// Processo nunca reaberto: nada muda.
+$check('processo sem reaberturas conta na mesma',
+    sla_process_minutes([
+        'created_at' => $utc('2026-08-26 09:00'),
+        'closed_at' => $utc('2026-08-26 10:00'),
+        'sla_closed_minutes' => 0,
+    ]), 60);
+
+// Duas reaberturas somam-se.
+$check('duas reaberturas descontam as duas',
+    sla_process_minutes([
+        'created_at' => $utc('2026-08-26 09:00'),
+        'closed_at' => $utc('2026-08-26 12:00'),
+        'sla_closed_minutes' => 60 + 30,
+    ]), 90);
+
+// Nunca negativo, por muito estranho que seja o histórico.
+$check('nunca devolve tempo negativo',
+    sla_process_minutes([
+        'created_at' => $utc('2026-08-26 09:00'),
+        'closed_at' => $utc('2026-08-26 10:00'),
+        'sla_closed_minutes' => 9999,
+    ]), 0);
+
+// A ficha do processo tem de mostrar exatamente o mesmo.
+$dna1155 = (new ReflectionClass(ProcessService::class))->newInstanceWithoutConstructor()
+    ->calculateDna($processo1155 + ['assumed_at' => null, 'contact_count' => 0,
+        'reopen_count' => 1, 'default_sla_minutes' => 240], 6);
+$check('ficha do processo mostra os mesmos 78 minutos', $dna1155['total_minutes'], 78);
+$check('e com 78 min o SLA de 240 fica CUMPRIDO', $dna1155['sla_met'], true);
+
+// O contrato do reopen: o tempo encerrado vem calculado de fora.
+$reopen = new ReflectionMethod(ProcessRepository::class, 'reopen');
+$check('reopen aceita os minutos encerrados', $reopen->getNumberOfParameters(), 4);
+$check('esse parâmetro é opcional', $reopen->getParameters()[3]->isOptional(), true);
+
+// =====================================================================
 echo "\n== Contrato de changeStatus (a pausa vem calculada de fora) ==\n";
 $assinatura = new ReflectionMethod(ProcessRepository::class, 'changeStatus');
 $check('aceita os minutos de pausa já calculados', $assinatura->getNumberOfParameters(), 5);
