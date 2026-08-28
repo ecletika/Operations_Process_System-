@@ -16,6 +16,7 @@ declare(strict_types=1);
 
 use App\Core\Settings;
 use App\Modules\Process\Repositories\ProcessRepository;
+use App\Modules\Process\Services\ProcessService;
 use App\Modules\Process\Support\BusinessClock;
 use App\Modules\Process\Support\SlaPauseRebuilder;
 use App\Modules\Reports\Repositories\AnalyticsRepository;
@@ -159,6 +160,43 @@ $check('recálculo é idempotente (correr duas vezes dá o mesmo)',
 $horarioLigado(false);
 $check('com o horário desligado a pausa volta a contar 24h/dia',
     SlaPauseRebuilder::minutesFromEvents([$ev($W, '2026-08-26 17:00'), $ev($R, '2026-08-27 09:00')]), 960);
+
+// =====================================================================
+// A ficha do processo mostrava um número e o relatório outro, para o MESMO
+// processo: 20h32m contra 6h01m no PR-2026-00001188. São números que decidem
+// prémios, por isso têm de ser um só.
+echo "\n== Ficha do processo e Relatório SLA têm de dar o mesmo ==\n";
+$horarioLigado(true);
+
+$processo1188 = [
+    'created_at' => $utc('2026-08-25 15:47'),
+    'closed_at' => $utc('2026-08-26 12:19'),
+    'assumed_at' => null,
+    'contact_count' => 4,
+    'reopen_count' => 1,
+    'default_sla_minutes' => 240,
+];
+
+$dna = (new ReflectionClass(ProcessService::class))->newInstanceWithoutConstructor()
+    ->calculateDna($processo1188, 10);
+
+// 25/08 15:47->18:00 = 133 min; 26/08 08:30->12:19 = 229 min (almoço às 12:30).
+$check('ficha: tempo total em minutos úteis', $dna['total_minutes'], 362);
+$check('ficha: SLA de 240 min foi excedido', $dna['sla_met'], false);
+$check('relatório dá exatamente o mesmo tempo que a ficha',
+    sla_elapsed_minutes($processo1188['created_at'], $processo1188['closed_at']), $dna['total_minutes']);
+$check('ficha e relatório concordam no veredicto',
+    $within->invoke(null, $dna['total_minutes'], 240) === 1, $dna['sla_met']);
+
+// Guarda contra o regresso do cálculo antigo (subtração de datas).
+$check('já não conta o tempo corrido (dava 20h32m)',
+    sla_human((int) $dna['total_minutes']) !== '20h32m', true);
+
+$horarioLigado(false);
+$check('com o horário desligado a ficha volta ao tempo corrido',
+    sla_human((int) ((new ReflectionClass(ProcessService::class))->newInstanceWithoutConstructor()
+        ->calculateDna($processo1188, 10)['total_minutes'])), '20h32m');
+$horarioLigado(true);
 
 // =====================================================================
 echo "\n== Contrato de changeStatus (a pausa vem calculada de fora) ==\n";

@@ -293,13 +293,75 @@ final class AnalyticsRepository
 
         // O tempo decorrido é calculado em PHP (e não com TIMESTAMPDIFF) para
         // respeitar o horário de atendimento — ver sla_elapsed_minutes().
+        $pausas = $this->pausasPorProcesso(array_map(static fn (array $r): int => (int) $r['id'], $rows));
+
         foreach ($rows as &$row) {
             $row['tempo_total_min'] = sla_elapsed_minutes((string) $row['created_at'], (string) $row['closed_at']);
             $row['dentro_sla'] = self::withinSla($row['tempo_total_min'], $row['sla_minutos']);
+
+            $pausa = $pausas[(int) $row['id']] ?? null;
+            $row['pausa_min'] = $pausa['minutos'] ?? 0;
+            $row['pausa_por'] = $pausa['por'] ?? '';
         }
         unset($row);
 
         return $rows;
+    }
+
+    /**
+     * Tempo em PAUSA de cada processo e quem o pausou, reconstruído a partir
+     * dos eventos da Timeline.
+     *
+     * Não se usa tb_process.sla_paused_minutes porque esse valor é ZERADO a
+     * cada contacto (quando o SLA renova na interação), pelo que representa
+     * "pausa desde o último contacto" e não o total do processo. Para explicar
+     * o tempo de um processo concluído, o que interessa é o total.
+     *
+     * @param  int[] $processIds
+     * @return array<int, array{minutos:int, por:string}>
+     */
+    private function pausasPorProcesso(array $processIds): array
+    {
+        $ids = array_values(array_unique(array_filter($processIds)));
+        if ($ids === []) {
+            return [];
+        }
+
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        $stmt = $this->pdo->prepare("
+            SELECT e.process_id, e.event_type, e.created_at,
+                   TRIM(CONCAT(IFNULL(u.first_name, ''), ' ', IFNULL(u.last_name, ''))) AS utilizador
+            FROM tb_event e
+            LEFT JOIN tb_user u ON u.id = e.user_id
+            WHERE e.process_id IN ({$placeholders})
+              AND e.event_type IN ('PROCESS_WAITING', 'PROCESS_RESUMED')
+              AND e.deleted_at IS NULL
+            ORDER BY e.process_id ASC, e.created_at ASC, e.id ASC
+        ");
+        $stmt->execute($ids);
+
+        $eventosPorProcesso = [];
+        $quemPausou = [];
+        foreach ($stmt->fetchAll() as $evento) {
+            $processId = (int) $evento['process_id'];
+            $eventosPorProcesso[$processId][] = $evento;
+
+            // Só quem põe em espera é que "pausa" — quem retoma não conta.
+            $nome = trim((string) $evento['utilizador']);
+            if ($evento['event_type'] === 'PROCESS_WAITING' && $nome !== '') {
+                $quemPausou[$processId][$nome] = true;
+            }
+        }
+
+        $resultado = [];
+        foreach ($eventosPorProcesso as $processId => $eventos) {
+            $resultado[$processId] = [
+                'minutos' => \App\Modules\Process\Support\SlaPauseRebuilder::minutesFromEvents($eventos),
+                'por' => implode(', ', array_keys($quemPausou[$processId] ?? [])),
+            ];
+        }
+
+        return $resultado;
     }
 
     /**

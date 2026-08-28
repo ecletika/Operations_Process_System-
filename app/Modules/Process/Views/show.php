@@ -199,7 +199,7 @@
       </div>
 
       <div class="ops-kpis">
-        <div class="ops-kpi"><div class="value"><?= (int) ($dna['total_minutes'] / 60) ?>h<?= $dna['total_minutes'] % 60 ?>m</div><div class="label">Tempo Total</div></div>
+        <div class="ops-kpi" title="Tempo contado da mesma forma que no Relatório SLA"><div class="value"><?= e(sla_human((int) $dna['total_minutes'])) ?></div><div class="label">Tempo Total</div></div>
         <div class="ops-kpi"><div class="value"><?= (int) $dna['contact_count'] ?></div><div class="label">Contactos</div></div>
         <div class="ops-kpi"><div class="value"><?= (int) $dna['events_total'] ?></div><div class="label">Eventos</div></div>
         <div class="ops-kpi"><div class="value"><?= (int) $dna['reopen_count'] ?></div><div class="label">Reaberturas</div></div>

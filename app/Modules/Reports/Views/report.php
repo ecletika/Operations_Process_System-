@@ -192,6 +192,35 @@
           var body = document.getElementById('sla-modal-body');
           function open() { overlay.classList.add('open'); }
           function close() { overlay.classList.remove('open'); body.innerHTML = ''; }
+
+          // Pesquisa pelo nº do processo dentro do modal. Fica aqui (e não no
+          // fragmento) porque o HTML é injetado por innerHTML, e o browser não
+          // executa <script> inserido dessa maneira.
+          function ligarPesquisa() {
+            var input = body.querySelector('#sla-proc-search');
+            if (!input) { return; }
+
+            var linhas = Array.prototype.slice.call(body.querySelectorAll('.sla-proc-row'));
+            var vazio = body.querySelector('#sla-proc-empty');
+            var contador = body.querySelector('#sla-proc-count');
+
+            function filtrar() {
+              var q = input.value.trim().toLowerCase();
+              var visiveis = 0;
+
+              linhas.forEach(function (linha) {
+                var mostra = q === '' || (linha.getAttribute('data-numero') || '').indexOf(q) !== -1;
+                linha.style.display = mostra ? '' : 'none';
+                if (mostra) { visiveis++; }
+              });
+
+              if (vazio) { vazio.style.display = (visiveis === 0 ? '' : 'none'); }
+              if (contador) { contador.textContent = q === '' ? '' : visiveis + ' de ' + linhas.length; }
+            }
+
+            input.addEventListener('input', filtrar);
+            input.focus();
+          }
           document.querySelectorAll('.sla-drill').forEach(function (btn) {
             btn.addEventListener('click', function () {
               var p = new URLSearchParams();
@@ -206,7 +235,7 @@
               open();
               fetch('/reports/sla/processes?' + p.toString(), { headers: { 'X-Requested-With': 'fetch' } })
                 .then(function (r) { return r.text(); })
-                .then(function (html) { body.innerHTML = html; })
+                .then(function (html) { body.innerHTML = html; ligarPesquisa(); })
                 .catch(function () { body.innerHTML = '<div style="padding:24px;color:#dc2626">Erro ao carregar os processos.</div>'; });
             });
           });

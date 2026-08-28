@@ -708,20 +708,23 @@ final class ProcessService
      * DNA do Processo™ (OPS-PRD-001 §2.11) - resumo executivo calculado a
      * partir dos timestamps reais, nunca de valores armazenados (§10.20).
      * RN-0040 a RN-0044.
+     *
+     * O tempo conta com a mesma regra do Relatório SLA (sla_elapsed_minutes):
+     * só horário de atendimento, quando essa definição está ligada. Antes era
+     * uma subtração de datas, e a ficha contradizia o relatório no mesmo
+     * processo — 20h32m aqui, 6h01m lá. Sendo números que decidem prémios,
+     * têm de ser um só.
      */
     public function calculateDna(array $process, int $eventsTotal): array
     {
-        $createdAt = new \DateTimeImmutable($process['created_at']);
-        $end = $process['closed_at'] !== null
-            ? new \DateTimeImmutable($process['closed_at'])
-            : new \DateTimeImmutable('now');
+        $createdAt = (string) $process['created_at'];
+        $end = $process['closed_at'] !== null ? (string) $process['closed_at'] : time();
 
-        $totalMinutes = (int) (($end->getTimestamp() - $createdAt->getTimestamp()) / 60);
+        $totalMinutes = sla_elapsed_minutes($createdAt, $end);
 
         $timeToAssumeMinutes = null;
         if ($process['assumed_at'] !== null) {
-            $assumedAt = new \DateTimeImmutable($process['assumed_at']);
-            $timeToAssumeMinutes = (int) (($assumedAt->getTimestamp() - $createdAt->getTimestamp()) / 60);
+            $timeToAssumeMinutes = sla_elapsed_minutes($createdAt, (string) $process['assumed_at']);
         }
 
         $slaMinutes = $process['default_sla_minutes'] !== null ? (int) $process['default_sla_minutes'] : null;
