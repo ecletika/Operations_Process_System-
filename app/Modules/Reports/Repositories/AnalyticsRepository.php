@@ -372,6 +372,83 @@ final class AnalyticsRepository
     }
 
     /**
+     * Cumprimento por ASSUNTO em vez de por pessoa. Quando um assunto falha
+     * em toda a gente, o problema é o prazo e não a equipa — e um prémio
+     * assente num prazo impossível é contestado com razão.
+     *
+     * Os operadores distintos são contados em PHP, e não com uma função de
+     * janela ou um subselect: as linhas já vêm todas para cá para o cálculo
+     * dos minutos, e assim a query corre em qualquer versão do MySQL.
+     */
+    public function slaBySubject(?string $from, ?string $to): array
+    {
+        [$period, $params] = $this->periodClause($from, $to);
+
+        $rows = $this->run("
+            SELECT sub.name AS assunto, pr.name AS prioridade,
+                   pr.default_sla_minutes AS sla_minutos,
+                   p.created_at, p.closed_at, p.closed_by,
+                   p.sla_paused_total_minutes, p.sla_closed_minutes
+            FROM tb_process p
+            JOIN tb_subject sub ON sub.id = p.subject_id
+            JOIN tb_priority pr ON pr.id = p.priority_id
+            JOIN tb_status st ON st.id = p.status_id
+            WHERE p.deleted_at IS NULL AND p.closed_at IS NOT NULL
+              AND st.code IN ('SOLVED', 'CLOSED')
+              AND pr.default_sla_minutes IS NOT NULL {$period}
+        ", $params);
+
+        $grupos = [];
+        foreach ($rows as $row) {
+            $chave = $row['assunto'] . '|' . $row['prioridade'];
+            $grupos[$chave] ??= [
+                'assunto' => $row['assunto'],
+                'prioridade' => $row['prioridade'],
+                'sla_minutos' => (int) $row['sla_minutos'],
+                'operadores' => [],
+                'n' => 0, 'dentro' => 0, 'soma' => 0, 'tempos' => [],
+            ];
+
+            $minutos = sla_process_minutes($row);
+            $grupos[$chave]['n']++;
+            $grupos[$chave]['dentro'] += self::withinSla($minutos, $row['sla_minutos']);
+            $grupos[$chave]['soma'] += $minutos;
+            $grupos[$chave]['tempos'][] = $minutos;
+
+            if ($row['closed_by'] !== null) {
+                $grupos[$chave]['operadores'][(int) $row['closed_by']] = true;
+            }
+        }
+
+        $resultado = [];
+        foreach ($grupos as $g) {
+            $pct = (int) round($g['dentro'] / $g['n'] * 100);
+            $operadores = count($g['operadores']);
+            sort($g['tempos']);
+
+            $resultado[] = [
+                'assunto' => $g['assunto'],
+                'prioridade' => $g['prioridade'],
+                'sla_minutos' => $g['sla_minutos'],
+                'concluidos' => $g['n'],
+                'pct_dentro_sla' => $pct . '%',
+                'tempo_medio' => sla_human((int) round($g['soma'] / $g['n'])),
+                'tempo_mediano' => sla_human((int) $g['tempos'][intdiv($g['n'], 2)]),
+                'operadores_envolvidos' => $operadores,
+                // Falha em toda a gente e em vários operadores: é o prazo.
+                'veredicto' => ($pct < 50 && $operadores >= 3)
+                    ? 'Prazo provavelmente irrealista'
+                    : '',
+            ];
+        }
+
+        usort($resultado, static fn (array $a, array $b): int
+            => (int) $a['pct_dentro_sla'] <=> (int) $b['pct_dentro_sla']);
+
+        return $resultado;
+    }
+
+    /**
      * Tempo entre a entrada do processo e o momento em que alguém o assume,
      * por equipa e hora do dia. É a única parcela do SLA inteiramente sob
      * controlo da casa — não depende de clientes nem de fornecedores.
