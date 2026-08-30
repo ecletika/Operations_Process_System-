@@ -162,6 +162,55 @@ $check('com o horário desligado a pausa volta a contar 24h/dia',
     SlaPauseRebuilder::minutesFromEvents([$ev($W, '2026-08-26 17:00'), $ev($R, '2026-08-27 09:00')]), 960);
 
 // =====================================================================
+// A Timeline promete "SLA em pausa" ao pôr um processo em espera, mas o Tempo
+// Total somava esse período na mesma. PR-2026-00001287: aberto às 14:19, em
+// espera às 14:32 porque o cliente não atendia, retomado às 16:19, concluído
+// às 16:24 — 18 minutos de trabalho que apareciam como 2h04m.
+echo "\n== Tempo em pausa não conta para o SLA ==\n";
+$horarioLigado(true);
+
+$pausa1287 = sla_elapsed_minutes($utc('2026-08-28 14:32'), $utc('2026-08-28 16:19'));
+$processo1287 = [
+    'created_at' => $utc('2026-08-28 14:19'),
+    'closed_at' => $utc('2026-08-28 16:24'),
+    'sla_paused_total_minutes' => $pausa1287,
+    'sla_closed_minutes' => 0,
+];
+
+$check('a espera durou 1h47m', $pausa1287, 107);
+$check('sem descontar dava 2h05m',
+    sla_elapsed_minutes($processo1287['created_at'], $processo1287['closed_at']), 125);
+$check('a descontar sobram os 18 minutos de trabalho', sla_process_minutes($processo1287), 18);
+
+// O contador antigo é zerado a cada contacto: se fosse ele a mandar, um
+// processo que esteve uma hora parado apareceria sem pausa nenhuma.
+$check('usa o total e não o contador zerado no contacto',
+    sla_process_minutes([
+        'created_at' => $utc('2026-08-28 09:00'),
+        'closed_at' => $utc('2026-08-28 12:00'),
+        'sla_paused_minutes' => 0,           // zerado por um contacto posterior
+        'sla_paused_total_minutes' => 60,    // o que realmente esteve parado
+        'sla_closed_minutes' => 0,
+    ]), 120);
+
+// Pausa e reabertura no mesmo processo descontam as duas.
+$check('pausa e reabertura descontam-se as duas',
+    sla_process_minutes([
+        'created_at' => $utc('2026-08-28 09:00'),
+        'closed_at' => $utc('2026-08-28 12:00'),
+        'sla_paused_total_minutes' => 30,
+        'sla_closed_minutes' => 45,
+    ]), 105);
+
+$check('processo sem pausas conta o tempo todo',
+    sla_process_minutes([
+        'created_at' => $utc('2026-08-28 09:00'),
+        'closed_at' => $utc('2026-08-28 10:00'),
+        'sla_paused_total_minutes' => 0,
+        'sla_closed_minutes' => 0,
+    ]), 60);
+
+// =====================================================================
 // A ficha do processo mostrava um número e o relatório outro, para o MESMO
 // processo: 20h32m contra 6h01m no PR-2026-00001188. São números que decidem
 // prémios, por isso têm de ser um só.

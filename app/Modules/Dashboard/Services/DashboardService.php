@@ -62,7 +62,7 @@ final class DashboardService
         // usar a mesma regra do resto do sistema (sla_elapsed_minutes), que o
         // TIMESTAMPDIFF não sabe aplicar. São só processos em aberto.
         $sql = "
-            SELECT p.created_at, p.closed_at, p.sla_closed_minutes, p.reopen_count, pr.default_sla_minutes
+            SELECT p.created_at, p.closed_at, p.sla_paused_total_minutes, p.sla_closed_minutes, p.reopen_count, pr.default_sla_minutes
             FROM tb_process p
             JOIN tb_status st ON st.id = p.status_id
             JOIN tb_priority pr ON pr.id = p.priority_id
@@ -96,7 +96,7 @@ final class DashboardService
     private function slaNearCount(int $userId): int
     {
         $stmt = $this->pdo->prepare("
-            SELECT p.created_at, p.closed_at, p.sla_closed_minutes, pr.default_sla_minutes
+            SELECT p.created_at, p.closed_at, p.sla_paused_total_minutes, p.sla_closed_minutes, pr.default_sla_minutes
             FROM tb_process p
             JOIN tb_status st ON st.id = p.status_id
             JOIN tb_priority pr ON pr.id = p.priority_id
@@ -219,7 +219,7 @@ final class DashboardService
         // Fechados hoje, um a um: a % de cumprimento e o tempo médio têm de bater
         // certo com o Relatório SLA — são os números que sustentam os prémios.
         $fechadosHoje = $this->pdo->query("
-            SELECT p.created_at, p.closed_at, p.sla_closed_minutes, pr.default_sla_minutes
+            SELECT p.created_at, p.closed_at, p.sla_paused_total_minutes, p.sla_closed_minutes, pr.default_sla_minutes
             FROM tb_process p
             JOIN tb_status s ON s.id = p.status_id
             JOIN tb_priority pr ON pr.id = p.priority_id
@@ -343,7 +343,7 @@ final class DashboardService
     private function ranking(): array
     {
         $linhas = $this->pdo->query("
-            SELECT u.id, u.first_name, u.last_name, p.created_at, p.closed_at, p.sla_closed_minutes
+            SELECT u.id, u.first_name, u.last_name, p.created_at, p.closed_at, p.sla_paused_total_minutes, p.sla_closed_minutes
             FROM tb_process p
             JOIN tb_user u ON u.id = p.closed_by
             JOIN tb_status s ON s.id = p.status_id

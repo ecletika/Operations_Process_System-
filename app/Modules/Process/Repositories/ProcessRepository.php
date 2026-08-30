@@ -233,10 +233,15 @@ final class ProcessRepository
      *    e volta a contar.
      */
     /**
-     * Muda o estado. Ao SAIR da espera soma o tempo dessa pausa a
-     * sla_paused_minutes — em minutos ÚTEIS, calculados pelo chamador com
-     * sla_elapsed_minutes(). Era um TIMESTAMPDIFF, que somava a noite e o
-     * fim de semana inteiros e inflacionava a pausa gravada.
+     * Muda o estado. Ao SAIR da espera soma o tempo dessa pausa — em minutos
+     * ÚTEIS, calculados pelo chamador com sla_elapsed_minutes() — a DOIS
+     * contadores, que existem porque servem coisas diferentes:
+     *
+     *   sla_paused_minutes       é ZERADO a cada contacto (quando o SLA renova
+     *                            na interação). Vale "pausa desde o último
+     *                            contacto" e serve o relógio ao vivo.
+     *   sla_paused_total_minutes nunca é zerado. É o total do processo, e é o
+     *                            que se desconta ao tempo de SLA.
      */
     public function changeStatus(int $id, int $statusId, int $userId, bool $isWaiting, int $pausedMinutesToAdd = 0): void
     {
@@ -255,6 +260,7 @@ final class ProcessRepository
                 UPDATE tb_process
                 SET status_id = :status_id,
                     sla_paused_minutes = sla_paused_minutes + :paused_minutes,
+                    sla_paused_total_minutes = sla_paused_total_minutes + :paused_total,
                     wait_started_at = NULL,
                     updated_by = :user_id, updated_at = NOW()
                 WHERE id = :id
@@ -264,6 +270,7 @@ final class ProcessRepository
         $params = ['id' => $id, 'status_id' => $statusId, 'user_id' => $userId];
         if (!$isWaiting) {
             $params['paused_minutes'] = max(0, $pausedMinutesToAdd);
+            $params['paused_total'] = max(0, $pausedMinutesToAdd);
         }
 
         $stmt->execute($params);
@@ -766,7 +773,8 @@ final class ProcessRepository
 
         $sql = '
             SELECT p.id, p.process_number, p.contact_count, p.reopen_count, p.created_at, p.closed_at,
-                   p.last_contact_at, p.next_contact_at, p.sla_paused_minutes, p.sla_closed_minutes, p.wait_started_at, p.batch_id,
+                   p.last_contact_at, p.next_contact_at, p.sla_paused_minutes, p.sla_paused_total_minutes,
+                   p.sla_closed_minutes, p.wait_started_at, p.batch_id,
                    c.name AS customer_name, v.plate AS vehicle_plate,
                    sub.name AS subject_name, sub.code AS subject_code,
                    st.code AS status_code, st.name AS status_name, st.is_waiting,

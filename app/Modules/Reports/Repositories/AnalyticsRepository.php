@@ -174,7 +174,7 @@ final class AnalyticsRepository
             $rows = $this->run("
                 SELECT CONCAT(br.name, ' · ', d.name) AS equipa,
                        pr.name AS prioridade, pr.default_sla_minutes AS sla_minutos,
-                       p.created_at, p.closed_at, p.sla_closed_minutes,
+                       p.created_at, p.closed_at, p.sla_paused_total_minutes, p.sla_closed_minutes,
                        bt.id AS batch_id, pr.id AS priority_id
                 FROM tb_process p
                 JOIN tb_priority pr ON pr.id = p.priority_id
@@ -194,7 +194,7 @@ final class AnalyticsRepository
         $rows = $this->run("
             SELECT CONCAT(u.first_name, ' ', u.last_name) AS colaborador,
                    pr.name AS prioridade, pr.default_sla_minutes AS sla_minutos,
-                   p.created_at, p.closed_at, p.sla_closed_minutes,
+                   p.created_at, p.closed_at, p.sla_paused_total_minutes, p.sla_closed_minutes,
                    u.id AS operator_id, pr.id AS priority_id
             FROM tb_process p
             JOIN tb_priority pr ON pr.id = p.priority_id
@@ -283,7 +283,7 @@ final class AnalyticsRepository
         $params['pri'] = $priorityId;
 
         $rows = $this->run("
-            SELECT p.id, p.process_number, p.created_at, p.closed_at, p.sla_closed_minutes,
+            SELECT p.id, p.process_number, p.created_at, p.closed_at, p.sla_paused_total_minutes, p.sla_closed_minutes,
                    c.name AS customer_name, v.plate AS vehicle_plate,
                    pr.default_sla_minutes AS sla_minutos
             FROM tb_process p
@@ -299,15 +299,16 @@ final class AnalyticsRepository
 
         // O tempo decorrido é calculado em PHP (e não com TIMESTAMPDIFF) para
         // respeitar o horário de atendimento — ver sla_elapsed_minutes().
+        // Quem pausou vem da Timeline; os minutos vêm da coluna, para a coluna
+        // "Em pausa" mostrar exatamente o que foi descontado ao tempo total.
         $pausas = $this->pausasPorProcesso(array_map(static fn (array $r): int => (int) $r['id'], $rows));
 
         foreach ($rows as &$row) {
             $row['tempo_total_min'] = sla_process_minutes($row);
             $row['dentro_sla'] = self::withinSla($row['tempo_total_min'], $row['sla_minutos']);
 
-            $pausa = $pausas[(int) $row['id']] ?? null;
-            $row['pausa_min'] = $pausa['minutos'] ?? 0;
-            $row['pausa_por'] = $pausa['por'] ?? '';
+            $row['pausa_min'] = (int) ($row['sla_paused_total_minutes'] ?? 0);
+            $row['pausa_por'] = $pausas[(int) $row['id']]['por'] ?? '';
         }
         unset($row);
 

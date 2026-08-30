@@ -171,15 +171,21 @@ if (!function_exists('sla_elapsed_minutes')) {
 
 if (!function_exists('sla_process_minutes')) {
     /**
-     * Minutos de SLA de um processo: o tempo em que esteve mesmo EM CURSO.
+     * Minutos de SLA de um processo: o tempo em que esteve mesmo A SER
+     * TRABALHADO. É a única conta válida, e desconta tudo o que não depende
+     * de quem trata o processo:
      *
-     * Desconta o tempo em que o processo esteve ENCERRADO entre um fecho e uma
-     * reabertura (sla_closed_minutes). Um processo aberto às 15h38, resolvido
-     * às 16h28 e reaberto dois dias depois para 28 minutos de trabalho levou
-     * 1h18m — não 13h37m. O tempo em que esteve fechado não é de ninguém.
+     *   · fora do horário de atendimento (via sla_elapsed_minutes);
+     *   · EM PAUSA, à espera do cliente, de peças, da oficina ou de terceiros
+     *     — é o que a Timeline promete ao escrever "SLA em pausa";
+     *   · ENCERRADO, entre um fecho e uma reabertura.
+     *
+     * Usa sla_paused_TOTAL_minutes e não sla_paused_minutes: este último é
+     * zerado a cada contacto, e daria zero de pausa em processos que estiveram
+     * horas parados.
      *
      * @param array<string, mixed> $p linha do processo (created_at, closed_at,
-     *                                sla_closed_minutes)
+     *        sla_paused_total_minutes, sla_closed_minutes)
      */
     function sla_process_minutes(array $p): int
     {
@@ -189,9 +195,10 @@ if (!function_exists('sla_process_minutes')) {
         }
 
         $fim = ($p['closed_at'] ?? null) !== null ? (string) $p['closed_at'] : time();
-        $encerrado = (int) ($p['sla_closed_minutes'] ?? 0);
+        $naoConta = max(0, (int) ($p['sla_paused_total_minutes'] ?? 0))
+            + max(0, (int) ($p['sla_closed_minutes'] ?? 0));
 
-        return max(0, sla_elapsed_minutes($inicio, $fim) - max(0, $encerrado));
+        return max(0, sla_elapsed_minutes($inicio, $fim) - $naoConta);
     }
 }
 

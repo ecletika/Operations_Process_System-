@@ -125,7 +125,7 @@ final class InsightRepository
     private function slaFechados(string $where, array $params): array
     {
         $stmt = $this->pdo->prepare("
-            SELECT p.created_at, p.closed_at, p.sla_closed_minutes, pr.default_sla_minutes
+            SELECT p.created_at, p.closed_at, p.sla_paused_total_minutes, p.sla_closed_minutes, pr.default_sla_minutes
             FROM tb_process p
             JOIN tb_status s ON s.id = p.status_id
             JOIN tb_priority pr ON pr.id = p.priority_id

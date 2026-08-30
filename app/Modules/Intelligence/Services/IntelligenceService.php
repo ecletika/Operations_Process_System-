@@ -68,7 +68,7 @@ final class IntelligenceService
         // disparava de madrugada por causa do TIMESTAMPDIFF.
         $stmt = $this->pdo->prepare("
             SELECT p.id, p.process_number, p.assigned_to, p.created_at, p.closed_at,
-                   p.sla_closed_minutes, pr.default_sla_minutes
+                   p.sla_paused_total_minutes, p.sla_closed_minutes, pr.default_sla_minutes
             FROM tb_process p
             JOIN tb_status s ON s.id = p.status_id
             JOIN tb_priority pr ON pr.id = p.priority_id
