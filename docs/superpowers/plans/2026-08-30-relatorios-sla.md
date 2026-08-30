@@ -38,7 +38,7 @@ Processos fechados dentro do prazo e reabertos a seguir. É o contrapeso ao pré
 - Modificar: `app/Modules/Reports/Repositories/AnalyticsRepository.php`
 - Modificar: `app/Modules/Reports/Controllers/ReportController.php`
 
-- [ ] **Passo 1: método no repositório**
+- [x] **Passo 1: método no repositório**
 
 Acrescentar a `AnalyticsRepository`, imediatamente antes de `operators()`:
 
@@ -120,7 +120,7 @@ Acrescentar a `AnalyticsRepository`, imediatamente antes de `operators()`:
     }
 ```
 
-- [ ] **Passo 2: registar o relatório**
+- [x] **Passo 2: registar o relatório**
 
 Em `ReportController::REPORTS`, a seguir à linha do `'sla'`:
 
@@ -134,7 +134,7 @@ E em `buildReportRows()`, dentro do `match ($code)`:
             'sla_reopened' => $repository->reopenedWithinSla($from, $to),
 ```
 
-- [ ] **Passo 3: verificar sintaxe**
+- [x] **Passo 3: verificar sintaxe**
 
 ```bash
 C:\xampp\php\php.exe -l app/Modules/Reports/Repositories/AnalyticsRepository.php
@@ -143,11 +143,11 @@ C:\xampp\php\php.exe -l app/Modules/Reports/Controllers/ReportController.php
 
 Esperado: `No syntax errors detected` nos dois.
 
-- [ ] **Passo 4: abrir `/reports/view/sla_reopened` e confirmar**
+- [x] **Passo 4: abrir `/reports/view/sla_reopened` e confirmar**
 
 Confirmar: a coluna `id` não aparece (é escondida por terminar em `id`), a coluna `processo` está clicável, e o botão de Excel descarrega.
 
-- [ ] **Passo 5: commit**
+- [x] **Passo 5: commit**
 
 ```bash
 git add app/Modules/Reports
@@ -164,7 +164,7 @@ Decompõe o ciclo em fila, trabalho, pausa e encerrado. É o relatório que diz 
 - Modificar: `app/Modules/Reports/Repositories/AnalyticsRepository.php`
 - Modificar: `app/Modules/Reports/Controllers/ReportController.php`
 
-- [ ] **Passo 1: método no repositório**
+- [x] **Passo 1: método no repositório**
 
 ```php
     /**
@@ -243,7 +243,7 @@ Decompõe o ciclo em fila, trabalho, pausa e encerrado. É o relatório que diz 
     }
 ```
 
-- [ ] **Passo 2: registar o relatório**
+- [x] **Passo 2: registar o relatório**
 
 Em `REPORTS`:
 
@@ -257,7 +257,7 @@ No `match`:
             'sla_breakdown' => $repository->timeBreakdown($from, $to),
 ```
 
-- [ ] **Passo 3: verificar sintaxe**
+- [x] **Passo 3: verificar sintaxe**
 
 ```bash
 C:\xampp\php\php.exe -l app/Modules/Reports/Repositories/AnalyticsRepository.php
@@ -265,7 +265,7 @@ C:\xampp\php\php.exe -l app/Modules/Reports/Repositories/AnalyticsRepository.php
 
 Esperado: `No syntax errors detected`.
 
-- [ ] **Passo 4: teste do cálculo**
+- [x] **Passo 4: teste do cálculo**
 
 Acrescentar a `tests/sla_test.php`, antes da secção "Contrato de changeStatus":
 
@@ -291,7 +291,7 @@ $check('fila + trabalho + pausa = tempo útil total',
     $fila + $trabalho + 30, sla_elapsed_minutes($decomposto['created_at'], $decomposto['closed_at']));
 ```
 
-- [ ] **Passo 5: correr os testes**
+- [x] **Passo 5: correr os testes**
 
 ```bash
 C:\xampp\php\php.exe tests/sla_test.php
@@ -299,7 +299,7 @@ C:\xampp\php\php.exe tests/sla_test.php
 
 Esperado: `TODOS OS TESTES PASSARAM`.
 
-- [ ] **Passo 6: commit**
+- [x] **Passo 6: commit**
 
 ```bash
 git add app/Modules/Reports tests/sla_test.php
@@ -314,7 +314,7 @@ git commit -m "Relatorio: onde se perde o tempo (fila, trabalho, pausa, encerrad
 - Modificar: `app/Modules/Reports/Repositories/AnalyticsRepository.php`
 - Modificar: `app/Modules/Reports/Controllers/ReportController.php`
 
-- [ ] **Passo 1: método no repositório**
+- [x] **Passo 1: método no repositório**
 
 ```php
     /**
@@ -375,7 +375,7 @@ git commit -m "Relatorio: onde se perde o tempo (fila, trabalho, pausa, encerrad
     }
 ```
 
-- [ ] **Passo 2: registar o relatório**
+- [x] **Passo 2: registar o relatório**
 
 Em `REPORTS`:
 
@@ -389,7 +389,7 @@ No `match`:
             'sla_pickup' => $repository->timeToAssume($from, $to),
 ```
 
-- [ ] **Passo 3: verificar sintaxe e testes**
+- [x] **Passo 3: verificar sintaxe e testes**
 
 ```bash
 C:\xampp\php\php.exe -l app/Modules/Reports/Repositories/AnalyticsRepository.php
@@ -398,7 +398,7 @@ C:\xampp\php\php.exe tests/sla_test.php
 
 Esperado: sem erros de sintaxe e `TODOS OS TESTES PASSARAM`.
 
-- [ ] **Passo 4: commit**
+- [x] **Passo 4: commit**
 
 ```bash
 git add app/Modules/Reports
@@ -413,7 +413,7 @@ git commit -m "Relatorio: tempo ate um processo ser assumido, por equipa e hora"
 - Modificar: `app/Modules/Reports/Repositories/AnalyticsRepository.php`
 - Modificar: `app/Modules/Reports/Controllers/ReportController.php`
 
-- [ ] **Passo 1: método no repositório**
+- [x] **Passo 1: método no repositório**
 
 ```php
     /**
@@ -485,7 +485,7 @@ git commit -m "Relatorio: tempo ate um processo ser assumido, por equipa e hora"
     }
 ```
 
-- [ ] **Passo 2: registar o relatório**
+- [x] **Passo 2: registar o relatório**
 
 Em `REPORTS`:
 
@@ -499,7 +499,7 @@ No `match`:
             'sla_subject' => $repository->slaBySubject($from, $to),
 ```
 
-- [ ] **Passo 3: verificar sintaxe**
+- [x] **Passo 3: verificar sintaxe**
 
 ```bash
 C:\xampp\php\php.exe -l app/Modules/Reports/Repositories/AnalyticsRepository.php
@@ -507,7 +507,7 @@ C:\xampp\php\php.exe -l app/Modules/Reports/Repositories/AnalyticsRepository.php
 
 Esperado: `No syntax errors detected`.
 
-- [ ] **Passo 4: confirmar que a função de janela é suportada**
+- [x] **Passo 4: confirmar que a função de janela é suportada**
 
 `COUNT(...) OVER (PARTITION BY ...)` exige MySQL 8 ou MariaDB 10.2+. Confirmar no phpMyAdmin:
 
@@ -523,7 +523,7 @@ Se for anterior, substituir a coluna `operadores` por um subselect:
                        AND p2.deleted_at IS NULL AND p2.closed_at IS NOT NULL) AS operadores
 ```
 
-- [ ] **Passo 5: commit**
+- [x] **Passo 5: commit**
 
 ```bash
 git add app/Modules/Reports
@@ -538,7 +538,7 @@ git commit -m "Relatorio: cumprimento de SLA por assunto (prazos mal calibrados)
 - Modificar: `app/Modules/Reports/Repositories/AnalyticsRepository.php`
 - Modificar: `app/Modules/Reports/Controllers/ReportController.php`
 
-- [ ] **Passo 1: método no repositório**
+- [x] **Passo 1: método no repositório**
 
 ```php
     /**
@@ -600,7 +600,7 @@ git commit -m "Relatorio: cumprimento de SLA por assunto (prazos mal calibrados)
     }
 ```
 
-- [ ] **Passo 2: registar o relatório**
+- [x] **Passo 2: registar o relatório**
 
 Em `REPORTS`:
 
@@ -614,7 +614,7 @@ No `match`:
             'sla_load' => $repository->loadVersusFailures($from, $to),
 ```
 
-- [ ] **Passo 3: verificar sintaxe e testes**
+- [x] **Passo 3: verificar sintaxe e testes**
 
 ```bash
 C:\xampp\php\php.exe -l app/Modules/Reports/Repositories/AnalyticsRepository.php
@@ -623,7 +623,7 @@ C:\xampp\php\php.exe tests/sla_test.php
 
 Esperado: sem erros e `TODOS OS TESTES PASSARAM`.
 
-- [ ] **Passo 4: commit**
+- [x] **Passo 4: commit**
 
 ```bash
 git add app/Modules/Reports
