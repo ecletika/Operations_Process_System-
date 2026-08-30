@@ -372,6 +372,81 @@ final class AnalyticsRepository
     }
 
     /**
+     * Onde se perde o tempo, por equipa: quanto do ciclo foi espera na fila,
+     * trabalho, pausa e tempo encerrado entre reaberturas.
+     *
+     * Cada parcela aponta para uma acção diferente — fila alta é
+     * dimensionamento, pausa alta é processo com clientes e fornecedores,
+     * trabalho alto é formação ou ferramentas. Sem as separar decide-se às
+     * cegas, que era a situação até aqui.
+     */
+    public function timeBreakdown(?string $from, ?string $to): array
+    {
+        [$period, $params] = $this->periodClause($from, $to);
+
+        $rows = $this->run("
+            SELECT CONCAT(br.name, ' · ', d.name) AS equipa,
+                   p.created_at, p.assumed_at, p.closed_at,
+                   p.sla_paused_total_minutes, p.sla_closed_minutes
+            FROM tb_process p
+            JOIN tb_status st ON st.id = p.status_id
+            JOIN tb_batch bt ON bt.id = p.batch_id
+            JOIN tb_department d ON d.id = bt.department_id
+            JOIN tb_branch br ON br.id = d.branch_id
+            WHERE p.deleted_at IS NULL AND p.closed_at IS NOT NULL
+              AND st.code IN ('SOLVED', 'CLOSED') {$period}
+            ORDER BY equipa ASC
+        ", $params);
+
+        $grupos = [];
+        foreach ($rows as $row) {
+            $equipa = (string) $row['equipa'];
+            $grupos[$equipa] ??= ['n' => 0, 'fila' => 0, 'trabalho' => 0, 'pausa' => 0, 'encerrado' => 0];
+
+            $pausa = max(0, (int) $row['sla_paused_total_minutes']);
+            $encerrado = max(0, (int) $row['sla_closed_minutes']);
+
+            // Fila = da entrada até alguém assumir. Sem assumed_at (processos
+            // antigos), conta zero em vez de inventar.
+            $fila = $row['assumed_at'] !== null
+                ? sla_elapsed_minutes((string) $row['created_at'], (string) $row['assumed_at'])
+                : 0;
+
+            // Trabalho = o que sobra do tempo de SLA depois de tirar a fila.
+            $trabalho = max(0, sla_process_minutes($row) - $fila);
+
+            $grupos[$equipa]['n']++;
+            $grupos[$equipa]['fila'] += $fila;
+            $grupos[$equipa]['trabalho'] += $trabalho;
+            $grupos[$equipa]['pausa'] += $pausa;
+            $grupos[$equipa]['encerrado'] += $encerrado;
+        }
+
+        $resultado = [];
+        foreach ($grupos as $equipa => $g) {
+            $total = $g['fila'] + $g['trabalho'] + $g['pausa'] + $g['encerrado'];
+            $pct = static fn (int $parcela): string => $total > 0
+                ? round($parcela / $total * 100) . '%'
+                : '—';
+
+            $resultado[] = [
+                'equipa' => $equipa,
+                'concluidos' => $g['n'],
+                'na_fila' => sla_human((int) round($g['fila'] / $g['n'])),
+                'pct_fila' => $pct($g['fila']),
+                'a_trabalhar' => sla_human((int) round($g['trabalho'] / $g['n'])),
+                'pct_trabalho' => $pct($g['trabalho']),
+                'em_pausa' => sla_human((int) round($g['pausa'] / $g['n'])),
+                'pct_pausa' => $pct($g['pausa']),
+                'encerrado' => sla_human((int) round($g['encerrado'] / $g['n'])),
+                'pct_encerrado' => $pct($g['encerrado']),
+            ];
+        }
+
+        return $resultado;
+    }
+
+    /**
      * Cumpriu o prazo, mas o processo voltou. Um processo fechado dentro do
      * SLA e reaberto pouco depois não foi resolvido — foi despachado. Desde
      * que o SLA paga prémios, isto tem de estar à vista.

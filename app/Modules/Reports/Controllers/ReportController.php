@@ -24,6 +24,7 @@ final class ReportController extends Controller
     private const REPORTS = [
         'sla' => ['⏱️ Relatório SLA', 'Cumprimento de SLA por colaborador e prioridade — quem está a cumprir e quem não.'],
         'sla_reopened' => ['↩️ Cumpriu, mas voltou', 'Processos fechados dentro do SLA que foram reabertos — o contrapeso ao prémio.'],
+        'sla_breakdown' => ['⏳ Onde se perde o tempo', 'Fila, trabalho, pausa e tempo encerrado — por equipa, em média por processo.'],
         'operators' => ['🧑‍💼 Produtividade · Operadores', 'Processos criados, assumidos e concluídos por operador.'],
         'batches' => ['🏢 Lotes (Filial · Departamento)', 'Volume, em andamento, concluídos e reaberturas por lote.'],
         'customers' => ['👥 Clientes', 'Top clientes por nº de processos, contactos e reaberturas.'],
@@ -134,6 +135,7 @@ final class ReportController extends Controller
         $rows = match ($code) {
             'sla' => $repository->sla($from, $to, $operatorIds, $priorityIds, $groupBy),
             'sla_reopened' => $repository->reopenedWithinSla($from, $to),
+            'sla_breakdown' => $repository->timeBreakdown($from, $to),
             'operators' => $repository->operators($from, $to, $operatorIds),
             'batches' => $repository->batches($from, $to),
             'customers' => $repository->customers($from, $to),

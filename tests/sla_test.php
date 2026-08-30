@@ -306,6 +306,29 @@ $check('reopen aceita os minutos encerrados', $reopen->getNumberOfParameters(), 
 $check('esse parâmetro é opcional', $reopen->getParameters()[3]->isOptional(), true);
 
 // =====================================================================
+// O relatório "Onde se perde o tempo" divide o ciclo em fila, trabalho,
+// pausa e encerrado. Se as parcelas não fecharem no total, o relatório
+// mente — e é sobre ele que se decide onde investir.
+echo "\n== Decomposição do tempo: as parcelas têm de fechar ==\n";
+$horarioLigado(true);
+
+// Entrou 09:00, assumido 09:30, fechado 12:00, com 30 min de pausa.
+$decomposto = [
+    'created_at' => $utc('2026-08-26 09:00'),
+    'assumed_at' => $utc('2026-08-26 09:30'),
+    'closed_at' => $utc('2026-08-26 12:00'),
+    'sla_paused_total_minutes' => 30,
+    'sla_closed_minutes' => 0,
+];
+$fila = sla_elapsed_minutes($decomposto['created_at'], $decomposto['assumed_at']);
+$trabalho = max(0, sla_process_minutes($decomposto) - $fila);
+
+$check('fila: da entrada até ser assumido', $fila, 30);
+$check('trabalho: o resto do tempo de SLA', $trabalho, 120);
+$check('fila + trabalho + pausa = tempo útil total',
+    $fila + $trabalho + 30, sla_elapsed_minutes($decomposto['created_at'], $decomposto['closed_at']));
+
+// =====================================================================
 echo "\n== Contrato de changeStatus (a pausa vem calculada de fora) ==\n";
 $assinatura = new ReflectionMethod(ProcessRepository::class, 'changeStatus');
 $check('aceita os minutos de pausa já calculados', $assinatura->getNumberOfParameters(), 5);
