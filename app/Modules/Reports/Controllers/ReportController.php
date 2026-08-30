@@ -192,6 +192,35 @@ final class ReportController extends Controller
         ]);
     }
 
+    /**
+     * Drill-down do "Tempo até alguém pegar": abre os processos de uma equipa
+     * numa hora, ordenados do mais rápido para o mais lento.
+     *
+     * É onde se vê o que a média esconde — a fila corre estável e depois um
+     * punhado de processos dispara. São esses que há a investigar.
+     */
+    public function pickupProcesses(Request $request): never
+    {
+        [$from, $to] = $this->periodFromRequest($request);
+        $batchId = (int) $request->input('batch_id', 0);
+        $hora = str_pad((string) (int) $request->input('hora', 0), 2, '0', STR_PAD_LEFT);
+
+        $dados = (new AnalyticsRepository())->pickupProcesses($batchId, $hora, $from, $to);
+        $processos = $dados['processos'];
+        $tempos = array_column($processos, 'minutos');
+
+        $this->view('Reports/Views/pickup_processes_modal', [
+            'processos' => $processos,
+            'limites' => $dados['limites'],
+            'mediana' => $dados['mediana'],
+            'label' => trim((string) $request->input('label', '')),
+            'hora' => $hora,
+            'count' => count($processos),
+            'media' => $tempos !== [] ? (int) round(array_sum($tempos) / count($tempos)) : 0,
+            'anomalos' => count(array_filter($processos, static fn (array $p): bool => $p['classe'] !== 'normal')),
+        ]);
+    }
+
     /** Constrói as linhas de um relatório tabular (partilhado pela vista e pelo Excel). */
     private function buildReportRows(string $code, Request $request): array
     {

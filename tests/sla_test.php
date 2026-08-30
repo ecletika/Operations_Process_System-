@@ -347,6 +347,30 @@ $check('resiste a um caso extremo (mediana muito abaixo da média)',
     $mediana->invoke(null, [1, 2, 3, 4, 12000]), 3);
 
 // =====================================================================
+// O drill-down do "Tempo até alguém pegar" marca os processos que saem do
+// normal a partir dos quartis (Tukey), e não de um limiar escolhido à mão:
+// o corte sai dos próprios dados daquela hora, por isso aguenta discussão.
+echo "\n== Casos fora do normal, pelos quartis ==\n";
+$tukey = new ReflectionMethod(AnalyticsRepository::class, 'limitesDeTukey');
+$tukey->setAccessible(true);
+
+// Fila estável (5..15 min) com dois casos a disparar. Q1 = 8, Q3 = 15, IQR = 7.
+$fila = [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 2700, 12000];
+$lim = $tukey->invoke(null, $fila);
+
+$check('primeiro quartil', $lim['q1'], 8);
+$check('terceiro quartil', $lim['q3'], 15);
+$check('limiar do anómalo = Q3 + 1,5×IQR', $lim['anomalo'], 26);
+$check('limiar do extremo = Q3 + 3×IQR', $lim['extremo'], 36);
+$check('a fila normal fica toda abaixo do limiar', 15 <= (int) $lim['anomalo'], true);
+$check('os casos que disparam ficam acima do extremo', 2700 > (int) $lim['extremo'], true);
+$check('numa fila uniforme ninguém é anómalo',
+    max([10, 11, 12, 13, 14, 15, 16, 17]) <= (int) $tukey->invoke(null, [10, 11, 12, 13, 14, 15, 16, 17])['anomalo'], true);
+$check('com menos de quatro valores não se classifica nada',
+    $tukey->invoke(null, [5, 10, 900])['anomalo'], null);
+$check('lista vazia não rebenta', $tukey->invoke(null, [])['q1'], null);
+
+// =====================================================================
 echo "\n== Contrato de changeStatus (a pausa vem calculada de fora) ==\n";
 $assinatura = new ReflectionMethod(ProcessRepository::class, 'changeStatus');
 $check('aceita os minutos de pausa já calculados', $assinatura->getNumberOfParameters(), 5);

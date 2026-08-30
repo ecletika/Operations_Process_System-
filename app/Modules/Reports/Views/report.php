@@ -192,7 +192,7 @@
                 <?php if ($hidden($column)) continue; ?>
                 <th><?= e(ucfirst(str_replace('_', ' ', $column))) ?></th>
               <?php endforeach; ?>
-              <?php if ($code === 'sla'): ?><th></th><?php endif; ?>
+              <?php if (in_array($code, ['sla', 'sla_pickup'], true)): ?><th></th><?php endif; ?>
             </tr>
           </thead>
           <tbody>
@@ -218,13 +218,21 @@
                       data-label="<?= e((string) ($row['colaborador'] ?? ($row['equipa'] ?? ''))) ?>">🔍 Ver processos</button>
                   </td>
                 <?php endif; ?>
+                <?php if ($code === 'sla_pickup'): ?>
+                  <td>
+                    <button type="button" class="ops-btn ops-btn-sm pickup-drill" style="background:#0891b2;white-space:nowrap"
+                      data-batch="<?= (int) ($row['batch_id'] ?? 0) ?>"
+                      data-hora="<?= e((string) ($row['hora_id'] ?? '')) ?>"
+                      data-label="<?= e((string) ($row['equipa'] ?? '')) ?>">🔍 Ver processos</button>
+                  </td>
+                <?php endif; ?>
               </tr>
             <?php endforeach; ?>
           </tbody>
         </table>
       <?php endif; ?>
 
-      <?php if ($code === 'sla'): ?>
+      <?php if (in_array($code, ['sla', 'sla_pickup'], true)): ?>
         <div id="sla-modal" class="sla-modal-overlay">
           <div class="sla-modal">
             <button type="button" class="sla-modal-close" title="Fechar">×</button>
@@ -285,6 +293,25 @@
                 .catch(function () { body.innerHTML = '<div style="padding:24px;color:#dc2626">Erro ao carregar os processos.</div>'; });
             });
           });
+          // Drill-down do "Tempo até alguém pegar": os processos daquela
+          // equipa e hora, ordenados, para se ver onde a fila se parte.
+          document.querySelectorAll('.pickup-drill').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+              var p = new URLSearchParams();
+              p.set('batch_id', btn.dataset.batch || '0');
+              p.set('hora', btn.dataset.hora || '0');
+              p.set('label', btn.dataset.label || '');
+              if (from) p.set('from', from);
+              if (to) p.set('to', to);
+              body.innerHTML = '<div style="padding:24px;color:#6b7280">A carregar…</div>';
+              open();
+              fetch('/reports/pickup/processes?' + p.toString(), { headers: { 'X-Requested-With': 'fetch' } })
+                .then(function (r) { return r.text(); })
+                .then(function (html) { body.innerHTML = html; })
+                .catch(function () { body.innerHTML = '<div style="padding:24px;color:#dc2626">Erro ao carregar os processos.</div>'; });
+            });
+          });
+
           overlay.addEventListener('click', function (e) { if (e.target === overlay) close(); });
           overlay.querySelector('.sla-modal-close').addEventListener('click', close);
           document.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });

@@ -456,6 +456,109 @@ final class AnalyticsRepository
     }
 
     /**
+     * Drill-down do "Tempo até alguém pegar": os processos, um a um, de uma
+     * equipa numa hora de entrada, ordenados do mais rápido para o mais lento.
+     *
+     * Ordenar por tempo é o que mostra onde a distribuição se parte: vê-se uma
+     * linha estável e depois um salto abrupto. Esses casos, poucos, são os que
+     * destroem a média — e são eles que há a investigar, não a fila inteira.
+     *
+     * A marcação de anómalos usa o método de Tukey (quartis) e não um limiar
+     * escolhido à mão: o corte sai dos próprios dados daquela hora, por isso
+     * aguenta uma discussão sobre se um caso é mesmo fora do normal.
+     */
+    public function pickupProcesses(int $batchId, string $hora, ?string $from, ?string $to): array
+    {
+        [$period, $params] = $this->periodClause($from, $to);
+        $params['batch'] = $batchId;
+
+        $rows = $this->run("
+            SELECT p.id, p.process_number, p.created_at, p.assumed_at,
+                   c.name AS cliente, v.plate AS matricula,
+                   st.name AS estado,
+                   TRIM(CONCAT(IFNULL(u.first_name, ''), ' ', IFNULL(u.last_name, ''))) AS assumido_por
+            FROM tb_process p
+            JOIN tb_customer c ON c.id = p.customer_id
+            JOIN tb_vehicle v ON v.id = p.vehicle_id
+            JOIN tb_status st ON st.id = p.status_id
+            LEFT JOIN tb_user u ON u.id = p.assigned_to
+            WHERE p.deleted_at IS NULL AND p.assumed_at IS NOT NULL
+              AND p.batch_id = :batch {$period}
+        ", $params);
+
+        // A hora é a de ENTRADA, em hora local — a mesma regra do relatório.
+        $processos = [];
+        foreach ($rows as $row) {
+            $entrada = (new \DateTimeImmutable((string) $row['created_at'], new \DateTimeZone('UTC')))
+                ->setTimezone(app_timezone());
+
+            if ($entrada->format('H') !== $hora) {
+                continue;
+            }
+
+            $processos[] = [
+                'id' => (int) $row['id'],
+                'processo' => (string) $row['process_number'],
+                'cliente' => (string) $row['cliente'],
+                'matricula' => (string) $row['matricula'],
+                'estado' => (string) $row['estado'],
+                'assumido_por' => (string) $row['assumido_por'],
+                'entrada' => $entrada->format('d/m H:i'),
+                'minutos' => sla_elapsed_minutes((string) $row['created_at'], (string) $row['assumed_at']),
+            ];
+        }
+
+        usort($processos, static fn (array $a, array $b): int => $a['minutos'] <=> $b['minutos']);
+
+        $tempos = array_column($processos, 'minutos');
+        $limites = self::limitesDeTukey($tempos);
+
+        foreach ($processos as $i => $processo) {
+            $processos[$i]['ordem'] = $i + 1;
+            $processos[$i]['classe'] = match (true) {
+                $limites['extremo'] !== null && $processo['minutos'] > $limites['extremo'] => 'extremo',
+                $limites['anomalo'] !== null && $processo['minutos'] > $limites['anomalo'] => 'anomalo',
+                default => 'normal',
+            };
+        }
+
+        return ['processos' => $processos, 'limites' => $limites, 'mediana' => self::mediana($tempos)];
+    }
+
+    /**
+     * Limiares de Tukey a partir dos quartis: acima de Q3 + 1,5×IQR o valor
+     * é fora do normal; acima de Q3 + 3×IQR é um extremo.
+     *
+     * Com menos de quatro valores não há distribuição que chegue para falar
+     * de anomalias, e devolve-se null — melhor não classificar do que dar um
+     * rótulo que não se sustenta.
+     *
+     * @param int[] $ordenados
+     * @return array{q1:?int, q3:?int, anomalo:?int, extremo:?int}
+     */
+    private static function limitesDeTukey(array $ordenados): array
+    {
+        sort($ordenados);
+        $n = count($ordenados);
+
+        if ($n < 4) {
+            return ['q1' => null, 'q3' => null, 'anomalo' => null, 'extremo' => null];
+        }
+
+        $metade = intdiv($n, 2);
+        $q1 = self::mediana(array_slice($ordenados, 0, $metade));
+        $q3 = self::mediana(array_slice($ordenados, $n % 2 === 0 ? $metade : $metade + 1));
+        $iqr = $q3 - $q1;
+
+        return [
+            'q1' => $q1,
+            'q3' => $q3,
+            'anomalo' => (int) round($q3 + 1.5 * $iqr),
+            'extremo' => (int) round($q3 + 3 * $iqr),
+        ];
+    }
+
+    /**
      * Cumprimento por ASSUNTO em vez de por pessoa. Quando um assunto falha
      * em toda a gente, o problema é o prazo e não a equipa — e um prémio
      * assente num prazo impossível é contestado com razão.
@@ -542,7 +645,7 @@ final class AnalyticsRepository
         [$period, $params] = $this->periodClause($from, $to);
 
         $rows = $this->run("
-            SELECT CONCAT(br.name, ' · ', d.name) AS equipa,
+            SELECT CONCAT(br.name, ' · ', d.name) AS equipa, bt.id AS batch_id,
                    p.created_at, p.assumed_at
             FROM tb_process p
             JOIN tb_batch bt ON bt.id = p.batch_id
@@ -561,7 +664,12 @@ final class AnalyticsRepository
                 ->format('H');
 
             $chave = $row['equipa'] . '|' . $hora;
-            $grupos[$chave] ??= ['equipa' => $row['equipa'], 'hora' => $hora, 'tempos' => []];
+            $grupos[$chave] ??= [
+                'equipa' => $row['equipa'],
+                'batch_id' => (int) $row['batch_id'],
+                'hora' => $hora,
+                'tempos' => [],
+            ];
             $grupos[$chave]['tempos'][] = $minutos;
         }
 
@@ -580,6 +688,10 @@ final class AnalyticsRepository
                 // processos esquecidos a puxar tudo para cima.
                 'espera_mediana' => sla_human(self::mediana($tempos)),
                 'pior_caso' => sla_human((int) $tempos[$n - 1]),
+                // Escondidos na tabela (terminam em _id / hora) — servem ao
+                // botão que abre o detalhe processo a processo.
+                'batch_id' => $g['batch_id'],
+                'hora_id' => $g['hora'],
             ];
         }
 
