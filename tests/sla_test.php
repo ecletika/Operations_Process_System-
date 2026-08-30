@@ -115,9 +115,36 @@ $check('conta os processos concluídos', (int) $out[0]['concluidos'], 2);
 $check('os dois de Colisão ficam DENTRO do SLA em horário útil', (int) $out[0]['dentro_sla'], 2);
 $check('tempo médio = (67+110)/2', (int) $out[0]['tempo_medio_min'], 89);
 $check('o de CRM fica FORA do SLA', (int) $out[1]['dentro_sla'], 0);
-$check('devolve as mesmas colunas que a versão em SQL', array_keys($out[0]), [
-    'equipa', 'prioridade', 'sla_minutos', 'concluidos', 'dentro_sla', 'tempo_medio_min', 'batch_id', 'priority_id',
+$check('devolve média e mediana lado a lado', array_keys($out[0]), [
+    'equipa', 'prioridade', 'sla_minutos', 'concluidos', 'dentro_sla',
+    'tempo_medio_min', 'tempo_mediano_min', 'batch_id', 'priority_id',
 ]);
+// Com 67 e 110 minutos, média e mediana coincidem (são só dois valores).
+$check('mediana dos dois processos de Colisão', (int) $out[0]['tempo_mediano_min'], 89);
+
+// O caso que justifica ter as duas colunas: um operador com quatro processos
+// bem tratados e um esquecido. A média fá-lo parecer lento; a mediana mostra
+// que o trabalho dele corre bem e que há UM caso a investigar.
+$rapido = static fn (string $de, string $ate) => [
+    'colaborador' => 'Ana Santos', 'prioridade' => 'Normal', 'sla_minutos' => 120,
+    'created_at' => $utc($de), 'closed_at' => $utc($ate),
+    'sla_paused_total_minutes' => 0, 'sla_closed_minutes' => 0,
+    'operator_id' => 1, 'priority_id' => 2,
+];
+$comEsquecido = $agrega->invoke($repo, [
+    $rapido('2026-08-26 09:00', '2026-08-26 09:10'),   //  10 min
+    $rapido('2026-08-26 09:00', '2026-08-26 09:15'),   //  15 min
+    $rapido('2026-08-26 09:00', '2026-08-26 09:20'),   //  20 min
+    $rapido('2026-08-26 09:00', '2026-08-26 09:30'),   //  30 min
+    $rapido('2026-08-24 09:00', '2026-08-28 17:00'),   //  esquecido, dias
+], 'colaborador', 'operator_id');
+
+$check('a média é arrastada pelo processo esquecido',
+    (int) $comEsquecido[0]['tempo_medio_min'] > 300, true);
+$check('a mediana mostra o trabalho normal (20 min)',
+    (int) $comEsquecido[0]['tempo_mediano_min'], 20);
+$check('a mediana é muito menor do que a média',
+    (int) $comEsquecido[0]['tempo_mediano_min'] < (int) $comEsquecido[0]['tempo_medio_min'] / 10, true);
 $check('sem SLA definido conta como fora', $within->invoke(null, 10, null), 0);
 $check('dentro do SLA', $within->invoke(null, 10, 120), 1);
 $check('fora do SLA', $within->invoke(null, 200, 120), 0);

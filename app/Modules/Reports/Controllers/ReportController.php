@@ -49,7 +49,7 @@ final class ReportController extends Controller
         'sla' => [
             'o_que' => 'Percentagem de processos concluídos dentro do prazo, por colaborador (ou equipa) e prioridade.',
             'decisao' => 'Quem precisa de apoio e quem está a cumprir. É a base do prémio por SLA.',
-            'como_ler' => 'O tempo conta apenas o que o processo esteve a ser trabalhado: fora do horário de atendimento, em pausa e encerrado entre reaberturas não contam. O "tempo médio" é sensível a casos extremos — um processo esquecido chega para o inflacionar, sem que isso mude a percentagem de cumprimento, que é contada processo a processo. Clique em "Ver processos" para ver caso a caso.',
+            'como_ler' => 'O tempo conta apenas o que o processo esteve a ser trabalhado: fora do horário de atendimento, em pausa e encerrado entre reaberturas não contam. Compare sempre as duas colunas de tempo: o MEDIANO é o caso típico (metade demorou menos), e o MÉDIO sobe com um único processo esquecido. Quando o médio é muito maior que o mediano, o trabalho corre bem e há casos pontuais a investigar — não é a pessoa que é lenta. A percentagem de cumprimento é contada processo a processo e não sai destas médias. Clique em "Ver processos" para ver caso a caso.',
         ],
         'sla_reopened' => [
             'o_que' => 'Processos que foram fechados DENTRO do prazo e, mesmo assim, tiveram de ser reabertos.',
@@ -188,6 +188,12 @@ final class ReportController extends Controller
             'count' => $count,
             'within' => $within,
             'avg' => $count > 0 ? (int) round($sum / $count) : 0,
+            // A mediana ao lado da média, para se ver se o tempo alto é a
+            // regra ou obra de um ou dois processos.
+            'mediana' => AnalyticsRepository::medianaDe(array_map(
+                static fn (array $r): int => (int) $r['tempo_total_min'],
+                $rows
+            )),
             'pct' => $count > 0 ? (int) round($within / $count * 100) : null,
         ]);
     }

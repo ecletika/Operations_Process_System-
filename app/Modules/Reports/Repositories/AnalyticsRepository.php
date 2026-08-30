@@ -105,67 +105,24 @@ final class AnalyticsRepository
      */
     public function sla(?string $from, ?string $to, array $operatorIds = [], array $priorityIds = [], string $groupBy = 'colaborador'): array
     {
-        // Com o horário de atendimento ligado o tempo decorrido deixa de ser
-        // uma subtracção de datas, por isso a agregação passa para PHP. Com ele
-        // desligado mantém-se o SQL agregado — mesmo resultado, mais rápido.
-        if (\App\Modules\Process\Support\BusinessClock::enabled()) {
-            return $this->slaEmHorarioUtil($from, $to, $operatorIds, $priorityIds, $groupBy);
-        }
-
-        [$period, $params] = $this->periodClause($from, $to);
-        [$prFilter, $prParams] = $this->inClause($priorityIds, 'pr.id', 'pri');
-
-        if ($groupBy === 'equipa') {
-            return $this->run("
-                SELECT CONCAT(br.name, ' · ', d.name) AS equipa,
-                       pr.name AS prioridade, pr.default_sla_minutes AS sla_minutos,
-                       COUNT(p.id) AS concluidos,
-                       SUM(CASE WHEN TIMESTAMPDIFF(MINUTE, p.created_at, p.closed_at) <= pr.default_sla_minutes
-                                THEN 1 ELSE 0 END) AS dentro_sla,
-                       ROUND(AVG(TIMESTAMPDIFF(MINUTE, p.created_at, p.closed_at)), 0) AS tempo_medio_min,
-                       bt.id AS batch_id, pr.id AS priority_id
-                FROM tb_process p
-                JOIN tb_priority pr ON pr.id = p.priority_id
-                JOIN tb_status st ON st.id = p.status_id
-                JOIN tb_batch bt ON bt.id = p.batch_id
-                JOIN tb_department d ON d.id = bt.department_id
-                JOIN tb_branch br ON br.id = d.branch_id
-                WHERE p.deleted_at IS NULL AND p.closed_at IS NOT NULL AND st.code IN ('SOLVED', 'CLOSED') {$period}{$prFilter}
-                GROUP BY bt.id, br.name, d.name, pr.id, pr.name, pr.default_sla_minutes, pr.sort_order
-                ORDER BY equipa ASC, pr.sort_order ASC
-            ", $params + $prParams);
-        }
-
-        [$opFilter, $opParams] = $this->operatorClause($operatorIds, 'p.closed_by');
-
-        return $this->run("
-            SELECT CONCAT(u.first_name, ' ', u.last_name) AS colaborador,
-                   pr.name AS prioridade, pr.default_sla_minutes AS sla_minutos,
-                   COUNT(p.id) AS concluidos,
-                   SUM(CASE WHEN TIMESTAMPDIFF(MINUTE, p.created_at, p.closed_at) <= pr.default_sla_minutes
-                            THEN 1 ELSE 0 END) AS dentro_sla,
-                   ROUND(AVG(TIMESTAMPDIFF(MINUTE, p.created_at, p.closed_at)), 0) AS tempo_medio_min,
-                   u.id AS operator_id, pr.id AS priority_id
-            FROM tb_process p
-            JOIN tb_priority pr ON pr.id = p.priority_id
-            JOIN tb_status st ON st.id = p.status_id
-            JOIN tb_user u ON u.id = p.closed_by
-            WHERE p.deleted_at IS NULL AND p.closed_at IS NOT NULL AND st.code IN ('SOLVED', 'CLOSED') {$period}{$opFilter}{$prFilter}
-            GROUP BY u.id, u.first_name, u.last_name, pr.id, pr.name, pr.default_sla_minutes, pr.sort_order
-            ORDER BY colaborador ASC, pr.sort_order ASC
-        ", $params + $opParams + $prParams);
+        return $this->slaAgregado($from, $to, $operatorIds, $priorityIds, $groupBy);
     }
 
     /**
-     * Mesma leitura do Relatório SLA, mas com o relógio de negócio: traz um
-     * registo por processo concluído e agrega em PHP, porque os minutos úteis
-     * dependem do horário, do almoço e dos feriados — coisas que o
-     * TIMESTAMPDIFF do SQL desconhece.
+     * Traz um registo por processo concluído e agrega em PHP.
+     *
+     * Houve aqui uma versão em SQL agregado, usada quando o horário de
+     * atendimento estava desligado. Foi removida por duas razões: os minutos
+     * úteis dependem do horário, do almoço e dos feriados — que o
+     * TIMESTAMPDIFF desconhece — e, sobretudo, o SQL não sabe calcular uma
+     * mediana. Manter os dois caminhos daria colunas diferentes na mesma
+     * tabela consoante uma definição, que é pior do que qualquer ganho de
+     * desempenho.
      *
      * @param int[] $operatorIds
      * @param int[] $priorityIds
      */
-    private function slaEmHorarioUtil(?string $from, ?string $to, array $operatorIds, array $priorityIds, string $groupBy): array
+    private function slaAgregado(?string $from, ?string $to, array $operatorIds, array $priorityIds, string $groupBy): array
     {
         [$period, $params] = $this->periodClause($from, $to);
         [$prFilter, $prParams] = $this->inClause($priorityIds, 'pr.id', 'pri');
@@ -209,8 +166,10 @@ final class AnalyticsRepository
 
     /**
      * Agrega os processos por (operador|equipa × prioridade), contando os
-     * minutos com a regra de SLA em vigor. Devolve as mesmas colunas que a
-     * versão em SQL, para as vistas e o Excel não notarem a diferença.
+     * minutos com a regra de SLA em vigor.
+     *
+     * Devolve média e mediana lado a lado: sozinha, a média faz parecer lento
+     * quem tem um processo esquecido no meio de dezenas bem tratados.
      *
      * @param list<array<string,mixed>> $rows
      */
@@ -230,24 +189,40 @@ final class AnalyticsRepository
                     'concluidos' => 0,
                     'dentro_sla' => 0,
                     'tempo_medio_min' => 0,
+                    'tempo_mediano_min' => 0,
                     $idKey => $row[$idKey],
                     'priority_id' => $row['priority_id'],
                     '_soma' => 0,
+                    '_tempos' => [],
                 ];
             }
 
             $grupos[$chave]['concluidos']++;
             $grupos[$chave]['dentro_sla'] += self::withinSla($minutos, $row['sla_minutos']);
             $grupos[$chave]['_soma'] += $minutos;
+            $grupos[$chave]['_tempos'][] = $minutos;
         }
 
         foreach ($grupos as &$grupo) {
             $grupo['tempo_medio_min'] = (int) round($grupo['_soma'] / $grupo['concluidos']);
-            unset($grupo['_soma']);
+            // A mediana ao lado da média: um processo esquecido chega para
+            // inflacionar a média e fazer parecer lento quem não o é.
+            $grupo['tempo_mediano_min'] = self::mediana($grupo['_tempos']);
+            unset($grupo['_soma'], $grupo['_tempos']);
         }
         unset($grupo);
 
         return array_values($grupos);
+    }
+
+    /**
+     * Mediana, para quem está fora desta classe (o modal do SLA usa-a).
+     *
+     * @param int[] $valores
+     */
+    public static function medianaDe(array $valores): int
+    {
+        return self::mediana($valores);
     }
 
     /**

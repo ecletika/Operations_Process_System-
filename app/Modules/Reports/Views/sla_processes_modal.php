@@ -11,7 +11,7 @@
  * @var array<int,array<string,mixed>> $rows
  * @var string $label  nome do operador ou da equipa
  * @var string $priorityName
- * @var int $count @var int $within @var int $avg @var ?int $pct
+ * @var int $count @var int $within @var int $avg @var int $mediana @var ?int $pct
  */
 ?>
 <div style="font-size:14px;color:#1f2937">
@@ -84,7 +84,13 @@
       <div style="font-size:22px;font-weight:800"><?= (int) $count ?></div>
       <div style="color:#6b7280;font-size:12px">Processos concluídos</div>
     </div>
-    <div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:10px;padding:12px 16px">
+    <div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:10px;padding:12px 16px"
+         title="Metade dos processos demorou menos do que isto. É o caso típico.">
+      <div style="font-size:22px;font-weight:800"><?= e(sla_human((int) $mediana)) ?></div>
+      <div style="color:#6b7280;font-size:12px">Tempo mediano (caso típico)</div>
+    </div>
+    <div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:10px;padding:12px 16px"
+         title="Sobe com um só processo demorado. Compare com a mediana ao lado.">
       <div style="font-size:22px;font-weight:800"><?= e(sla_human((int) $avg)) ?></div>
       <div style="color:#6b7280;font-size:12px">Tempo médio de finalização</div>
     </div>
