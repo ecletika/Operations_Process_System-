@@ -49,7 +49,7 @@ final class ReportController extends Controller
         'sla' => [
             'o_que' => 'Percentagem de processos concluídos dentro do prazo, por colaborador (ou equipa) e prioridade.',
             'decisao' => 'Quem precisa de apoio e quem está a cumprir. É a base do prémio por SLA.',
-            'como_ler' => 'O tempo conta apenas o que o processo esteve a ser trabalhado: fora do horário de atendimento, em pausa e encerrado entre reaberturas não contam. Clique em "Ver processos" para ver caso a caso.',
+            'como_ler' => 'O tempo conta apenas o que o processo esteve a ser trabalhado: fora do horário de atendimento, em pausa e encerrado entre reaberturas não contam. O "tempo médio" é sensível a casos extremos — um processo esquecido chega para o inflacionar, sem que isso mude a percentagem de cumprimento, que é contada processo a processo. Clique em "Ver processos" para ver caso a caso.',
         ],
         'sla_reopened' => [
             'o_que' => 'Processos que foram fechados DENTRO do prazo e, mesmo assim, tiveram de ser reabertos.',
@@ -69,7 +69,7 @@ final class ReportController extends Controller
         'sla_subject' => [
             'o_que' => 'Cumprimento do prazo por assunto, em vez de por pessoa.',
             'decisao' => 'Recalibrar os prazos. Um agendamento e uma peritagem não deviam ter o mesmo relógio.',
-            'como_ler' => 'Quando um assunto falha em vários operadores diferentes, o problema é o prazo e não a equipa — a coluna "veredicto" assinala esses casos. Ordenado do pior cumprimento para o melhor.',
+            'como_ler' => 'Quando um assunto falha em vários operadores diferentes, o problema é o prazo e não a equipa — a coluna "veredicto" assinala esses casos. Compare o TEMPO MEDIANO (o caso típico: metade demorou menos) com os minutos de SLA: se a mediana já ultrapassa o prazo, nem o caso normal cumpre e é o prazo que tem de mudar. Se a mediana cumpre mas a MÉDIA é muito maior, o prazo está bem — o que há são casos concretos a descarrilar, e são esses que se investigam. O "% dentro SLA" é contado processo a processo, nunca a partir destas médias.',
         ],
         'sla_load' => [
             'o_que' => 'Quantos processos entram em cada dia da semana e hora, e quantos desses acabaram por falhar o prazo.',
