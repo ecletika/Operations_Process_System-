@@ -372,6 +372,82 @@ final class AnalyticsRepository
     }
 
     /**
+     * Cumpriu o prazo, mas o processo voltou. Um processo fechado dentro do
+     * SLA e reaberto pouco depois não foi resolvido — foi despachado. Desde
+     * que o SLA paga prémios, isto tem de estar à vista.
+     *
+     * Não se filtra por uma janela de dias: mostra-se quantos dias passaram
+     * até à reabertura e deixa-se quem lê decidir o que é "cedo demais". Uma
+     * reabertura ao fim de um dia diz algo muito diferente de uma ao fim de
+     * três semanas, e o número em bruto é mais honesto do que um corte fixo.
+     */
+    public function reopenedWithinSla(?string $from, ?string $to): array
+    {
+        [$period, $params] = $this->periodClause($from, $to);
+
+        $rows = $this->run("
+            SELECT p.id, p.process_number, p.created_at, p.closed_at,
+                   p.sla_paused_total_minutes, p.sla_closed_minutes, p.reopen_count,
+                   pr.name AS prioridade, pr.default_sla_minutes AS sla_minutos,
+                   c.name AS cliente,
+                   CONCAT(br.name, ' · ', d.name) AS equipa,
+                   TRIM(CONCAT(IFNULL(u.first_name, ''), ' ', IFNULL(u.last_name, ''))) AS fechado_por,
+                   (SELECT MIN(e.created_at) FROM tb_event e
+                     WHERE e.process_id = p.id AND e.event_type = 'PROCESS_CLOSED'
+                       AND e.deleted_at IS NULL) AS primeiro_fecho,
+                   (SELECT MIN(e.created_at) FROM tb_event e
+                     WHERE e.process_id = p.id AND e.event_type = 'PROCESS_REOPENED'
+                       AND e.deleted_at IS NULL) AS primeira_reabertura
+            FROM tb_process p
+            JOIN tb_priority pr ON pr.id = p.priority_id
+            JOIN tb_customer c ON c.id = p.customer_id
+            JOIN tb_status st ON st.id = p.status_id
+            JOIN tb_batch bt ON bt.id = p.batch_id
+            JOIN tb_department d ON d.id = bt.department_id
+            JOIN tb_branch br ON br.id = d.branch_id
+            LEFT JOIN tb_user u ON u.id = p.closed_by
+            WHERE p.deleted_at IS NULL AND p.reopen_count > 0
+              AND p.closed_at IS NOT NULL AND st.code IN ('SOLVED', 'CLOSED') {$period}
+            ORDER BY p.created_at DESC
+        ", $params);
+
+        $resultado = [];
+        foreach ($rows as $row) {
+            // Só interessa quem cumpriu o prazo: quem já falhou está no
+            // Relatório SLA, e apareceria aqui a duplicar o mesmo problema.
+            $minutos = sla_process_minutes($row);
+            if (self::withinSla($minutos, $row['sla_minutos']) !== 1) {
+                continue;
+            }
+
+            // Dias corridos entre o primeiro fecho e a primeira reabertura,
+            // lidos da Timeline e não de closed_at — ao reabrir, o closed_at
+            // do fecho anterior é limpo, e só os eventos guardam essa data.
+            // Tempo real e não minutos de atendimento: a pergunta é quanto
+            // tempo o cliente esteve a pensar que o assunto estava resolvido.
+            $dias = '—';
+            if ($row['primeiro_fecho'] !== null && $row['primeira_reabertura'] !== null) {
+                $delta = strtotime((string) $row['primeira_reabertura']) - strtotime((string) $row['primeiro_fecho']);
+                $dias = max(0, (int) floor($delta / 86400));
+            }
+
+            $resultado[] = [
+                'id' => (int) $row['id'],
+                'processo' => $row['process_number'],
+                'cliente' => $row['cliente'],
+                'equipa' => $row['equipa'],
+                'prioridade' => $row['prioridade'],
+                'fechado_por' => $row['fechado_por'],
+                'tempo_ate_fechar' => sla_human($minutos),
+                'dias_ate_reabrir' => $dias,
+                'reaberturas' => (int) $row['reopen_count'],
+            ];
+        }
+
+        return $resultado;
+    }
+
+    /**
      * Produtividade por Operador: criados, assumidos, concluídos, tempo médio.
      *
      * @param int[] $operatorIds filtro opcional (um ou mais operadores)
