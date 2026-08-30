@@ -372,6 +372,64 @@ final class AnalyticsRepository
     }
 
     /**
+     * Volume de entrada contra incumprimento, por dia da semana e hora. Se o
+     * SLA falha onde há mais volume, falta gente; se falha onde há pouco, o
+     * problema é outro — e evita-se contratar sem necessidade.
+     */
+    public function loadVersusFailures(?string $from, ?string $to): array
+    {
+        [$period, $params] = $this->periodClause($from, $to);
+
+        $rows = $this->run("
+            SELECT p.created_at, p.closed_at, p.sla_paused_total_minutes, p.sla_closed_minutes,
+                   pr.default_sla_minutes AS sla_minutos
+            FROM tb_process p
+            JOIN tb_priority pr ON pr.id = p.priority_id
+            WHERE p.deleted_at IS NULL {$period}
+        ", $params);
+
+        $dias = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+        $grupos = [];
+
+        foreach ($rows as $row) {
+            $entrada = (new \DateTimeImmutable((string) $row['created_at'], new \DateTimeZone('UTC')))
+                ->setTimezone(app_timezone());
+            $chave = $entrada->format('w') . '|' . $entrada->format('H');
+
+            $grupos[$chave] ??= [
+                'ordem' => (int) $entrada->format('w') * 100 + (int) $entrada->format('H'),
+                'dia' => $dias[(int) $entrada->format('w')],
+                'hora' => $entrada->format('H') . 'h',
+                'entrados' => 0, 'concluidos' => 0, 'fora' => 0,
+            ];
+
+            $grupos[$chave]['entrados']++;
+
+            if ($row['closed_at'] !== null) {
+                $grupos[$chave]['concluidos']++;
+                if (self::withinSla(sla_process_minutes($row), $row['sla_minutos']) === 0) {
+                    $grupos[$chave]['fora']++;
+                }
+            }
+        }
+
+        usort($grupos, static fn (array $a, array $b): int => $a['ordem'] <=> $b['ordem']);
+
+        return array_map(static function (array $g): array {
+            return [
+                'dia' => $g['dia'],
+                'hora_de_entrada' => $g['hora'],
+                'entrados' => $g['entrados'],
+                'concluidos' => $g['concluidos'],
+                'fora_do_sla' => $g['fora'],
+                'pct_fora' => $g['concluidos'] > 0
+                    ? round($g['fora'] / $g['concluidos'] * 100) . '%'
+                    : '—',
+            ];
+        }, $grupos);
+    }
+
+    /**
      * Cumprimento por ASSUNTO em vez de por pessoa. Quando um assunto falha
      * em toda a gente, o problema é o prazo e não a equipa — e um prémio
      * assente num prazo impossível é contestado com razão.
