@@ -372,6 +372,63 @@ final class AnalyticsRepository
     }
 
     /**
+     * Tempo entre a entrada do processo e o momento em que alguém o assume,
+     * por equipa e hora do dia. É a única parcela do SLA inteiramente sob
+     * controlo da casa — não depende de clientes nem de fornecedores.
+     */
+    public function timeToAssume(?string $from, ?string $to): array
+    {
+        [$period, $params] = $this->periodClause($from, $to);
+
+        $rows = $this->run("
+            SELECT CONCAT(br.name, ' · ', d.name) AS equipa,
+                   p.created_at, p.assumed_at
+            FROM tb_process p
+            JOIN tb_batch bt ON bt.id = p.batch_id
+            JOIN tb_department d ON d.id = bt.department_id
+            JOIN tb_branch br ON br.id = d.branch_id
+            WHERE p.deleted_at IS NULL AND p.assumed_at IS NOT NULL {$period}
+            ORDER BY equipa ASC
+        ", $params);
+
+        $grupos = [];
+        foreach ($rows as $row) {
+            $minutos = sla_elapsed_minutes((string) $row['created_at'], (string) $row['assumed_at']);
+            // A hora que interessa é a da ENTRADA — é quando a fila cresce.
+            $hora = (new \DateTimeImmutable((string) $row['created_at'], new \DateTimeZone('UTC')))
+                ->setTimezone(app_timezone())
+                ->format('H');
+
+            $chave = $row['equipa'] . '|' . $hora;
+            $grupos[$chave] ??= ['equipa' => $row['equipa'], 'hora' => $hora, 'tempos' => []];
+            $grupos[$chave]['tempos'][] = $minutos;
+        }
+
+        $resultado = [];
+        foreach ($grupos as $g) {
+            $tempos = $g['tempos'];
+            sort($tempos);
+            $n = count($tempos);
+
+            $resultado[] = [
+                'equipa' => $g['equipa'],
+                'hora_de_entrada' => $g['hora'] . 'h',
+                'processos' => $n,
+                'espera_media' => sla_human((int) round(array_sum($tempos) / $n)),
+                // A mediana diz mais do que a média quando há um ou dois
+                // processos esquecidos a puxar tudo para cima.
+                'espera_mediana' => sla_human((int) $tempos[intdiv($n, 2)]),
+                'pior_caso' => sla_human((int) $tempos[$n - 1]),
+            ];
+        }
+
+        usort($resultado, static fn (array $a, array $b): int
+            => [$a['equipa'], $a['hora_de_entrada']] <=> [$b['equipa'], $b['hora_de_entrada']]);
+
+        return $resultado;
+    }
+
+    /**
      * Onde se perde o tempo, por equipa: quanto do ciclo foi espera na fila,
      * trabalho, pausa e tempo encerrado entre reaberturas.
      *
