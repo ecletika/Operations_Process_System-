@@ -192,7 +192,7 @@
                 <?php if ($hidden($column)) continue; ?>
                 <th><?= e(ucfirst(str_replace('_', ' ', $column))) ?></th>
               <?php endforeach; ?>
-              <?php if (in_array($code, ['sla', 'sla_pickup'], true)): ?><th></th><?php endif; ?>
+              <?php if (in_array($code, ['sla', 'sla_pickup', 'sla_load'], true)): ?><th></th><?php endif; ?>
             </tr>
           </thead>
           <tbody>
@@ -226,13 +226,26 @@
                       data-label="<?= e((string) ($row['equipa'] ?? '')) ?>">🔍 Ver processos</button>
                   </td>
                 <?php endif; ?>
+                <?php if ($code === 'sla_load'): ?>
+                  <td>
+                    <?php // Só há o que investigar onde alguma coisa falhou. ?>
+                    <?php if ((int) ($row['fora_do_sla'] ?? 0) > 0): ?>
+                      <button type="button" class="ops-btn ops-btn-sm overdue-drill" style="background:#0891b2;white-space:nowrap"
+                        data-dia="<?= (int) ($row['dia_id'] ?? 0) ?>"
+                        data-hora="<?= e((string) ($row['hora_id'] ?? '')) ?>"
+                        data-label="<?= e((string) ($row['dia'] ?? '')) ?>">🔍 Ver processos fora do prazo</button>
+                    <?php else: ?>
+                      <span style="color:#9ca3af;font-size:12px">—</span>
+                    <?php endif; ?>
+                  </td>
+                <?php endif; ?>
               </tr>
             <?php endforeach; ?>
           </tbody>
         </table>
       <?php endif; ?>
 
-      <?php if (in_array($code, ['sla', 'sla_pickup'], true)): ?>
+      <?php if (in_array($code, ['sla', 'sla_pickup', 'sla_load'], true)): ?>
         <div id="sla-modal" class="sla-modal-overlay">
           <div class="sla-modal">
             <button type="button" class="sla-modal-close" title="Fechar">×</button>
@@ -308,6 +321,25 @@
               fetch('/reports/pickup/processes?' + p.toString(), { headers: { 'X-Requested-With': 'fetch' } })
                 .then(function (r) { return r.text(); })
                 .then(function (html) { body.innerHTML = html; })
+                .catch(function () { body.innerHTML = '<div style="padding:24px;color:#dc2626">Erro ao carregar os processos.</div>'; });
+            });
+          });
+
+          // Drill-down do "Carga contra capacidade": os processos que falharam
+          // o prazo naquele dia e hora, com o tempo repartido por parcelas.
+          document.querySelectorAll('.overdue-drill').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+              var p = new URLSearchParams();
+              p.set('dia', btn.dataset.dia || '0');
+              p.set('hora', btn.dataset.hora || '0');
+              p.set('label', btn.dataset.label || '');
+              if (from) p.set('from', from);
+              if (to) p.set('to', to);
+              body.innerHTML = '<div style="padding:24px;color:#6b7280">A carregar…</div>';
+              open();
+              fetch('/reports/overdue/processes?' + p.toString(), { headers: { 'X-Requested-With': 'fetch' } })
+                .then(function (r) { return r.text(); })
+                .then(function (html) { body.innerHTML = html; ligarPesquisa(); })
                 .catch(function () { body.innerHTML = '<div style="padding:24px;color:#dc2626">Erro ao carregar os processos.</div>'; });
             });
           });

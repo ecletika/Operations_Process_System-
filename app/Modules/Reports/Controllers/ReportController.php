@@ -227,6 +227,32 @@ final class ReportController extends Controller
         ]);
     }
 
+    /**
+     * Drill-down do "Carga contra capacidade": os processos que falharam o
+     * prazo naquele dia da semana e hora, com o tempo repartido pelas quatro
+     * parcelas — é aí que está a explicação de cada falha.
+     */
+    public function overdueProcesses(Request $request): never
+    {
+        [$from, $to] = $this->periodFromRequest($request);
+        $dia = (int) $request->input('dia', 0);
+        $hora = str_pad((string) (int) $request->input('hora', 0), 2, '0', STR_PAD_LEFT);
+
+        $dados = (new AnalyticsRepository())->overdueProcesses($dia, $hora, $from, $to);
+        $processos = $dados['processos'];
+
+        $this->view('Reports/Views/overdue_processes_modal', [
+            'processos' => $processos,
+            'totais' => $dados['totais'],
+            'label' => trim((string) $request->input('label', '')),
+            'hora' => $hora,
+            'count' => count($processos),
+            'excedeuMediana' => AnalyticsRepository::medianaDe(
+                array_map(static fn (array $p): int => $p['excedeu'], $processos)
+            ),
+        ]);
+    }
+
     /** Constrói as linhas de um relatório tabular (partilhado pela vista e pelo Excel). */
     private function buildReportRows(string $code, Request $request): array
     {

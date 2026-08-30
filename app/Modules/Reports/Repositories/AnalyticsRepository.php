@@ -402,6 +402,10 @@ final class AnalyticsRepository
                 'dia' => $dias[(int) $entrada->format('w')],
                 'hora' => $entrada->format('H') . 'h',
                 'entrados' => 0, 'concluidos' => 0, 'fora' => 0,
+                // Escondidos na tabela (terminam em _id) — servem ao botão
+                // que abre os processos falhados desta célula.
+                'dia_id' => (int) $entrada->format('w'),
+                'hora_id' => $entrada->format('H'),
             ];
 
             $grupos[$chave]['entrados']++;
@@ -426,8 +430,111 @@ final class AnalyticsRepository
                 'pct_fora' => $g['concluidos'] > 0
                     ? round($g['fora'] / $g['concluidos'] * 100) . '%'
                     : '—',
+                'dia_id' => $g['dia_id'],
+                'hora_id' => $g['hora_id'],
             ];
         }, $grupos);
+    }
+
+    /**
+     * Drill-down do "Carga contra capacidade": os processos que FALHARAM o
+     * prazo, entrados num dia da semana e hora, com o tempo repartido pelas
+     * quatro parcelas.
+     *
+     * Saber que 8 processos falharam às 16h não diz nada sobre o que fazer.
+     * Ver que em 6 deles o tempo foi quase todo fila, ou quase todo pausa à
+     * espera do cliente, já diz — e é essa a pergunta a seguir a "quantos".
+     *
+     * @param int $diaSemana 0 = Domingo … 6 = Sábado (hora local)
+     */
+    public function overdueProcesses(int $diaSemana, string $hora, ?string $from, ?string $to): array
+    {
+        [$period, $params] = $this->periodClause($from, $to);
+
+        $rows = $this->run("
+            SELECT p.id, p.process_number, p.created_at, p.assumed_at, p.closed_at,
+                   p.sla_paused_total_minutes, p.sla_closed_minutes, p.reopen_count,
+                   pr.name AS prioridade, pr.default_sla_minutes AS sla_minutos,
+                   c.name AS cliente, v.plate AS matricula, sub.name AS assunto,
+                   CONCAT(br.name, ' · ', d.name) AS equipa,
+                   TRIM(CONCAT(IFNULL(u.first_name, ''), ' ', IFNULL(u.last_name, ''))) AS fechado_por
+            FROM tb_process p
+            JOIN tb_priority pr ON pr.id = p.priority_id
+            JOIN tb_customer c ON c.id = p.customer_id
+            JOIN tb_vehicle v ON v.id = p.vehicle_id
+            JOIN tb_subject sub ON sub.id = p.subject_id
+            JOIN tb_status st ON st.id = p.status_id
+            JOIN tb_batch bt ON bt.id = p.batch_id
+            JOIN tb_department d ON d.id = bt.department_id
+            JOIN tb_branch br ON br.id = d.branch_id
+            LEFT JOIN tb_user u ON u.id = p.closed_by
+            WHERE p.deleted_at IS NULL AND p.closed_at IS NOT NULL
+              AND st.code IN ('SOLVED', 'CLOSED')
+              AND pr.default_sla_minutes IS NOT NULL {$period}
+        ", $params);
+
+        $processos = [];
+        $totais = ['fila' => 0, 'trabalho' => 0, 'pausa' => 0, 'encerrado' => 0];
+
+        foreach ($rows as $row) {
+            $entrada = (new \DateTimeImmutable((string) $row['created_at'], new \DateTimeZone('UTC')))
+                ->setTimezone(app_timezone());
+
+            if ((int) $entrada->format('w') !== $diaSemana || $entrada->format('H') !== $hora) {
+                continue;
+            }
+
+            $minutos = sla_process_minutes($row);
+            $sla = (int) $row['sla_minutos'];
+
+            // Só os que falharam: os cumpridos estão no Relatório SLA e aqui
+            // só fariam ruído.
+            if ($minutos <= $sla) {
+                continue;
+            }
+
+            $fila = $row['assumed_at'] !== null
+                ? sla_elapsed_minutes((string) $row['created_at'], (string) $row['assumed_at'])
+                : 0;
+            $pausa = max(0, (int) $row['sla_paused_total_minutes']);
+            $encerrado = max(0, (int) $row['sla_closed_minutes']);
+            $trabalho = max(0, $minutos - $fila);
+
+            $totais['fila'] += $fila;
+            $totais['trabalho'] += $trabalho;
+            $totais['pausa'] += $pausa;
+            $totais['encerrado'] += $encerrado;
+
+            // O maior peso é a explicação mais provável daquele processo.
+            $parcelas = ['Fila' => $fila, 'Trabalho' => $trabalho, 'Pausa' => $pausa, 'Encerrado' => $encerrado];
+            arsort($parcelas);
+
+            $processos[] = [
+                'id' => (int) $row['id'],
+                'processo' => (string) $row['process_number'],
+                'cliente' => (string) $row['cliente'],
+                'matricula' => (string) $row['matricula'],
+                'assunto' => (string) $row['assunto'],
+                'equipa' => (string) $row['equipa'],
+                'prioridade' => (string) $row['prioridade'],
+                'fechado_por' => (string) $row['fechado_por'],
+                'entrada' => $entrada->format('d/m H:i'),
+                'sla_minutos' => $sla,
+                'minutos' => $minutos,
+                'excedeu' => $minutos - $sla,
+                'fila' => $fila,
+                'trabalho' => $trabalho,
+                'pausa' => $pausa,
+                'encerrado' => $encerrado,
+                'reaberturas' => (int) $row['reopen_count'],
+                'maior_peso' => array_key_first($parcelas),
+            ];
+        }
+
+        // Do que mais estourou para o que menos: o pior caso primeiro.
+        usort($processos, static fn (array $a, array $b): int => $b['excedeu'] <=> $a['excedeu']);
+
+        return ['processos' => $processos, 'totais' => $totais];
     }
 
     /**

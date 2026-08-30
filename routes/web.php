@@ -111,6 +111,7 @@ $router->get('/reports/heatmap', [ReportController::class, 'heatmap'], [Authenti
 $router->get('/reports/heatmap.xls', [ReportController::class, 'exportHeatmapXls'], [Authenticate::class, [PermissionMiddleware::class, 'reports.export']]);
 $router->get('/reports/sla/processes', [ReportController::class, 'slaProcesses'], [Authenticate::class, [PermissionMiddleware::class, 'reports.export']]);
 $router->get('/reports/pickup/processes', [ReportController::class, 'pickupProcesses'], [Authenticate::class, [PermissionMiddleware::class, 'reports.export']]);
+$router->get('/reports/overdue/processes', [ReportController::class, 'overdueProcesses'], [Authenticate::class, [PermissionMiddleware::class, 'reports.export']]);
 $router->get('/reports/view/{code}', [ReportController::class, 'show'], [Authenticate::class, [PermissionMiddleware::class, 'reports.export']]);
 $router->get('/reports/view/{code}/excel', [ReportController::class, 'exportReportXls'], [Authenticate::class, [PermissionMiddleware::class, 'reports.export']]);
 $router->get('/reports/processes.csv', [ReportController::class, 'exportProcessesCsv'], [Authenticate::class, [PermissionMiddleware::class, 'reports.export']]);
