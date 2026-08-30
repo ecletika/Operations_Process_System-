@@ -329,6 +329,24 @@ $check('fila + trabalho + pausa = tempo útil total',
     $fila + $trabalho + 30, sla_elapsed_minutes($decomposto['created_at'], $decomposto['closed_at']));
 
 // =====================================================================
+// A mediana apareceu no ecrã MAIOR do que a média, com dois processos de
+// 5 e 23 minutos: ficava-se pelo valor do meio "de cima" (23) em vez da
+// média dos dois centrais (14). Impossível, e deixava a tabela sem sentido.
+echo "\n== Mediana: o valor do meio, mesmo em número par ==\n";
+$mediana = new ReflectionMethod(AnalyticsRepository::class, 'mediana');
+$mediana->setAccessible(true);
+
+$check('número ímpar: o do meio', $mediana->invoke(null, [5, 10, 100]), 10);
+$check('número par: a média dos dois centrais', $mediana->invoke(null, [5, 23]), 14);
+$check('nunca ultrapassa a média em duas amostras',
+    $mediana->invoke(null, [5, 23]) <= (int) round((5 + 23) / 2), true);
+$check('ordena antes de escolher', $mediana->invoke(null, [100, 5, 10]), 10);
+$check('lista vazia dá zero', $mediana->invoke(null, []), 0);
+$check('um só valor', $mediana->invoke(null, [42]), 42);
+$check('resiste a um caso extremo (mediana muito abaixo da média)',
+    $mediana->invoke(null, [1, 2, 3, 4, 12000]), 3);
+
+// =====================================================================
 echo "\n== Contrato de changeStatus (a pausa vem calculada de fora) ==\n";
 $assinatura = new ReflectionMethod(ProcessRepository::class, 'changeStatus');
 $check('aceita os minutos de pausa já calculados', $assinatura->getNumberOfParameters(), 5);

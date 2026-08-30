@@ -35,6 +35,74 @@ final class ReportController extends Controller
         'reopened' => ['🔁 Reaberturas', 'Processos reabertos pelo menos uma vez.'],
     ];
 
+    /**
+     * Explicação de cada relatório, mostrada no "ℹ️" por cima da tabela.
+     *
+     * Um relatório que não se percebe não sustenta decisão nenhuma — e estes
+     * decidem prémios. Cada um responde a três coisas: o que está a ver, que
+     * decisão ajuda a tomar, e como se lê (que é onde moram os mal-entendidos,
+     * como a diferença entre média e mediana).
+     *
+     * @var array<string, array{o_que:string, decisao:string, como_ler:string}>
+     */
+    private const REPORT_HELP = [
+        'sla' => [
+            'o_que' => 'Percentagem de processos concluídos dentro do prazo, por colaborador (ou equipa) e prioridade.',
+            'decisao' => 'Quem precisa de apoio e quem está a cumprir. É a base do prémio por SLA.',
+            'como_ler' => 'O tempo conta apenas o que o processo esteve a ser trabalhado: fora do horário de atendimento, em pausa e encerrado entre reaberturas não contam. Clique em "Ver processos" para ver caso a caso.',
+        ],
+        'sla_reopened' => [
+            'o_que' => 'Processos que foram fechados DENTRO do prazo e, mesmo assim, tiveram de ser reabertos.',
+            'decisao' => 'Se estes casos forem muitos, o prémio está a recompensar rapidez a fingir — e a regra deve passar a exigir prazo cumprido E sem reabertura.',
+            'como_ler' => '"Dias até reabrir" é tempo real de calendário: quanto tempo o cliente esteve a pensar que o assunto estava resolvido. Poucos dias é mau sinal; três semanas depois pode ser um assunto novo.',
+        ],
+        'sla_breakdown' => [
+            'o_que' => 'O ciclo de vida de um processo dividido em quatro parcelas, em média por processo: à espera na fila, a ser trabalhado, em pausa, e encerrado entre reaberturas.',
+            'decisao' => 'Diz em que frente atacar. Fila alta é dimensionamento ou distribuição; pausa alta é o processo com clientes e fornecedores; trabalho alto é formação ou ferramentas.',
+            'como_ler' => 'As percentagens são a fatia de cada parcela no tempo total dessa equipa — somam 100%. Só entram processos concluídos.',
+        ],
+        'sla_pickup' => [
+            'o_que' => 'Quanto tempo os processos ficam à espera na fila antes de alguém os assumir, agrupados pela hora a que entraram.',
+            'decisao' => 'Escalas, turnos e reforço. É a única parcela do SLA que não depende de clientes nem de fornecedores — logo, a mais fácil de corrigir.',
+            'como_ler' => 'A MEDIANA é o caso típico: metade dos processos esperou menos do que isso. A MÉDIA é puxada para cima por poucos casos extremos. Quando a média é muito maior que a mediana, o problema não é a fila estar lenta — são alguns processos esquecidos, que o "pior caso" identifica.',
+        ],
+        'sla_subject' => [
+            'o_que' => 'Cumprimento do prazo por assunto, em vez de por pessoa.',
+            'decisao' => 'Recalibrar os prazos. Um agendamento e uma peritagem não deviam ter o mesmo relógio.',
+            'como_ler' => 'Quando um assunto falha em vários operadores diferentes, o problema é o prazo e não a equipa — a coluna "veredicto" assinala esses casos. Ordenado do pior cumprimento para o melhor.',
+        ],
+        'sla_load' => [
+            'o_que' => 'Quantos processos entram em cada dia da semana e hora, e quantos desses acabaram por falhar o prazo.',
+            'decisao' => 'Se o incumprimento acompanha o volume, falta gente nessas horas. Se não acompanha, o problema é outro — e evita-se contratar sem necessidade.',
+            'como_ler' => 'A hora é a de ENTRADA do processo, não a da conclusão. "% fora" é sobre os já concluídos, por isso as horas mais recentes podem ainda estar incompletas.',
+        ],
+        'operators' => [
+            'o_que' => 'Volume de trabalho por operador: criados, assumidos e concluídos.',
+            'decisao' => 'Distribuição de carga entre a equipa.',
+            'como_ler' => 'Mede volume, não qualidade nem cumprimento de prazo. Para isso, veja o Relatório SLA.',
+        ],
+        'batches' => [
+            'o_que' => 'Volume, processos em andamento, concluídos e reaberturas por Filial · Departamento.',
+            'decisao' => 'Onde está a carga da operação e que departamentos acumulam reaberturas.',
+            'como_ler' => 'Muitas reaberturas num departamento costumam apontar para processos fechados cedo demais.',
+        ],
+        'customers' => [
+            'o_que' => 'Clientes com mais processos, contactos e reaberturas.',
+            'decisao' => 'Quem merece acompanhamento próximo e que contas dão mais trabalho.',
+            'como_ler' => 'Muitos contactos no mesmo cliente pode ser dificuldade em contactá-lo, e não excesso de zelo.',
+        ],
+        'vehicles' => [
+            'o_que' => 'Matrículas com mais processos e reaberturas.',
+            'decisao' => 'Viaturas problemáticas, que voltam à oficina pelo mesmo motivo.',
+            'como_ler' => 'Repetições na mesma matrícula podem indicar uma reparação que não resolveu.',
+        ],
+        'reopened' => [
+            'o_que' => 'Todos os processos reabertos pelo menos uma vez.',
+            'decisao' => 'Qualidade do fecho. Um processo reaberto é trabalho feito duas vezes.',
+            'como_ler' => 'Para ver só os que tinham cumprido o prazo — os que mais pesam no prémio — use "Cumpriu, mas voltou".',
+        ],
+    ];
+
     public function index(Request $request): never
     {
         $this->view('Reports/Views/index', [
@@ -75,6 +143,7 @@ final class ReportController extends Controller
             'selectedPriorities' => array_map('intval', (array) $request->input('priorities', [])),
             'showGroupToggle' => $code === 'sla',
             'groupBy' => $groupBy,
+            'help' => self::REPORT_HELP[$code] ?? null,
         ]);
     }
 

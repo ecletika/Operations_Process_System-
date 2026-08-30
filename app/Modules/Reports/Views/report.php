@@ -40,6 +40,50 @@
     .ss-opt.sel{color:#1d4ed8;font-weight:600}
     .ss-opt .tick{width:14px;text-align:center;color:#1d4ed8}
     .ss-empty{padding:9px 10px;color:#9ca3af;font-size:12px}
+
+    /* --- Ajuda e gráficos do relatório ------------------------------- */
+    .rel-help{border:1px solid #bfdbfe;background:#eff6ff;border-radius:8px;margin:12px 0}
+    .rel-help summary{cursor:pointer;padding:9px 12px;font-weight:600;color:#1e40af;font-size:14px;list-style:none}
+    .rel-help summary::-webkit-details-marker{display:none}
+    .rel-help summary:hover{background:#dbeafe;border-radius:8px}
+    .rel-help summary:focus-visible{outline:2px solid #2563eb;outline-offset:2px}
+    .rel-help-body{padding:0 12px 12px;display:flex;flex-direction:column;gap:7px}
+    .rel-help-body p{margin:0;font-size:13.5px;line-height:1.55;color:#1f2937;max-width:80ch}
+    .rel-help-body strong{color:#1e40af}
+
+    .rel-fig{margin:16px 0 22px;padding:0}
+    .rel-fig figcaption{font-weight:600;font-size:14px;color:#374151;margin-bottom:8px}
+    .rel-note{margin:8px 0 0;font-size:12.5px;color:#6b7280;max-width:80ch}
+
+    .rel-legend{display:flex;flex-wrap:wrap;gap:14px;margin-bottom:10px}
+    .rel-key{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:#374151}
+    .rel-key i{width:11px;height:11px;border-radius:3px;display:inline-block;flex-shrink:0}
+
+    .rel-row{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+    .rel-row-block{align-items:flex-end}
+    .rel-row-label{width:190px;flex-shrink:0;font-size:13px;color:#374151;line-height:1.3}
+    .rel-sub{display:block;font-size:11.5px;color:#9ca3af}
+    .rel-row-value{width:52px;text-align:right;font-size:13px;font-weight:700;font-variant-numeric:tabular-nums}
+
+    /* Barra empilhada: 2px de folga entre fatias, para se distinguirem
+       mesmo quando as cores são próximas. */
+    .rel-stack{flex:1;display:flex;height:26px;border-radius:4px;overflow:hidden;background:#f3f4f6;gap:2px}
+    .rel-seg{display:flex;align-items:center;justify-content:center;min-width:2px;transition:none}
+    .rel-seg span{font-size:11px;font-weight:600;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.35)}
+
+    .rel-bar-track{flex:1;height:20px;background:#f3f4f6;border-radius:4px;overflow:hidden}
+    .rel-bar{height:100%;border-radius:4px}
+
+    .rel-cols{flex:1;display:flex;align-items:flex-end;gap:3px;height:110px;overflow-x:auto;padding-bottom:2px}
+    .rel-cols-wide{height:90px}
+    .rel-col{flex:1;min-width:16px;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%}
+    .rel-col-bar{width:100%;border-radius:4px 4px 0 0;min-height:2px}
+    .rel-col-x{font-size:10.5px;color:#9ca3af;margin-top:3px;font-variant-numeric:tabular-nums}
+
+    @media (max-width:720px){
+      .rel-row{flex-wrap:wrap}
+      .rel-row-label{width:100%}
+    }
   </style>
 </head>
 <body>
@@ -127,6 +171,8 @@
 
         </div>
       </form>
+
+      <?php require __DIR__ . '/_report_visual.php'; ?>
 
       <p style="color:#6b7280;margin-top:12px"><?= count($rows) ?> linha(s).</p>
 

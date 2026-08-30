@@ -250,6 +250,32 @@ final class AnalyticsRepository
         return array_values($grupos);
     }
 
+    /**
+     * Mediana de uma lista de minutos: o valor do meio, ou a média dos dois
+     * do meio quando são em número par.
+     *
+     * A média dos dois centrais não é um detalhe: com dois processos de 5 e
+     * 23 minutos, ficar-se pelo do meio "de cima" dava 23 — uma mediana maior
+     * do que a própria média, que é impossível e deixava a tabela sem sentido.
+     *
+     * @param int[] $valores não precisa de vir ordenado
+     */
+    private static function mediana(array $valores): int
+    {
+        sort($valores);
+        $n = count($valores);
+
+        if ($n === 0) {
+            return 0;
+        }
+
+        $meio = intdiv($n, 2);
+
+        return $n % 2 === 1
+            ? (int) $valores[$meio]
+            : (int) round(((int) $valores[$meio - 1] + (int) $valores[$meio]) / 2);
+    }
+
     /** 1 se o processo ficou dentro do SLA; 0 se estourou (ou não tem SLA definido). */
     private static function withinSla(int $minutos, mixed $slaMinutos): int
     {
@@ -491,7 +517,7 @@ final class AnalyticsRepository
                 'concluidos' => $g['n'],
                 'pct_dentro_sla' => $pct . '%',
                 'tempo_medio' => sla_human((int) round($g['soma'] / $g['n'])),
-                'tempo_mediano' => sla_human((int) $g['tempos'][intdiv($g['n'], 2)]),
+                'tempo_mediano' => sla_human(self::mediana($g['tempos'])),
                 'operadores_envolvidos' => $operadores,
                 // Falha em toda a gente e em vários operadores: é o prazo.
                 'veredicto' => ($pct < 50 && $operadores >= 3)
@@ -552,7 +578,7 @@ final class AnalyticsRepository
                 'espera_media' => sla_human((int) round(array_sum($tempos) / $n)),
                 // A mediana diz mais do que a média quando há um ou dois
                 // processos esquecidos a puxar tudo para cima.
-                'espera_mediana' => sla_human((int) $tempos[intdiv($n, 2)]),
+                'espera_mediana' => sla_human(self::mediana($tempos)),
                 'pior_caso' => sla_human((int) $tempos[$n - 1]),
             ];
         }
