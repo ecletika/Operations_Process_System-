@@ -12,3 +12,5 @@ Thumbs.db
 # Backups de produção (dados de clientes) — nunca versionar
 /docs/*.sql
 /docs/ileiteprocessosi_*.sql
+/storage/sessions/*
+!/storage/sessions/.gitkeep

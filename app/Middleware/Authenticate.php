@@ -30,7 +30,36 @@ final class Authenticate
             Response::redirect('/login');
         }
 
+        if ($this->hasExpired()) {
+            // Expirou de facto: termina a sessão e diz porquê. Antes, a
+            // sessão desaparecia sem aviso e a plataforma parecia ir abaixo
+            // a meio do trabalho.
+            Session::destroy();
+            Response::redirect('/login?expirou=1');
+        }
+
+        Session::put('last_seen', time());
         $this->touchActivity((int) Session::get('user_id'));
+    }
+
+    /**
+     * Passou o tempo permitido sem qualquer atividade?
+     *
+     * A expiração é decidida AQUI e não pelo servidor: em alojamento
+     * partilhado o gc_maxlifetime do PHP é o que o alojamento quiser (muitas
+     * vezes 24 minutos), e o tempo configurado na aplicação não valia nada.
+     */
+    private function hasExpired(): bool
+    {
+        $ultimo = (int) Session::get('last_seen', 0);
+
+        // Sessão iniciada antes desta versão: adota-se agora como referência
+        // em vez de a expirar já, que expulsaria toda a gente no deploy.
+        if ($ultimo === 0) {
+            return false;
+        }
+
+        return (time() - $ultimo) > Session::lifetimeMinutes() * 60;
     }
 
     /**

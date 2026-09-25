@@ -14,6 +14,13 @@
       <span>Transformando contactos em processos, e processos em conhecimento.</span>
     </div>
 
+    <?php if (isset($_GET['expirou'])): ?>
+      <?php // Dizer porquê. Sem isto, a plataforma parecia ir abaixo sozinha. ?>
+      <div class="ops-errors" style="background:#eff6ff;border-color:#bfdbfe;color:#1e40af">
+        <div>A sessão expirou por inatividade. Inicie sessão novamente para continuar.</div>
+      </div>
+    <?php endif; ?>
+
     <?php if (!empty($errors)): ?>
       <div class="ops-errors">
         <?php foreach ($errors as $error): ?>
