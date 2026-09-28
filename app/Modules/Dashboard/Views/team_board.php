@@ -12,7 +12,7 @@ $onlineCount = count(array_intersect($onlineIds, array_map(static fn ($u) => (in
   <meta charset="UTF-8">
   <title>OPS · Tela Operacional</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="stylesheet" href="/css/app.css">
+  <link rel="stylesheet" href="<?= e(asset('/css/app.css')) ?>">
   <!-- Presença muda ao minuto: atualiza sozinha a cada 60s -->
   <meta http-equiv="refresh" content="60">
 </head>

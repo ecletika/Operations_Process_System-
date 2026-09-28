@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <title>OPS · Novo Processo</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="stylesheet" href="/css/app.css">
+  <link rel="stylesheet" href="<?= e(asset('/css/app.css')) ?>">
   <style>
     .dept-modal-overlay{display:none;position:fixed;inset:0;z-index:70;background:rgba(15,23,42,.55);align-items:center;justify-content:center;padding:20px}
     .dept-modal-overlay.open{display:flex}

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <title>OPS · Imobilizados — Cumprimento de Prazos</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="stylesheet" href="/css/app.css">
+  <link rel="stylesheet" href="<?= e(asset('/css/app.css')) ?>">
   <style>
     .imob-legenda{display:flex;gap:18px;flex-wrap:wrap;font-size:13px;align-items:center;margin:2px 0}
     .imob-chip{display:inline-flex;align-items:center;gap:6px;font-weight:600}

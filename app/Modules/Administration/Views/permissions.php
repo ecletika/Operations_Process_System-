@@ -30,7 +30,7 @@ $areaLabels = [
   <meta charset="UTF-8">
   <title>OPS · Perfis & Permissões</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="stylesheet" href="/css/app.css">
+  <link rel="stylesheet" href="<?= e(asset('/css/app.css')) ?>">
 </head>
 <body>
   <div class="ops-shell">

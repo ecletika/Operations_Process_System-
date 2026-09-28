@@ -144,6 +144,26 @@ if (!function_exists('online_dot')) {
     }
 }
 
+if (!function_exists('asset')) {
+    /**
+     * Caminho de um ficheiro estático com a data da última alteração no fim
+     * (/css/app.css?v=1727...).
+     *
+     * Sem isto, um deploy que muda o CSS não chega aos ecrãs: o browser
+     * continua a servir a folha que tem em cache, e a página aparece meio
+     * desenhada — foi o que aconteceu com os filtros novos. Muda o ficheiro,
+     * muda o endereço, e o browser vai buscar a versão nova.
+     */
+    function asset(string $caminho): string
+    {
+        $caminho = '/' . ltrim($caminho, '/');
+        $ficheiro = base_path('public' . $caminho);
+        $versao = is_file($ficheiro) ? (int) filemtime($ficheiro) : 0;
+
+        return $versao > 0 ? $caminho . '?v=' . $versao : $caminho;
+    }
+}
+
 if (!function_exists('sla_elapsed_minutes')) {
     /**
      * Minutos decorridos entre dois instantes para efeitos de SLA — a ÚNICA

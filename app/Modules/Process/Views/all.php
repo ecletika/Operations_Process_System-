@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <title>OPS · Todos os Processos</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="stylesheet" href="/css/app.css">
+  <link rel="stylesheet" href="<?= e(asset('/css/app.css')) ?>">
   <style>
     /* Dropdown pesquisável (progressive enhancement de um <select multiple>) */
     .ss-wrap{position:relative}

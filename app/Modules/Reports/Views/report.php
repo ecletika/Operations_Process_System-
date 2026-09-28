@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <title>OPS · <?= e($title) ?></title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="stylesheet" href="/css/app.css">
+  <link rel="stylesheet" href="<?= e(asset('/css/app.css')) ?>">
   <style>
     .rf{display:flex;flex-direction:column;gap:16px}
     .rf-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px 16px;align-items:end}
