@@ -78,45 +78,80 @@
           <?php endif; ?>
         </div>
 
-        <p style="color:#9ca3af;font-size:12px;margin:0 0 8px">Pode escolher vários valores em cada filtro (Ctrl+clique / Cmd+clique).</p>
-        <div style="display:flex;gap:12px;flex-wrap:wrap">
-          <div class="ops-form-row" style="flex:1;min-width:160px">
-            <label for="status_id">Estado</label>
-            <select id="status_id" name="status_id[]" multiple size="4">
-              <?php foreach ($statuses as $status): ?>
-                <option value="<?= (int) $status['id'] ?>" <?= $sel((int) $status['id'], $filters['status_id']) ?>><?= e($status['name']) ?></option>
+        <?php
+          // Situação: os três grupos do dia a dia. São radios — escolhe-se um
+          // — e o filtro "Estado" continua ao lado para quem precisa de um
+          // estado concreto, como "Aguarda Peças".
+          $situacoes = [
+            '' => 'Todos',
+            'aberto' => 'Em aberto',
+            'aguardar' => 'A aguardar',
+            'concluidos' => 'Concluídos',
+          ];
+          $situacaoAtual = (string) ($filters['situacao'] ?? '');
+
+          // A cor da prioridade escolhida acompanha a da tabela.
+          $corPrioridade = static function (string $nome): string {
+            $n = mb_strtolower($nome);
+            return str_contains($n, 'crít') ? 'critica' : (str_contains($n, 'alta') ? 'alta' : '');
+          };
+        ?>
+
+        <div style="display:flex;gap:22px;flex-wrap:wrap;align-items:flex-start;margin-bottom:14px">
+          <div class="ops-form-row" style="margin:0">
+            <label style="margin-bottom:6px">Situação</label>
+            <div class="ops-seg">
+              <?php foreach ($situacoes as $valor => $rotulo): ?>
+                <input type="radio" name="situacao" id="sit_<?= e($valor !== '' ? $valor : 'todos') ?>"
+                       value="<?= e($valor) ?>" <?= $situacaoAtual === $valor ? 'checked' : '' ?>>
+                <label for="sit_<?= e($valor !== '' ? $valor : 'todos') ?>"><?= e($rotulo) ?></label>
               <?php endforeach; ?>
-            </select>
+            </div>
           </div>
-          <div class="ops-form-row" style="flex:1;min-width:160px">
+
+          <div class="ops-form-row" style="margin:0">
+            <label style="margin-bottom:6px">Prioridade</label>
+            <div class="ops-seg">
+              <?php foreach ($priorities as $priority): ?>
+                <?php $pid = (int) $priority['id']; ?>
+                <input type="checkbox" name="priority_id[]" id="prio_<?= $pid ?>" value="<?= $pid ?>"
+                       <?= in_array($pid, $filters['priority_id'], true) ? 'checked' : '' ?>>
+                <label for="prio_<?= $pid ?>" data-cor="<?= e($corPrioridade((string) $priority['name'])) ?>"><?= e($priority['name']) ?></label>
+              <?php endforeach; ?>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:12px;flex-wrap:wrap">
+          <div class="ops-form-row" style="flex:1;min-width:190px">
             <label for="batch_id">Filial / Departamento</label>
-            <select id="batch_id" name="batch_id[]" multiple size="4">
+            <select id="batch_id" name="batch_id[]" multiple size="4" class="ss-enhance" data-placeholder="Procurar departamento…">
               <?php foreach ($batches as $batch): ?>
                 <option value="<?= (int) $batch['id'] ?>" <?= $sel((int) $batch['id'], $filters['batch_id']) ?>><?= e(($batch['branch_name'] ?? '') !== '' ? $batch['branch_name'] . ' · ' . $batch['department_name'] : $batch['department_name']) ?></option>
               <?php endforeach; ?>
             </select>
           </div>
-          <div class="ops-form-row" style="flex:1;min-width:160px">
-            <label for="priority_id">Prioridade</label>
-            <select id="priority_id" name="priority_id[]" multiple size="4">
-              <?php foreach ($priorities as $priority): ?>
-                <option value="<?= (int) $priority['id'] ?>" <?= $sel((int) $priority['id'], $filters['priority_id']) ?>><?= e($priority['name']) ?></option>
-              <?php endforeach; ?>
-            </select>
-          </div>
-          <div class="ops-form-row" style="flex:1;min-width:160px">
+          <div class="ops-form-row" style="flex:1;min-width:190px">
             <label for="subject_id">Assunto</label>
-            <select id="subject_id" name="subject_id[]" multiple size="4">
+            <select id="subject_id" name="subject_id[]" multiple size="4" class="ss-enhance" data-placeholder="Procurar assunto…">
               <?php foreach ($subjects as $subject): ?>
                 <option value="<?= (int) $subject['id'] ?>" <?= $sel((int) $subject['id'], $filters['subject_id']) ?>><?= e($subject['name']) ?></option>
               <?php endforeach; ?>
             </select>
           </div>
-          <div class="ops-form-row" style="flex:1;min-width:160px">
+          <div class="ops-form-row" style="flex:1;min-width:190px">
             <label for="assigned_to">Responsável</label>
             <select id="assigned_to" name="assigned_to[]" multiple size="4" class="ss-enhance" data-placeholder="Procurar responsável…">
               <?php foreach ($users as $user): ?>
                 <option value="<?= (int) $user['id'] ?>" <?= $sel((int) $user['id'], $filters['assigned_to']) ?>><?= e($user['first_name'] . ' ' . $user['last_name']) ?></option>
+              <?php endforeach; ?>
+            </select>
+          </div>
+          <div class="ops-form-row" style="flex:1;min-width:190px">
+            <label for="status_id">Estado <span style="font-weight:400;color:#9ca3af;font-size:11px">(detalhe)</span></label>
+            <select id="status_id" name="status_id[]" multiple size="4" class="ss-enhance" data-placeholder="Procurar estado…">
+              <?php foreach ($statuses as $status): ?>
+                <option value="<?= (int) $status['id'] ?>" <?= $sel((int) $status['id'], $filters['status_id']) ?>><?= e($status['name']) ?></option>
               <?php endforeach; ?>
             </select>
           </div>
@@ -129,9 +164,94 @@
             <input type="date" id="date_to" name="date_to" value="<?= e($filters['date_to']) ?>">
           </div>
         </div>
-        <div style="display:flex;gap:8px;margin-top:8px">
+        <?php
+          // Etiquetas do que está filtrado agora. Cada uma tem um link que
+          // remove só aquele valor — antes, tirar um departamento obrigava a
+          // Ctrl+clique no item certo, dentro de uma caixa com scroll.
+          //
+          // Os links são construídos aqui e não em JavaScript: assim o
+          // botão do meio do rato abre noutro separador, e continuam a
+          // funcionar se o JS falhar.
+          $rotulos = [];
+          foreach ($batches as $b) {
+              $rotulos['batch_id'][(int) $b['id']] = ($b['branch_name'] ?? '') !== ''
+                  ? $b['branch_name'] . ' · ' . $b['department_name']
+                  : $b['department_name'];
+          }
+          foreach ($subjects as $s) { $rotulos['subject_id'][(int) $s['id']] = $s['name']; }
+          foreach ($statuses as $s) { $rotulos['status_id'][(int) $s['id']] = $s['name']; }
+          foreach ($priorities as $p) { $rotulos['priority_id'][(int) $p['id']] = $p['name']; }
+          foreach ($users as $u) { $rotulos['assigned_to'][(int) $u['id']] = $u['first_name'] . ' ' . $u['last_name']; }
+
+          $nomeFiltro = [
+            'batch_id' => 'Departamento', 'subject_id' => 'Assunto', 'status_id' => 'Estado',
+            'priority_id' => 'Prioridade', 'assigned_to' => 'Responsável',
+          ];
+
+          /**
+           * URL igual à atual mas sem um valor (ou sem campos inteiros).
+           *
+           * @param string[] $campos campos a limpar por completo
+           */
+          $urlSem = static function (array $campos, ?string $campoValor = null, ?int $valor = null) use ($urlFilters): string {
+              $q = $urlFilters;
+              foreach ($campos as $campo) {
+                  unset($q[$campo]);
+              }
+              if ($campoValor !== null && $valor !== null) {
+                  $q[$campoValor] = array_values(array_filter(
+                      (array) ($q[$campoValor] ?? []),
+                      static fn ($v): bool => (int) $v !== $valor
+                  ));
+              }
+
+              return '/processes/all?' . http_build_query(array_filter($q, static fn ($v): bool => $v !== '' && $v !== []));
+          };
+
+          /** Data do filtro como o utilizador a escreveu — sem passar por fusos. */
+          $diaCurto = static function (string $iso): string {
+              $p = explode('-', $iso);
+
+              return count($p) === 3 ? $p[2] . '/' . $p[1] . '/' . $p[0] : $iso;
+          };
+
+          $ativos = [];
+          if ($situacaoAtual !== '') {
+              $ativos[] = ['tipo' => 'Situação', 'valor' => $situacoes[$situacaoAtual], 'url' => $urlSem(['situacao'])];
+          }
+          foreach ($nomeFiltro as $campo => $nome) {
+              foreach ((array) ($filters[$campo] ?? []) as $id) {
+                  $id = (int) $id;
+                  if (isset($rotulos[$campo][$id])) {
+                      $ativos[] = ['tipo' => $nome, 'valor' => $rotulos[$campo][$id], 'url' => $urlSem([], $campo, $id)];
+                  }
+              }
+          }
+          if (($filters['date_from'] ?? '') !== '' || ($filters['date_to'] ?? '') !== '') {
+              $de = ($filters['date_from'] ?? '') !== '' ? $diaCurto((string) $filters['date_from']) : '…';
+              $ate = ($filters['date_to'] ?? '') !== '' ? $diaCurto((string) $filters['date_to']) : '…';
+              $ativos[] = ['tipo' => 'Período', 'valor' => $de . ' a ' . $ate, 'url' => $urlSem(['date_from', 'date_to'])];
+          }
+        ?>
+
+        <div class="ops-filtros-ativos">
+          <?php if ($ativos === []): ?>
+            <span class="ops-filtros-vazio">Sem filtros — a mostrar todos os processos deste separador.</span>
+          <?php else: ?>
+            <?php foreach ($ativos as $a): ?>
+              <span class="ops-filtro-chip">
+                <span class="tipo"><?= e($a['tipo']) ?></span><?= e((string) $a['valor']) ?>
+                <a href="<?= e($a['url']) ?>" title="Remover este filtro" aria-label="Remover filtro <?= e($a['tipo']) ?>: <?= e((string) $a['valor']) ?>">×</a>
+              </span>
+            <?php endforeach; ?>
+          <?php endif; ?>
+        </div>
+
+        <div style="display:flex;gap:8px;margin-top:14px">
           <button type="submit" class="ops-btn ops-btn-sm">Filtrar</button>
-          <a href="/processes/all?tab=<?= e($tab) ?>" class="ops-btn ops-btn-sm" style="background:#6b7280;text-decoration:none">Limpar filtros</a>
+          <?php if ($ativos !== []): ?>
+            <a href="/processes/all?tab=<?= e($tab) ?>" class="ops-btn ops-btn-sm" style="background:#6b7280;text-decoration:none">Limpar filtros</a>
+          <?php endif; ?>
           <a href="/processes/all.xls?<?= http_build_query($urlFilters) ?>" class="ops-btn ops-btn-sm" style="background:#16a34a;text-decoration:none">⬇️ Baixar Excel</a>
         </div>
       </form>
@@ -320,6 +440,18 @@
     }
 
     document.querySelectorAll('select.ss-enhance[multiple]').forEach(enhance);
+  })();
+
+  // Situação e Prioridade aplicam-se logo ao clicar, sem passar pelo botão
+  // Filtrar: são as escolhas de todos os dias e não vale a pena cobrar dois
+  // cliques por elas. Sem JavaScript, o botão Filtrar continua a funcionar.
+  (function () {
+    var form = document.querySelector('form[action="/processes/all"]');
+    if (!form || typeof form.requestSubmit !== 'function') { return; }
+
+    form.querySelectorAll('.ops-seg input').forEach(function (campo) {
+      campo.addEventListener('change', function () { form.requestSubmit(); });
+    });
   })();
   </script>
 </body>

@@ -701,6 +701,25 @@ final class ProcessRepository
                 break;
         }
 
+        // Situação: os três grupos que a equipa usa. Saem do próprio modelo —
+        // is_waiting marca os estados de espera e os códigos de conclusão são
+        // fixos — por isso um motivo de pausa criado pelo Administrador entra
+        // em "a aguardar" sozinho, sem ninguém ter de vir aqui acrescentá-lo.
+        $temIsWaiting = Database::hasColumn('tb_status', 'is_waiting');
+        $emEspera = $temIsWaiting ? 'st.is_waiting = 1' : "st.code LIKE 'WAIT%'";
+
+        switch ($filters['situacao'] ?? '') {
+            case 'aberto':
+                $conditions[] = "st.code NOT IN ('SOLVED', 'CLOSED') AND NOT ({$emEspera})";
+                break;
+            case 'aguardar':
+                $conditions[] = $emEspera;
+                break;
+            case 'concluidos':
+                $conditions[] = "st.code IN ('SOLVED', 'CLOSED')";
+                break;
+        }
+
         // Filtros combináveis que aceitam um OU vários valores (multi-seleção).
         // Aceita tanto escalar ('5') como lista (['5','7']) e monta um IN (...).
         $inClause = function (string $column, mixed $value, string $prefix) use (&$conditions, &$params): void {

@@ -165,6 +165,12 @@ final class ProcessController extends Controller
             // escolhe: é o limite do que ele pode ver (Supervisor de Depto.).
             'scope_department_ids' => $this->viewScopeDepartmentIds(),
             'q' => trim((string) $request->input('q', '')),
+            // Situação: agrupa os onze estados nos três grupos que a equipa
+            // usa no dia a dia. Quem precisa de um estado concreto continua
+            // a tê-lo no filtro "Estado", que não desapareceu.
+            'situacao' => in_array($request->input('situacao'), ['aberto', 'aguardar', 'concluidos'], true)
+                ? (string) $request->input('situacao')
+                : '',
             'status_id' => $multi($request->input('status_id', [])),
             'batch_id' => $multi($request->input('batch_id', [])),
             'priority_id' => $multi($request->input('priority_id', [])),
