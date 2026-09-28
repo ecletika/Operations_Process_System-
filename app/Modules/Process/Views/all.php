@@ -20,6 +20,132 @@
     .ss-opt.sel{color:#1d4ed8;font-weight:600}
     .ss-opt .tick{width:14px;text-align:center;color:#1d4ed8}
     .ss-empty{padding:9px 10px;color:#9ca3af;font-size:12px}
+
+
+/* ==========================================================================
+   Filtros — segmentos e etiquetas de filtro ativo
+   ==========================================================================
+   Os filtros com poucas opções (Situação, Prioridade) ficam à vista e
+   escolhem-se num clique, em vez de obrigarem a Ctrl+clique dentro de uma
+   caixa com barra de deslocamento. São checkboxes e radios por baixo, por
+   isso continuam a funcionar sem JavaScript.
+   -------------------------------------------------------------------- */
+
+/* Os seletores levam .ops-form-row à frente de propósito: dentro de um
+   .ops-form-row, as regras genéricas do formulário (label a display:block,
+   input a width:100%) têm a mesma especificidade que .ops-seg e ganhavam
+   consoante a ordem do ficheiro — o que empilhava os segmentos em coluna e
+   deixava os círculos à vista. Aqui a especificidade decide, não a ordem. */
+
+.ops-seg,
+.ops-form-row .ops-seg {
+  display: inline-flex;
+  align-items: center;
+  background: #f3f4f6;
+  border-radius: 9px;
+  padding: 3px;
+  gap: 3px;
+  flex-wrap: wrap;
+  width: auto;
+  max-width: 100%;
+}
+
+.ops-seg input,
+.ops-form-row .ops-seg input {
+  /* Fora do ecrã mas focável: o teclado continua a chegar ao controlo. */
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: 0;
+  border: none;
+  pointer-events: none;
+  appearance: none;
+}
+
+.ops-seg label,
+.ops-form-row .ops-seg label {
+  display: inline-flex;
+  align-items: center;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: #4b5563;
+  padding: 6px 13px;
+  border-radius: 7px;
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+  transition: background .12s ease-out, color .12s ease-out;
+}
+
+.ops-form-row .ops-seg label:hover { color: #1f2937; background: rgba(255, 255, 255, .6); }
+
+.ops-seg input:checked + label,
+.ops-form-row .ops-seg input:checked + label {
+  background: var(--ops-white);
+  color: var(--ops-primary-dark);
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, .12);
+}
+
+.ops-form-row .ops-seg input:focus-visible + label {
+  outline: 2px solid var(--ops-primary);
+  outline-offset: 2px;
+}
+
+/* A prioridade traz a sua própria cor quando está escolhida — é a mesma
+   que a tabela usa nas etiquetas, por isso lê-se sem aprender nada novo. */
+.ops-form-row .ops-seg input:checked + label[data-cor="critica"] { color: #b02a20; }
+.ops-form-row .ops-seg input:checked + label[data-cor="alta"]    { color: #9a5b06; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ops-seg label,
+  .ops-form-row .ops-seg label { transition: none; }
+}
+
+/* Etiquetas do que está filtrado neste momento ---------------------------- */
+
+.ops-filtros-ativos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin-top: 12px;
+}
+
+.ops-filtro-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #eff6ff;
+  color: var(--ops-primary-dark);
+  border: 1px solid #bfdbfe;
+  border-radius: 7px;
+  padding: 3px 4px 3px 9px;
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+.ops-filtro-chip .tipo { color: #60a5fa; font-weight: 400; }
+
+.ops-filtro-chip a {
+  display: flex;
+  align-items: center;
+  color: #60a5fa;
+  text-decoration: none;
+  padding: 1px 3px;
+  border-radius: 4px;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.ops-filtro-chip a:hover { color: var(--ops-primary-dark); background: #dbeafe; }
+.ops-filtro-chip a:focus-visible { outline: 2px solid var(--ops-primary); outline-offset: 1px; }
+
+.ops-filtros-vazio { color: #9ca3af; font-size: 12.5px; }
   </style>
 </head>
 <body>

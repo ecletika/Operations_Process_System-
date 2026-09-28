@@ -17,7 +17,15 @@ declare(strict_types=1);
  * Uso: php tests/css_segmentos_test.php
  */
 
-$css = (string) file_get_contents(dirname(__DIR__) . '/public/css/app.css');
+// As regras vivem dentro da própria vista e não no app.css. Não é
+// arrumação: o app.css é um ficheiro estático, servido de uma pasta que o
+// deploy deste alojamento não estava a atualizar, e os segmentos apareciam
+// em bruto enquanto todo o resto da página já era o código novo. O que
+// viaja dentro do PHP chega sempre; o que depende do ficheiro estático,
+// não. As regras dos dropdowns pesquisáveis já viviam aqui pelo mesmo
+// motivo.
+$vista = (string) file_get_contents(dirname(__DIR__) . '/app/Modules/Process/Views/all.php');
+$css = $vista;
 
 $falhas = 0;
 $check = static function (string $nome, mixed $obtido, mixed $esperado) use (&$falhas): void {
@@ -93,6 +101,16 @@ $check('o foco de teclado é visível',
 $check('respeita quem reduziu o movimento',
     (bool) preg_match('/prefers-reduced-motion[^}]*\}[^}]*\.ops-seg label/s', $css)
     || (bool) preg_match('/prefers-reduced-motion.*?\.ops-seg/s', $css), true);
+
+// ---------------------------------------------------------------------
+echo "\n== As regras viajam com o PHP, não com o ficheiro estático ==\n";
+
+$appCss = (string) file_get_contents(dirname(__DIR__) . '/public/css/app.css');
+$check('os segmentos não dependem do app.css', str_contains($appCss, '.ops-seg'), false);
+$check('as etiquetas também não', str_contains($appCss, '.ops-filtro-chip'), false);
+$check('estão dentro da vista', str_contains($vista, '.ops-seg'), true);
+$check('dentro do <style> da vista, antes de fechar',
+    strpos($vista, '.ops-seg') < strpos($vista, '</style>'), true);
 
 // ---------------------------------------------------------------------
 echo "\n== O CSS chega ao browser depois de um deploy ==\n";
