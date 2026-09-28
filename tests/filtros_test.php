@@ -50,6 +50,17 @@ file_put_contents($vista, implode("\n", array_filter(
     static fn (string $l): bool => !str_contains($l, '_sidebar.php')
 )));
 
+/**
+ * Só o que o utilizador vê. O <style> e o <script> da página levam, nos
+ * comentários e nos seletores, as mesmas palavras que se procuram no corpo
+ * ("Ctrl+clique", "ops-filtro-chip") e davam contagens falsas.
+ */
+$corpo = static fn (string $html): string => (string) preg_replace(
+    ['#<style\b[^>]*>.*?</style>#is', '#<script\b[^>]*>.*?</script>#is'],
+    '',
+    $html
+);
+
 $render = function (array $filtros) use ($vista, $sp): string {
     extract([
         'processes' => [],
@@ -84,7 +95,7 @@ $base = [
 
 // ---------------------------------------------------------------- sem filtros
 echo "\n== Sem filtros ==\n";
-$html = $render($base);
+$html = $corpo($render($base));
 
 $check('nao ha instrucao de Ctrl+clique', str_contains($html, 'Ctrl+clique'), false);
 // Todo o select de FILTRO tem de ser pesquisavel. O select de reatribuir
@@ -112,7 +123,7 @@ $comFiltros['batch_id'] = [7, 8];
 $comFiltros['priority_id'] = [1];
 $comFiltros['date_from'] = '2026-09-01';
 $comFiltros['date_to'] = '2026-09-30';
-$html = $render($comFiltros);
+$html = $corpo($render($comFiltros));
 
 $check('etiqueta da situacao', str_contains($html, 'A aguardar'), true);
 $check('etiqueta de cada departamento', substr_count($html, 'ops-filtro-chip'), 5);
@@ -145,7 +156,7 @@ $check('remover o periodo mantem os departamentos', count($qp['batch_id'] ?? [])
 
 // ---------------------------------------------------------------- seguranca
 echo "\n== Escape ==\n";
-$html = $render($base);
+$html = $corpo($render($base));
 $check('as etiquetas passam por e()', str_contains($origem, 'e((string) $a[\'valor\'])'), true);
 $check('os links passam por e()', str_contains($origem, 'e($a[\'url\'])'), true);
 
