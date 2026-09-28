@@ -20,6 +20,10 @@ final class Session
 
         $segundos = self::lifetimeMinutes() * 60;
 
+        // Guarda o caminho do servidor para poder voltar atrás se o nosso
+        // não funcionar (ver o fim deste método).
+        $anterior = (string) session_save_path();
+
         // As sessões passam a viver numa pasta NOSSA. Em alojamento
         // partilhado (cPanel), o diretório de sessões por omissão é comum a
         // várias contas, e o coletor de lixo de qualquer uma delas apaga
@@ -42,7 +46,17 @@ final class Session
             'secure' => self::isHttps(),
             'samesite' => 'Lax',
         ]);
-        session_start();
+
+        // Sem sessão não há plataforma: nenhuma página abre. Se a pasta
+        // própria não servir neste servidor — permissões, open_basedir, uma
+        // configuração que não controlamos — volta-se ao caminho do sistema
+        // em vez de deixar o site inteiro em baixo.
+        if (!@session_start()) {
+            if ($anterior !== '' && session_save_path() !== $anterior) {
+                session_save_path($anterior);
+            }
+            session_start();
+        }
     }
 
     /** Minutos de vida da sessão (SESSION_LIFETIME_MINUTES no .env). */

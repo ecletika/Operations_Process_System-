@@ -157,10 +157,20 @@ if (!function_exists('asset')) {
     function asset(string $caminho): string
     {
         $caminho = '/' . ltrim($caminho, '/');
-        $ficheiro = base_path('public' . $caminho);
-        $versao = is_file($ficheiro) ? (int) filemtime($ficheiro) : 0;
 
-        return $versao > 0 ? $caminho . '?v=' . $versao : $caminho;
+        // A pasta pública não se chama o mesmo em todo o lado: é "public" no
+        // repositório e "public_html" nesta conta de cPanel. Procura-se nas
+        // duas, e por fim na própria raiz, em vez de assumir uma — se não se
+        // encontrar o ficheiro, a versão não muda e o browser continua a
+        // servir a folha antiga depois de um deploy.
+        foreach (['public', 'public_html', ''] as $raiz) {
+            $ficheiro = base_path($raiz . $caminho);
+            if (is_file($ficheiro)) {
+                return $caminho . '?v=' . (int) filemtime($ficheiro);
+            }
+        }
+
+        return $caminho;
     }
 }
 
