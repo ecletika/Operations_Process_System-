@@ -8,6 +8,7 @@ use App\Core\Controller;
 use App\Core\Request;
 use App\Core\Response;
 use App\Core\Session;
+use App\Modules\Administration\Repositories\DepartmentRepository;
 use App\Modules\Administration\Repositories\PermissionRepository;
 use App\Modules\Administration\Repositories\RoleRepository;
 use App\Traits\AuditTrait;
@@ -32,13 +33,45 @@ final class PermissionController extends Controller
             $matrix[(int) $role['id']] = $permissionRepository->permissionIdsForRole((int) $role['id']);
         }
 
+        $departmentRepository = new DepartmentRepository();
+        $tab = $request->input('tab') === 'imobilizados' ? 'imobilizados' : 'matriz';
+
         $this->view('Administration/Views/permissions', [
             'roles' => $roles,
             'permissions' => $permissions,
             'matrix' => $matrix,
+            'tab' => $tab,
+            // Separador "Imobilizados": que departamentos veem a lista de
+            // todos os carros parados.
+            'departments' => $departmentRepository->listAll(),
+            'imobilizadosDepartmentIds' => $departmentRepository->imobilizadosViewAllIds(),
             'success' => Session::pullFlash('success'),
             'errors' => Session::pullFlash('errors', []),
         ]);
+    }
+
+    /**
+     * Grava os departamentos que podem ver o separador "Imobilizados
+     * (todos)" na Caixa de Entrada.
+     */
+    public function saveImobilizados(Request $request): never
+    {
+        if (!Session::verifyCsrfToken($request->input('_csrf'))) {
+            Session::flash('errors', ['Sessão expirada, tente novamente.']);
+            Response::redirect('/admin/permissions?tab=imobilizados');
+        }
+
+        $escolhidos = array_map('intval', (array) $request->input('departments', []));
+        (new DepartmentRepository())->syncImobilizadosViewAll($escolhidos, (int) Session::get('user_id'));
+
+        $this->logAudit('UPDATE', 'tb_department', 0, null, [
+            'imobilizados_view_all' => $escolhidos,
+        ]);
+
+        Session::flash('success', $escolhidos === []
+            ? 'Nenhum departamento fica com acesso aos Imobilizados (todos).'
+            : count($escolhidos) . ' departamento(s) com acesso aos Imobilizados (todos).');
+        Response::redirect('/admin/permissions?tab=imobilizados');
     }
 
     public function save(Request $request): never

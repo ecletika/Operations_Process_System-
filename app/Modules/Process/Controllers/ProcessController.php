@@ -102,12 +102,21 @@ final class ProcessController extends Controller
         // Imobilizados de toda a gente, não só os seus: um carro parado é
         // problema da casa, mesmo quando é outro que o está a tratar.
         //
-        // Quem não tiver a permissão não vê o separador nem lá chega pelo
-        // endereço — cai no "Em curso" em vez de ver uma lista que não lhe
-        // compete. A permissão liga-se por perfil em Configurações.
+        // Quem não tiver acesso não vê o separador nem lá chega pelo endereço
+        // — cai no "Em curso" em vez de ver uma lista que não lhe compete.
+        //
+        // Há dois caminhos, e chega um: a permissão do PERFIL (para chefias,
+        // que acompanham a casa toda) ou o DEPARTAMENTO da pessoa estar na
+        // lista. Duas perguntas diferentes — a Oficina precisa de ver os
+        // carros parados e a Contabilidade não, mesmo tendo o mesmo perfil.
+        // Ambos se configuram em Configurações → Perfis & Permissões.
         $podeVerTodosImobilizados = in_array(
             'process.view_all_imobilizados',
             (array) Session::get('permissions', []),
+            true
+        ) || in_array(
+            (int) Session::get('department_id'),
+            (new \App\Modules\Administration\Repositories\DepartmentRepository())->imobilizadosViewAllIds(),
             true
         );
         $imobilizadosTodos = $view === 'imobilizados_todos' && $podeVerTodosImobilizados;

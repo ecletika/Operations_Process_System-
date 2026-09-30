@@ -157,6 +157,7 @@ $router->post('/admin/users/{id}/delete', [UserController::class, 'destroy'], [A
 
 $router->get('/admin/permissions', [PermissionController::class, 'index'], [Authenticate::class, [PermissionMiddleware::class, 'users.manage']]);
 $router->post('/admin/permissions', [PermissionController::class, 'save'], [Authenticate::class, [PermissionMiddleware::class, 'users.manage']]);
+$router->post("/admin/permissions/imobilizados", [PermissionController::class, "saveImobilizados"], [Authenticate::class, [PermissionMiddleware::class, "users.manage"]]);
 
 $router->get('/admin/organization', [OrganizationController::class, 'index'], [Authenticate::class, [PermissionMiddleware::class, 'companies.manage']]);
 $router->post('/admin/organization/companies', [OrganizationController::class, 'createCompany'], [Authenticate::class, [PermissionMiddleware::class, 'companies.manage']]);

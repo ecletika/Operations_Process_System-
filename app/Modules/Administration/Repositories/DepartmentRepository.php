@@ -30,6 +30,54 @@ final class DepartmentRepository
         ')->fetchAll();
     }
 
+    /**
+     * Substitui a lista de departamentos que podem ver o separador
+     * "Imobilizados (todos)".
+     *
+     * Grava tudo de uma vez — os que não vierem na lista ficam sem acesso.
+     * É o que faz o ecrã ser honesto: o que lá está é exatamente o que vale,
+     * sem sobras de uma gravação anterior.
+     *
+     * @param int[] $departmentIds
+     */
+    public function syncImobilizadosViewAll(array $departmentIds, int $actingUserId): void
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', $departmentIds))));
+
+        $this->pdo->prepare('
+            UPDATE tb_department
+            SET imobilizados_view_all = 0, updated_at = NOW(), updated_by = :acting
+            WHERE imobilizados_view_all = 1 AND deleted_at IS NULL
+        ')->execute(['acting' => $actingUserId]);
+
+        if ($ids === []) {
+            return;
+        }
+
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        $stmt = $this->pdo->prepare("
+            UPDATE tb_department
+            SET imobilizados_view_all = 1, updated_at = NOW(), updated_by = ?
+            WHERE id IN ({$placeholders}) AND deleted_at IS NULL
+        ");
+        $stmt->execute([$actingUserId, ...$ids]);
+    }
+
+    /** @return int[] departamentos que podem ver o separador dos imobilizados */
+    public function imobilizadosViewAllIds(): array
+    {
+        if (!Database::hasColumn('tb_department', 'imobilizados_view_all')) {
+            return []; // migração 040 ainda não aplicada
+        }
+
+        $rows = $this->pdo->query('
+            SELECT id FROM tb_department
+            WHERE imobilizados_view_all = 1 AND deleted_at IS NULL
+        ')->fetchAll();
+
+        return array_map('intval', array_column($rows, 'id'));
+    }
+
     public function findById(int $id): ?array
     {
         $stmt = $this->pdo->prepare('SELECT * FROM tb_department WHERE id = :id AND deleted_at IS NULL');

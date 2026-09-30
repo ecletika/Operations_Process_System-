@@ -42,6 +42,22 @@ $areaLabels = [
       <?php if ($success): ?><div class="ops-alert ops-alert-success"><?= e($success) ?></div><?php endif; ?>
       <?php foreach ($errors as $error): ?><div class="ops-alert" style="background:#fef2f2;border:1px solid #fecaca;color:#dc2626"><?= e($error) ?></div><?php endforeach; ?>
 
+      <?php
+        $tab = $tab ?? 'matriz';
+        $estiloAba = static fn (bool $ativo): string =>
+            'padding:10px 16px;text-decoration:none;font-weight:600;font-size:14px;white-space:nowrap;color:'
+            . ($ativo ? '#2563eb' : '#6b7280')
+            . ';border-bottom:2px solid ' . ($ativo ? '#2563eb' : 'transparent');
+      ?>
+      <div style="display:flex;gap:6px;margin:12px 0 16px;border-bottom:1px solid #e5e7eb;overflow-x:auto">
+        <a href="/admin/permissions" style="<?= $estiloAba($tab === 'matriz') ?>">🔑 Matriz de Permissões</a>
+        <a href="/admin/permissions?tab=imobilizados" style="<?= $estiloAba($tab === 'imobilizados') ?>">🚗 Imobilizados</a>
+      </div>
+
+      <?php if ($tab === 'imobilizados'): ?>
+        <?php require __DIR__ . '/_permissions_imobilizados.php'; ?>
+      <?php else: ?>
+
       <form method="POST" action="/admin/permissions">
         <?= csrf_field() ?>
         <table class="ops-table" style="min-width:640px">
@@ -91,6 +107,8 @@ $areaLabels = [
           <button type="submit" class="ops-btn" style="width:auto">Guardar Permissões</button>
         </div>
       </form>
+
+      <?php endif; // fim dos separadores ?>
     </main>
   </div>
 </body>
