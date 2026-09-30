@@ -106,5 +106,55 @@ $check('passa o âmbito de visibilidade à consulta',
 $check('não carrega as listas pessoais nessa aba',
     (bool) preg_match('/\$imobilizadosTodos\s*\?\s*\[\]/', $ctrl), true);
 
+// =====================================================================
+echo "\n== Quem vê o separador ==\n";
+
+$check('a vista só é aberta com a permissão',
+    str_contains($ctrl, "\$view === 'imobilizados_todos' && \$podeVerTodosImobilizados"), true);
+$check('a permissão é lida da sessão',
+    str_contains($ctrl, "'process.view_all_imobilizados'"), true);
+$check('o separador esconde-se sem permissão',
+    str_contains($vista, 'if (!empty($podeVerTodosImobilizados)):'), true);
+
+// Quem não tem a permissão e escreve o endereço à mão não entra: o
+// controlador força $imobilizadosTodos a falso e a página cai no "Em curso".
+$check('sem permissão, o endereço à mão não abre a lista',
+    (bool) preg_match('/\$imobilizadosTodos = \$view === .imobilizados_todos. && \$podeVerTodosImobilizados/', $ctrl), true);
+
+$migracao = (string) file_get_contents(__DIR__ . '/../database/039_permissao_imobilizados_todos.sql');
+$check('a permissão é criada por migração', str_contains($migracao, 'process.view_all_imobilizados'), true);
+$check('a migração não duplica se correr outra vez',
+    str_contains($migracao, 'WHERE NOT EXISTS'), true);
+$check('fica ligada para Admin e Supervisor',
+    str_contains($migracao, "r.code IN ('ROLE_ADMIN', 'ROLE_SUPERVISOR')"), true);
+$check('o prefixo põe-na no grupo "Processos" do ecrã de permissões',
+    str_starts_with('process.view_all_imobilizados', 'process.'), true);
+
+// =====================================================================
+echo "\n== A lista é só de leitura ==\n";
+
+$check('avisa que é só para consultar', str_contains($vista, 'só para consultar'), true);
+$check('só os seus processos abrem a ficha',
+    str_contains($vista, "(int) (\$process['assigned_to'] ?? 0) === \$userId"), true);
+$check('conta também os que criou',
+    str_contains($vista, "(int) (\$process['created_by'] ?? 0) === \$userId"), true);
+$check('os dos outros não são ligação',
+    (bool) preg_match('/<span style="color:#374151"><\?= e\(\$process\[.process_number.\]\) \?><\/span>/', $vista), true);
+
+// Não há aqui nenhum controlo que mude dados — nem botão, nem formulário.
+// Isola-se a TABELA, e não o ecrã todo: o painel de filtros por cima é
+// partilhado com os outros separadores e tem o seu botão "Limpar", que não
+// altera processo nenhum.
+$blocoInicio = strpos($vista, '<?php if ($imobilizadosTodos): ?>');
+$blocoFim = strpos($vista, '<?php else: ?>', (int) $blocoInicio);
+$bloco = substr($vista, (int) $blocoInicio, (int) $blocoFim - (int) $blocoInicio);
+
+$check('o recorte apanhou mesmo a tabela dos imobilizados',
+    str_contains($bloco, 'Carros parados') && str_contains($bloco, 'Parado há'), true);
+
+$check('a tabela não tem formulários', str_contains($bloco, '<form'), false);
+$check('nem botões de ação', str_contains($bloco, '<button'), false);
+$check('nem selects para reatribuir', str_contains($bloco, '<select'), false);
+
 echo "\n" . ($falhas === 0 ? "TODOS OS TESTES PASSARAM\n\n" : "{$falhas} TESTE(S) FALHARAM\n\n");
 exit($falhas === 0 ? 0 : 1);

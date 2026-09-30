@@ -28,7 +28,9 @@
       <div style="display:flex;gap:6px;margin:12px 0 16px;border-bottom:1px solid #e5e7eb;overflow-x:auto">
         <a href="/processes/mine" style="<?= $aba($emCurso) ?>">📨 Em curso</a>
         <a href="/processes/mine?view=imobilizados" style="<?= $aba($imobilizados) ?>">🚗 Meus Imobilizados</a>
-        <a href="/processes/mine?view=imobilizados_todos" style="<?= $aba($imobilizadosTodos) ?>">🚗 Imobilizados (todos)<?= $imobilizadosTodos && $todosImobilizados !== [] ? ' <span style="font-weight:700">' . count($todosImobilizados) . '</span>' : '' ?></a>
+        <?php if (!empty($podeVerTodosImobilizados)): ?>
+          <a href="/processes/mine?view=imobilizados_todos" style="<?= $aba($imobilizadosTodos) ?>">🚗 Imobilizados (todos)<?= $imobilizadosTodos && $todosImobilizados !== [] ? ' <span style="font-weight:700">' . count($todosImobilizados) . '</span>' : '' ?></a>
+        <?php endif; ?>
         <a href="/processes/mine?view=archived" style="<?= $aba($archived) ?>">🗄️ Caixa Arquivada</a>
       </div>
       <?php if ($archived): ?>
@@ -36,7 +38,10 @@
       <?php elseif ($imobilizados): ?>
         <p style="color:#6b7280;font-size:13px">Os processos em curso com o assunto Imobilizados que assumiu ou criou.</p>
       <?php elseif ($imobilizadosTodos): ?>
-        <p style="color:#6b7280;font-size:13px">Todos os imobilizados com processo aberto, seja quem for o responsável — para se ver de uma vez quantos carros estão parados e há quanto tempo.</p>
+        <p style="color:#6b7280;font-size:13px">
+          Todos os imobilizados com processo aberto, seja quem for o responsável — para se ver de uma vez quantos carros estão parados e há quanto tempo.
+          <strong>Esta lista é só para consultar</strong>: para trabalhar um processo, use «Meus Imobilizados».
+        </p>
       <?php endif; ?>
 
       <?php
@@ -110,8 +115,22 @@
               <tr><td colspan="10" style="text-align:center;color:#6b7280">Não há nenhum imobilizado com processo aberto.</td></tr>
             <?php endif; ?>
             <?php foreach ($todosImobilizados as $process): ?>
+              <?php
+                // Só se entra na ficha dos processos que já são seus — os que
+                // aparecem em "Meus Imobilizados". Nos outros o número não é
+                // ligação: esta lista serve para ver a situação da casa, não
+                // para mexer no trabalho de outra pessoa.
+                $meu = (int) ($process['assigned_to'] ?? 0) === $userId
+                    || (int) ($process['created_by'] ?? 0) === $userId;
+              ?>
               <tr class="proc-row" data-subject="<?= e(mb_strtolower($process['subject_name'] ?? '')) ?>" data-plate="<?= e(strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $process['vehicle_plate'] ?? ''))) ?>">
-                <td><a href="/processes/<?= (int) $process['id'] ?>"><?= e($process['process_number']) ?></a></td>
+                <td>
+                  <?php if ($meu): ?>
+                    <a href="/processes/<?= (int) $process['id'] ?>" title="É seu — pode abrir e tratar"><?= e($process['process_number']) ?></a>
+                  <?php else: ?>
+                    <span style="color:#374151"><?= e($process['process_number']) ?></span>
+                  <?php endif; ?>
+                </td>
                 <td><?= e($process['customer_name']) ?></td>
                 <td><?= e($process['vehicle_plate']) ?></td>
                 <td style="white-space:nowrap"><?= e($process['equipa'] ?? '—') ?></td>

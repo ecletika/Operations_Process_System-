@@ -101,7 +101,16 @@ final class ProcessController extends Controller
         $imobilizados = $view === 'imobilizados';
         // Imobilizados de toda a gente, não só os seus: um carro parado é
         // problema da casa, mesmo quando é outro que o está a tratar.
-        $imobilizadosTodos = $view === 'imobilizados_todos';
+        //
+        // Quem não tiver a permissão não vê o separador nem lá chega pelo
+        // endereço — cai no "Em curso" em vez de ver uma lista que não lhe
+        // compete. A permissão liga-se por perfil em Configurações.
+        $podeVerTodosImobilizados = in_array(
+            'process.view_all_imobilizados',
+            (array) Session::get('permissions', []),
+            true
+        );
+        $imobilizadosTodos = $view === 'imobilizados_todos' && $podeVerTodosImobilizados;
         // A aba Imobilizados nunca mistura com a Arquivada: mostra sempre os
         // processos em curso, para facilitar o controlo dos imobilizados.
         $subjectCode = $imobilizados ? 'IMO' : null;
@@ -124,6 +133,7 @@ final class ProcessController extends Controller
             'archived' => $archived,
             'imobilizados' => $imobilizados,
             'imobilizadosTodos' => $imobilizadosTodos,
+            'podeVerTodosImobilizados' => $podeVerTodosImobilizados,
         ]);
     }
 
