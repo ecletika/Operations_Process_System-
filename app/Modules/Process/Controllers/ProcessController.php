@@ -99,6 +99,9 @@ final class ProcessController extends Controller
         $view = (string) $request->input('view', '');
         $archived = $view === 'archived';
         $imobilizados = $view === 'imobilizados';
+        // Imobilizados de toda a gente, não só os seus: um carro parado é
+        // problema da casa, mesmo quando é outro que o está a tratar.
+        $imobilizadosTodos = $view === 'imobilizados_todos';
         // A aba Imobilizados nunca mistura com a Arquivada: mostra sempre os
         // processos em curso, para facilitar o controlo dos imobilizados.
         $subjectCode = $imobilizados ? 'IMO' : null;
@@ -106,11 +109,21 @@ final class ProcessController extends Controller
         $excludeSubjectCode = (!$archived && !$imobilizados) ? 'IMO' : null;
 
         $this->view('Process/Views/mine', [
-            'processes' => $repository->listAssignedTo($userId, $imobilizados ? false : $archived, $subjectCode, $excludeSubjectCode),
-            'createdProcesses' => $repository->listCreatedBy($userId, $imobilizados ? false : $archived, $subjectCode, $excludeSubjectCode),
+            'processes' => $imobilizadosTodos
+                ? []
+                : $repository->listAssignedTo($userId, $imobilizados ? false : $archived, $subjectCode, $excludeSubjectCode),
+            'createdProcesses' => $imobilizadosTodos
+                ? []
+                : $repository->listCreatedBy($userId, $imobilizados ? false : $archived, $subjectCode, $excludeSubjectCode),
+            // O âmbito é o mesmo de "Todos os Processos": quem só vê o seu
+            // departamento continua a ver só o seu, também aqui.
+            'todosImobilizados' => $imobilizadosTodos
+                ? $repository->listImobilizadosAbertos($this->viewScopeDepartmentIds())
+                : [],
             'userId' => $userId,
             'archived' => $archived,
             'imobilizados' => $imobilizados,
+            'imobilizadosTodos' => $imobilizadosTodos,
         ]);
     }
 

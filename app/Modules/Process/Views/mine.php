@@ -13,23 +13,34 @@
       <h1>📥 Minha Caixa de Entrada™</h1>
       <p style="color:#6b7280">Os processos que assumiu e os que criou — para tratar e para acompanhar.</p>
 
-      <?php $archived = !empty($archived); $imobilizados = !empty($imobilizados); ?>
-      <div style="display:flex;gap:6px;margin:12px 0 16px;border-bottom:1px solid #e5e7eb">
-        <a href="/processes/mine"
-           style="padding:10px 16px;text-decoration:none;font-weight:600;font-size:14px;color:<?= (!$archived && !$imobilizados) ? '#2563eb' : '#6b7280' ?>;border-bottom:2px solid <?= (!$archived && !$imobilizados) ? '#2563eb' : 'transparent' ?>">📨 Em curso</a>
-        <a href="/processes/mine?view=imobilizados"
-           style="padding:10px 16px;text-decoration:none;font-weight:600;font-size:14px;color:<?= $imobilizados ? '#2563eb' : '#6b7280' ?>;border-bottom:2px solid <?= $imobilizados ? '#2563eb' : 'transparent' ?>">🚗 Imobilizados</a>
-        <a href="/processes/mine?view=archived"
-           style="padding:10px 16px;text-decoration:none;font-weight:600;font-size:14px;color:<?= $archived ? '#2563eb' : '#6b7280' ?>;border-bottom:2px solid <?= $archived ? '#2563eb' : 'transparent' ?>">🗄️ Caixa Arquivada</a>
+      <?php
+        $archived = !empty($archived);
+        $imobilizados = !empty($imobilizados);
+        $imobilizadosTodos = !empty($imobilizadosTodos);
+        $todosImobilizados = $todosImobilizados ?? [];
+        $emCurso = !$archived && !$imobilizados && !$imobilizadosTodos;
+
+        $aba = static fn (bool $ativo): string =>
+            'padding:10px 16px;text-decoration:none;font-weight:600;font-size:14px;white-space:nowrap;color:'
+            . ($ativo ? '#2563eb' : '#6b7280')
+            . ';border-bottom:2px solid ' . ($ativo ? '#2563eb' : 'transparent');
+      ?>
+      <div style="display:flex;gap:6px;margin:12px 0 16px;border-bottom:1px solid #e5e7eb;overflow-x:auto">
+        <a href="/processes/mine" style="<?= $aba($emCurso) ?>">📨 Em curso</a>
+        <a href="/processes/mine?view=imobilizados" style="<?= $aba($imobilizados) ?>">🚗 Meus Imobilizados</a>
+        <a href="/processes/mine?view=imobilizados_todos" style="<?= $aba($imobilizadosTodos) ?>">🚗 Imobilizados (todos)<?= $imobilizadosTodos && $todosImobilizados !== [] ? ' <span style="font-weight:700">' . count($todosImobilizados) . '</span>' : '' ?></a>
+        <a href="/processes/mine?view=archived" style="<?= $aba($archived) ?>">🗄️ Caixa Arquivada</a>
       </div>
       <?php if ($archived): ?>
         <p style="color:#6b7280;font-size:13px">Processos já finalizados (Resolvidos/Encerrados) que assumiu ou criou.</p>
       <?php elseif ($imobilizados): ?>
-        <p style="color:#6b7280;font-size:13px">Todos os processos em curso com o assunto Imobilizados, que assumiu ou criou — para facilitar o controlo dos imobilizados.</p>
+        <p style="color:#6b7280;font-size:13px">Os processos em curso com o assunto Imobilizados que assumiu ou criou.</p>
+      <?php elseif ($imobilizadosTodos): ?>
+        <p style="color:#6b7280;font-size:13px">Todos os imobilizados com processo aberto, seja quem for o responsável — para se ver de uma vez quantos carros estão parados e há quanto tempo.</p>
       <?php endif; ?>
 
       <?php
-        // Lista de temas presentes nas duas tabelas, para o filtro por Assunto.
+        // Lista de temas presentes nas tabelas, para o filtro por Assunto.
         $subjectNames = [];
         foreach (array_merge($processes, $createdProcesses) as $p) {
             if (!empty($p['subject_name'])) { $subjectNames[$p['subject_name']] = true; }
@@ -37,21 +48,98 @@
         ksort($subjectNames);
       ?>
       <div class="ops-panel" style="max-width:none;display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
-        <div class="ops-form-row" style="margin:0;min-width:200px">
-          <label for="filter_subject">Filtrar por Assunto</label>
-          <select id="filter_subject">
-            <option value="">Todos os assuntos</option>
-            <?php foreach (array_keys($subjectNames) as $name): ?>
-              <option value="<?= e(mb_strtolower($name)) ?>"><?= e($name) ?></option>
-            <?php endforeach; ?>
-          </select>
-        </div>
+        <?php if (!$imobilizadosTodos): ?>
+          <?php // Na aba dos imobilizados o assunto é sempre o mesmo: o filtro não teria o que filtrar. ?>
+          <div class="ops-form-row" style="margin:0;min-width:200px">
+            <label for="filter_subject">Filtrar por Assunto</label>
+            <select id="filter_subject">
+              <option value="">Todos os assuntos</option>
+              <?php foreach (array_keys($subjectNames) as $name): ?>
+                <option value="<?= e(mb_strtolower($name)) ?>"><?= e($name) ?></option>
+              <?php endforeach; ?>
+            </select>
+          </div>
+        <?php endif; ?>
         <div class="ops-form-row" style="margin:0;min-width:200px">
           <label for="filter_plate">Filtrar por Matrícula</label>
           <input type="text" id="filter_plate" placeholder="Ex.: AA00AA (com ou sem traços)">
         </div>
         <button type="button" id="filter_clear" class="ops-btn ops-btn-sm" style="background:#6b7280">Limpar</button>
       </div>
+
+      <?php if ($imobilizadosTodos): ?>
+        <?php
+          // Ordenados do mais antigo para o mais recente: o carro que está
+          // parado há mais tempo é o que precisa de atenção primeiro.
+          $semResponsavel = 0;
+          foreach ($todosImobilizados as $p) {
+              if (($p['assigned_to'] ?? null) === null) { $semResponsavel++; }
+          }
+        ?>
+
+        <div style="display:flex;flex-wrap:wrap;gap:10px;margin:16px 0">
+          <div style="background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:12px 16px">
+            <div style="font-size:22px;font-weight:800"><?= count($todosImobilizados) ?></div>
+            <div style="color:#6b7280;font-size:12px">Carros parados</div>
+          </div>
+          <?php if ($semResponsavel > 0): ?>
+            <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:12px 16px">
+              <div style="font-size:22px;font-weight:800;color:#dc2626"><?= $semResponsavel ?></div>
+              <div style="color:#6b7280;font-size:12px">Ainda sem responsável</div>
+            </div>
+          <?php endif; ?>
+        </div>
+
+        <table class="ops-table">
+          <thead>
+            <tr>
+              <th>Nº Processo</th>
+              <th>Cliente</th>
+              <th>Matrícula</th>
+              <th>Filial / Departamento</th>
+              <th>Estado</th>
+              <th>Prioridade</th>
+              <th>Parado há</th>
+              <th>Falta p/ SLA</th>
+              <th>📅 Novo Contacto</th>
+              <th>Responsável</th>
+            </tr>
+          </thead>
+          <tbody>
+            <?php if (empty($todosImobilizados)): ?>
+              <tr><td colspan="10" style="text-align:center;color:#6b7280">Não há nenhum imobilizado com processo aberto.</td></tr>
+            <?php endif; ?>
+            <?php foreach ($todosImobilizados as $process): ?>
+              <tr class="proc-row" data-subject="<?= e(mb_strtolower($process['subject_name'] ?? '')) ?>" data-plate="<?= e(strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $process['vehicle_plate'] ?? ''))) ?>">
+                <td><a href="/processes/<?= (int) $process['id'] ?>"><?= e($process['process_number']) ?></a></td>
+                <td><?= e($process['customer_name']) ?></td>
+                <td><?= e($process['vehicle_plate']) ?></td>
+                <td style="white-space:nowrap"><?= e($process['equipa'] ?? '—') ?></td>
+                <td><?= e($process['status_name']) ?></td>
+                <td><span class="ops-badge" style="background:<?= e($process['priority_color']) ?>"><?= e($process['priority_name']) ?></span></td>
+                <?php
+                  // Tempo de calendário, não de expediente: o carro do cliente
+                  // está parado ao fim de semana na mesma.
+                  $dias = (int) floor((time() - strtotime((string) $process['created_at'])) / 86400);
+                ?>
+                <td style="white-space:nowrap;<?= $dias >= 15 ? 'color:#dc2626;font-weight:600' : ($dias >= 7 ? 'color:#b45309;font-weight:600' : '') ?>">
+                  <?= $dias === 0 ? 'hoje' : ($dias === 1 ? '1 dia' : $dias . ' dias') ?>
+                </td>
+                <td><?= sla_badge($process) ?></td>
+                <td><?= next_contact_badge($process['next_contact_at'] ?? null) ?></td>
+                <td>
+                  <?php if (($process['assigned_first_name'] ?? '') !== ''): ?>
+                    <?= online_dot($process['assigned_last_activity'] ?? null) ?><?= e($process['assigned_first_name'] . ' ' . $process['assigned_last_name']) ?>
+                  <?php else: ?>
+                    <span style="color:#dc2626;font-weight:600">Sem responsável</span>
+                  <?php endif; ?>
+                </td>
+              </tr>
+            <?php endforeach; ?>
+          </tbody>
+        </table>
+
+      <?php else: ?>
 
       <h2 style="margin-top:20px">🗂️ Meus Processos <span style="font-size:13px;color:#6b7280;font-weight:400">(assumidos por mim — sou o responsável)</span></h2>
       <table class="ops-table">
@@ -137,6 +225,8 @@
       </table>
       <p style="color:#9ca3af;font-size:12px;margin-top:8px">💡 Ao abrir um processo criado por si, pode adicionar observações e anexos normalmente, mesmo que outro operador o tenha assumido.</p>
 
+      <?php endif; // fim do separador "Imobilizados (todos)" ?>
+
       <script>
         // Filtros de Meus Processos (por Assunto e por Matrícula). Filtragem
         // no lado do cliente: instantânea e disponível para todos os utilizadores.
@@ -146,8 +236,13 @@
           var clear = document.getElementById('filter_clear');
           var rows = document.querySelectorAll('tr.proc-row');
 
+          // O filtro por Assunto não existe no separador dos imobilizados —
+          // ali o assunto é sempre o mesmo. Sem estas guardas, o filtro por
+          // matrícula ia abaixo com ele.
+          if (!plate || !clear) { return; }
+
           function apply() {
-            var s = (subject.value || '').trim();
+            var s = subject ? (subject.value || '').trim() : '';
             var p = (plate.value || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
             rows.forEach(function (row) {
               var okS = s === '' || row.getAttribute('data-subject') === s;
@@ -156,10 +251,10 @@
             });
           }
 
-          subject.addEventListener('change', apply);
+          if (subject) { subject.addEventListener('change', apply); }
           plate.addEventListener('input', apply);
           clear.addEventListener('click', function () {
-            subject.value = '';
+            if (subject) { subject.value = ''; }
             plate.value = '';
             apply();
           });

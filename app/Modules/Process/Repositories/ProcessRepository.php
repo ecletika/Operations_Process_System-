@@ -520,6 +520,66 @@ final class ProcessRepository
      * Processos Criados por mim — o criador acompanha (e pode interagir),
      * mesmo que outro operador os tenha assumido.
      */
+    /**
+     * Todos os imobilizados com processo ABERTO, sejam de quem forem.
+     *
+     * A Caixa de Entrada é pessoal, mas um carro imobilizado é problema da
+     * casa: interessa saber quantos estão parados e há quanto tempo, mesmo
+     * os que outra pessoa está a tratar.
+     *
+     * @param int[]|null $departmentIds departamentos que o utilizador pode
+     *        ver; null = sem limite (Admin/Supervisor). O isolamento por
+     *        departamento (RN-0011) continua a valer aqui: ninguém passa a
+     *        ver processos fora do seu âmbito por causa desta lista.
+     */
+    public function listImobilizadosAbertos(?array $departmentIds): array
+    {
+        $scopeFilter = '';
+        $params = [];
+
+        if ($departmentIds !== null) {
+            $ids = array_values(array_unique(array_filter(array_map('intval', $departmentIds))));
+            if ($ids === []) {
+                return [];
+            }
+
+            $placeholders = [];
+            foreach ($ids as $i => $id) {
+                $placeholders[] = ':dep' . $i;
+                $params['dep' . $i] = $id;
+            }
+            $scopeFilter = ' AND d.id IN (' . implode(', ', $placeholders) . ')';
+        }
+
+        $stmt = $this->pdo->prepare("
+            SELECT p.*, v.plate AS vehicle_plate, c.name AS customer_name,
+                   sub.name AS subject_name, st.code AS status_code, st.name AS status_name, st.is_waiting,
+                   pr.code AS priority_code, pr.name AS priority_name, pr.color AS priority_color, pr.default_sla_minutes,
+                   u.first_name AS assigned_first_name, u.last_name AS assigned_last_name,
+                   u.last_activity_at AS assigned_last_activity,
+                   CONCAT(br.name, ' · ', d.name) AS equipa
+            FROM tb_process p
+            JOIN tb_vehicle v ON v.id = p.vehicle_id
+            JOIN tb_customer c ON c.id = p.customer_id
+            JOIN tb_subject sub ON sub.id = p.subject_id
+            JOIN tb_status st ON st.id = p.status_id
+            JOIN tb_priority pr ON pr.id = p.priority_id
+            JOIN tb_batch bt ON bt.id = p.batch_id
+            JOIN tb_department d ON d.id = bt.department_id
+            JOIN tb_branch br ON br.id = d.branch_id
+            LEFT JOIN tb_user u ON u.id = p.assigned_to
+            WHERE p.deleted_at IS NULL
+              AND sub.code = 'IMO'
+              AND st.code NOT IN ('SOLVED', 'CLOSED')
+              AND p.archived = 0
+              {$scopeFilter}
+            ORDER BY p.created_at ASC
+        ");
+        $stmt->execute($params);
+
+        return $stmt->fetchAll();
+    }
+
     public function listCreatedBy(int $userId, bool $archived = false, ?string $subjectCode = null, ?string $excludeSubjectCode = null): array
     {
         $statusFilter = $archived ? "st.code IN ('SOLVED', 'CLOSED')" : "st.code NOT IN ('SOLVED', 'CLOSED')";
